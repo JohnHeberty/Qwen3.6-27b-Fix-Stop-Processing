@@ -1,30 +1,30 @@
-# Usar a API
+# Use the API
 
-O servidor expõe uma API 100% compatível com OpenAI na porta `8000`.
+The server exposes an OpenAI-compatible API on port `8000`.
 
-| Parâmetro | Valor |
+| Parameter | Value |
 |---|---|
 | Base URL | `http://<host>:8000/v1` |
-| Porta | `8000` |
+| Port | `8000` |
 | Model name | `qwen3` |
-| API Key | qualquer string (não validada) |
+| API Key | any string (not validated) |
 
 ---
 
-## Chat — Python (SDK OpenAI)
+## Chat — Python (OpenAI SDK)
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(
     base_url="http://localhost:8000/v1",
-    api_key="nao-precisa"
+    api_key="not-needed"
 )
 
 response = client.chat.completions.create(
     model="qwen3",
     messages=[
-        {"role": "user", "content": "Explique o que é um modelo de linguagem."}
+        {"role": "user", "content": "What is a language model?"}
     ],
     max_tokens=512,
     temperature=0.7
@@ -43,7 +43,7 @@ curl http://localhost:8000/v1/chat/completions \
   -d '{
     "model": "qwen3",
     "messages": [
-      {"role": "user", "content": "Qual é a capital do Brasil?"}
+      {"role": "user", "content": "What is the capital of Brazil?"}
     ],
     "max_tokens": 256,
     "temperature": 0.7
@@ -57,11 +57,11 @@ curl http://localhost:8000/v1/chat/completions \
 ```python
 from openai import OpenAI
 
-client = OpenAI(base_url="http://localhost:8000/v1", api_key="nao-precisa")
+client = OpenAI(base_url="http://localhost:8000/v1", api_key="not-needed")
 
 stream = client.chat.completions.create(
     model="qwen3",
-    messages=[{"role": "user", "content": "Conte uma história curta."}],
+    messages=[{"role": "user", "content": "Tell me a short story."}],
     max_tokens=512,
     stream=True
 )
@@ -74,10 +74,10 @@ print()
 ```
 
 ```bash
-# curl com streaming
+# curl with streaming
 curl http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model":"qwen3","messages":[{"role":"user","content":"Olá!"}],"stream":true}'
+  -d '{"model":"qwen3","messages":[{"role":"user","content":"Hello!"}],"stream":true}'
 ```
 
 ---
@@ -90,11 +90,11 @@ response = client.chat.completions.create(
     messages=[
         {
             "role": "system",
-            "content": "Você é um especialista em Python. Responda sempre com exemplos de código."
+            "content": "You are a Python expert. Always answer with code examples."
         },
         {
             "role": "user",
-            "content": "Como fazer uma requisição HTTP em Python?"
+            "content": "How do I make an HTTP request in Python?"
         }
     ],
     max_tokens=512
@@ -103,35 +103,38 @@ response = client.chat.completions.create(
 
 ---
 
-## Thinking Mode (Raciocínio Estendido)
+## Thinking Mode (Extended Reasoning)
 
-O Qwen3.6 suporta **thinking mode**: o modelo raciocina internamente antes de responder. Ativado automaticamente pelo template v18. O conteúdo do pensamento vem no campo `reasoning_content`.
+Qwen3.6 supports **thinking mode**: the model reasons internally before responding, which improves answer quality for complex problems.
+
+**Thinking mode is enabled automatically** by the v18 template. The thinking content comes in the `reasoning_content` field:
 
 ```python
 response = client.chat.completions.create(
     model="qwen3",
-    messages=[{"role": "user", "content": "Quanto é 17 × 23?"}],
+    messages=[{"role": "user", "content": "What is 17 × 23?"}],
     max_tokens=300
 )
 
+# Internal reasoning
 print("Reasoning:", response.choices[0].message.reasoning_content)
+
+# Final answer
 print("Answer:   ", response.choices[0].message.content)
 ```
 
-**Desabilitar thinking** para respostas mais rápidas:
+**Disable thinking** for faster responses:
 
 ```python
 response = client.chat.completions.create(
     model="qwen3",
     messages=[
         {"role": "system", "content": "<|think_off|>"},
-        {"role": "user", "content": "Qual é a capital da França?"}
+        {"role": "user", "content": "What is the capital of France?"}
     ],
     max_tokens=50
 )
 ```
-
-> Para respostas complexas com thinking mode, use `max_tokens` ≥ 300–500. O modelo usa parte dos tokens para o raciocínio interno antes de gerar a resposta.
 
 ---
 
@@ -143,13 +146,13 @@ tools = [
         "type": "function",
         "function": {
             "name": "get_weather",
-            "description": "Retorna a temperatura atual de uma cidade",
+            "description": "Returns the current temperature for a city",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "city": {
                         "type": "string",
-                        "description": "Nome da cidade"
+                        "description": "City name"
                     }
                 },
                 "required": ["city"]
@@ -160,7 +163,7 @@ tools = [
 
 response = client.chat.completions.create(
     model="qwen3",
-    messages=[{"role": "user", "content": "Qual é o clima em São Paulo?"}],
+    messages=[{"role": "user", "content": "What's the weather in São Paulo?"}],
     tools=tools,
     tool_choice="auto",
     max_tokens=256
@@ -168,26 +171,26 @@ response = client.chat.completions.create(
 
 if response.choices[0].message.tool_calls:
     tool_call = response.choices[0].message.tool_calls[0]
-    print(f"Função:     {tool_call.function.name}")
-    print(f"Argumentos: {tool_call.function.arguments}")
+    print(f"Function:  {tool_call.function.name}")
+    print(f"Arguments: {tool_call.function.arguments}")
 ```
 
 ---
 
-## Listar modelos
+## List Available Models
 
 ```bash
 curl http://localhost:8000/v1/models
-# → {"object":"list","data":[{"id":"qwen3",...,"meta":{"n_ctx":63488,...}}]}
+# → {"object":"list","data":[{"id":"qwen3",...}]}
 ```
 
 ---
 
-## Limites
+## Limits
 
-| Parâmetro | Valor |
+| Parameter | Value |
 |---|---|
-| Contexto total | 63.488 tokens |
-| Espaço para input | ~55.296 tokens (63.488 − headroom de saída) |
-| `max_tokens` recomendado | 512–8.192 |
-| `max_tokens` mínimo (thinking mode) | 300 |
+| Total context | 63,488 tokens |
+| Effective input space | ~55,296 tokens (63,488 − output headroom) |
+| Recommended `max_tokens` | 512–8,192 |
+| Minimum `max_tokens` (thinking mode) | 300 |

@@ -1,37 +1,37 @@
-# Produção e Operação
+# Production & Operations
 
 ---
 
-## Serviço systemd
+## systemd service
 
-### Instalar (sem auto-start)
+### Install (without auto-start)
 
 ```bash
 make install-service
 ```
 
-Registra o serviço `qwen-server` no systemd. Por padrão **não** habilita auto-start no boot — use os targets abaixo para controlar isso.
+Registers the `qwen-server` service in systemd. By default it does **not** enable auto-start on boot — use the targets below to control that.
 
-### Auto-start no boot
-
-```bash
-make enable-service    # habilita auto-start + inicia agora
-make disable-service   # desabilita auto-start + para o serviço
-```
-
-> **Atenção:** auto-start conflita com o Ollama se ambos usam a GPU. Veja a seção [Coexistência com Ollama](#coexistência-com-ollama) abaixo.
-
-### Gerenciar o serviço manualmente
+### Auto-start on boot
 
 ```bash
-sudo systemctl status qwen-server       # estado atual
-sudo systemctl start qwen-server        # iniciar
-sudo systemctl stop qwen-server         # parar
-sudo systemctl restart qwen-server      # reiniciar
-sudo journalctl -u qwen-server -f       # logs em tempo real
+make enable-service    # enables auto-start + starts now
+make disable-service   # disables auto-start + stops the service
 ```
 
-### Instalar manualmente (sem Makefile)
+> **Warning:** auto-start on boot conflicts with Ollama if both use the GPU. See [Coexistence with Ollama](#coexistence-with-ollama) below.
+
+### Manage the service manually
+
+```bash
+sudo systemctl status qwen-server       # current state
+sudo systemctl start qwen-server        # start
+sudo systemctl stop qwen-server         # stop
+sudo systemctl restart qwen-server      # restart
+sudo journalctl -u qwen-server -f       # live logs
+```
+
+### Install manually (without Makefile)
 
 ```bash
 sudo cp infra/qwen-server.service /etc/systemd/system/
@@ -41,17 +41,17 @@ sudo systemctl enable --now qwen-server
 
 ---
 
-## Coexistência com Ollama
+## Coexistence with Ollama
 
-O llama-server e o Ollama competem pelos 24 GB de VRAM da GPU. O `make start` já descarrega modelos do Ollama automaticamente antes de iniciar. Para ajuste permanente:
+The llama-server and Ollama compete for the 24 GB of GPU VRAM. `make start` already unloads Ollama models automatically before starting. For a permanent adjustment:
 
 ```bash
 make configure-ollama
-# → reduz OLLAMA_KEEP_ALIVE de 30 min para 5 min
-# → Ollama libera a VRAM 5 min após o último uso (em vez de 30)
+# → reduces OLLAMA_KEEP_ALIVE from 30 min to 5 min
+# → Ollama frees VRAM 5 min after last use (instead of 30)
 ```
 
-Para liberar VRAM do Ollama manualmente a qualquer momento:
+To manually free Ollama's VRAM at any time:
 
 ```bash
 make ollama-unload
@@ -59,13 +59,13 @@ make ollama-unload
 
 ---
 
-## Solução de Problemas
+## Troubleshooting
 
-### Servidor não sobe — "model not found"
+### Server won't start — "model not found"
 
 ```bash
 ls -lh data/models/*.gguf
-# Se vazio:
+# If empty:
 make download-model
 make fix-template
 ```
@@ -73,35 +73,35 @@ make fix-template
 ### "CUDA out of memory"
 
 ```bash
-nvidia-smi   # verificar uso atual
-make stop    # parar llama-server
-make ollama-unload   # liberar Ollama
-make start   # tentar novamente
+nvidia-smi          # check current usage
+make stop           # stop llama-server
+make ollama-unload  # free Ollama memory
+make start          # try again
 ```
 
-O Q4_K_M usa ~21 GB de VRAM. Outros processos CUDA devem ser encerrados antes de iniciar.
+The Q4_K_M model uses ~21 GB of VRAM. Other CUDA processes must be stopped before starting.
 
-### "CUDA não encontrado" — `[2] setup-cuda FAIL`
+### "CUDA not found" — `[2] setup-cuda FAIL`
 
 ```bash
-nvcc --version   # deve mostrar versão 12.x
+nvcc --version   # should show version 12.x
 
-# Se não encontrado:
+# If not found:
 wget https://developer.download.nvidia.com/compute/cuda/repos/debian12/x86_64/cuda-keyring_1.1-1_all.deb
 dpkg -i cuda-keyring_1.1-1_all.deb
 apt-get update && apt-get install -y cuda-toolkit-12-8
 ```
 
-### Compilação llama.cpp falha — "mathcalls error"
+### llama.cpp compilation fails — "mathcalls error"
 
-O Makefile aplica os patches necessários para Debian trixie (glibc 2.40+) automaticamente. Se ainda falhar:
+The Makefile automatically applies the required patches for Debian trixie (glibc 2.40+). If it still fails:
 
 ```bash
 rm -rf ~/llama.cpp/build
 make build-llama-server
 ```
 
-### Modelo corrompido ou template não aplicado
+### Corrupted model or template not applied
 
 ```bash
 rm data/models/*.gguf
@@ -109,9 +109,9 @@ make download-model
 make fix-template
 ```
 
-### Respostas vazias ou thinking mode não finaliza
+### Empty responses or thinking mode never finishes
 
-Use `max_tokens` ≥ 300–500 — o modelo consome tokens para o raciocínio interno antes de responder:
+Use `max_tokens` ≥ 300–500 — the model consumes tokens for internal reasoning before generating the answer:
 
 ```python
 response = client.chat.completions.create(

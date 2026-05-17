@@ -1,52 +1,52 @@
-# Documentação — Qwen3.6 27B Servidor Local
+# Documentation — Qwen3.6 27B Local Server
 
-Documentação organizada segundo o framework **[Diátaxis](https://diataxis.fr)**: cada seção serve uma intenção diferente do leitor.
+Documentation organized following the **[Diátaxis](https://diataxis.fr)** framework: each section serves a different reader intent.
 
 ---
 
-## Tutorials — aprender fazendo
+## Tutorials — learning by doing
 
-Para quem está configurando o projeto pela primeira vez.
+For those setting up the project for the first time.
 
-| Documento | O que cobre |
+| Document | Covers |
 |---|---|
-| [Primeiros Passos](tutorials/getting-started.md) | Requisitos, configuração do `.env`, `make setup` passo a passo, verificação |
+| [Getting Started](tutorials/getting-started.md) | Requirements, `.env` setup, `make setup` step by step, verification |
 
 ---
 
-## How-To — executar tarefas
+## How-To — completing tasks
 
-Para quem já tem o servidor rodando e precisa fazer algo específico.
+For those who already have the server running and need to do something specific.
 
-| Documento | O que cobre |
+| Document | Covers |
 |---|---|
-| [Usar a API](how-to/api-usage.md) | Chat, streaming, system prompt, thinking mode, tool calling |
-| [Integrar com LiteLLM](how-to/litellm.md) | Config do proxy, fix "context size exceeded" |
-| [Integrar com OpenCode](how-to/opencode.md) | Config pronta para o terminal AI assistant |
-| [Produção e operação](how-to/production.md) | systemd, Ollama coexistência, solução de problemas |
+| [Use the API](how-to/api-usage.md) | Chat, streaming, system prompt, thinking mode, tool calling |
+| [Integrate with LiteLLM](how-to/litellm.md) | Proxy config, fix "context size exceeded" |
+| [Integrate with OpenCode](how-to/opencode.md) | Ready-to-use config for the terminal AI assistant |
+| [Production & operations](how-to/production.md) | systemd, Ollama coexistence, troubleshooting |
 
 ---
 
-## Reference — consultar
+## Reference — looking things up
 
-Para lookup rápido de valores, comandos e variáveis.
+For quick lookup of values, commands and variables.
 
-| Documento | O que cobre |
+| Document | Covers |
 |---|---|
-| [Comandos `make`](reference/make-commands.md) | Todos os targets com descrição |
-| [Variáveis de configuração](reference/configuration.md) | Todas as variáveis do `.env` com padrões |
+| [`make` commands](reference/make-commands.md) | All targets with descriptions |
+| [Configuration variables](reference/configuration.md) | All `.env` variables with defaults |
 
 ---
 
-## Explanation — entender
+## Explanation — understanding
 
-Para quem quer entender as decisões técnicas por trás do projeto.
+For those who want to understand the technical decisions behind the project.
 
-| Documento | O que cobre |
+| Document | Covers |
 |---|---|
-| [Arquitetura](explanation/architecture.md) | Por que GGUF, llama-server, estrutura de pastas |
-| [Template v18 (froggeric)](explanation/template-v18.md) | O que o template corrige e créditos ao autor |
+| [Architecture](explanation/architecture.md) | Why GGUF, llama-server, folder structure |
+| [Template v18 (froggeric)](explanation/template-v18.md) | What the template fixes and author credits |
 
 ---
 
-*Servidor rodando em `http://localhost:8000/v1` · modelo `qwen3` · contexto 63.488 tokens*
+*Server running at `http://localhost:8000/v1` · model `qwen3` · 63,488 token context*

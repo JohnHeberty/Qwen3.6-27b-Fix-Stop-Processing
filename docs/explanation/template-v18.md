@@ -2,69 +2,69 @@
 
 ---
 
-## Créditos
+## Credits
 
-Este projeto utiliza o **Jinja2 chat template v18** criado por [**froggeric**](https://huggingface.co/froggeric):
+This project uses the **Jinja2 chat template v18** created by [**froggeric**](https://huggingface.co/froggeric):
 
 > **[huggingface.co/froggeric/Qwen-Fixed-Chat-Templates](https://huggingface.co/froggeric/Qwen-Fixed-Chat-Templates)**
 
-O template v18 é um drop-in replacement para o template oficial do Qwen3.6 que corrige múltiplos bugs críticos presentes no template publicado pela Alibaba/Qwen.
+The v18 template is a drop-in replacement for the official Qwen3.6 template that fixes multiple critical bugs present in the template published by Alibaba/Qwen.
 
 ---
 
-## O que o template v18 corrige
+## What the v18 template fixes
 
 ### KV Cache invalidation
 
-O template oficial invalida o KV cache a cada turno em conversas multi-turno, forçando re-processamento completo do prompt a cada resposta. O v18 normaliza o whitespace de forma a manter 100% de hit rate no KV cache — reduz significativamente a latência em conversas longas.
+The official template invalidates the KV cache on every turn in multi-turn conversations, forcing complete re-processing of the prompt on each response. The v18 normalizes whitespace in a way that maintains 100% KV cache hit rate — significantly reducing latency in long conversations.
 
 ### Tool calling loops
 
-A detecção de erros no template original era baseada em substring: se a resposta JSON continha a palavra `"error"` (por qualquer razão), o template interpretava como falha e entrava em loop. O v18 usa detecção baseada em estrutura estrita, eliminando falsos positivos.
+Error detection in the original template was substring-based: if the JSON response contained the word `"error"` for any reason, the template interpreted it as a failure and entered a loop. The v18 uses strict structure-based detection, eliminating false positives.
 
-### Compatibilidade com engines legados
+### Legacy engine compatibility
 
-O template original usava `loop.previtem` (feature do Jinja2 moderno) que causava crashes em builds antigos do llama.cpp e no minijinja. O v18 substitui por indexação de array — compatível com todas as versões.
+The original template used `loop.previtem` (a modern Jinja2 feature) which caused crashes in older llama.cpp builds and in minijinja. The v18 replaces it with array indexing — compatible with all versions.
 
 ### Thinking mode bypass
 
-`enable_thinking=false` não era respeitado em certos fluxos de chamada. O v18 corrige o comportamento para que o controle de thinking mode seja consistente.
+`enable_thinking=false` was not respected in certain call flows. The v18 fixes the behavior so that thinking mode control is consistent.
 
-### Escalada de erros em tool chains
+### Error escalation in tool chains
 
-Sistema de dois níveis com contador `consecutive_failures` para workflows agênticos — evita loops infinitos em tool calls com falhas consecutivas.
+Two-level system with a `consecutive_failures` counter for agentic workflows — prevents infinite loops on consecutive tool call failures.
 
 ---
 
-## Como o patch é aplicado
+## How the patch is applied
 
-O template é patchado **diretamente no arquivo GGUF** via `src/fix_template.py`. Isso garante que o template correto é usado independente do cliente ou configuração de servidor.
+The template is patched **directly into the GGUF file** via `src/fix_template.py`. This ensures the correct template is used regardless of the client or server configuration.
 
-O patch é binário (streaming) para evitar corrupção dos tokens byte-level do vocabulário:
+The patch is binary (streaming) to avoid corrupting the byte-level vocabulary tokens:
 
-1. Lê o header GGUF com forward-scan para localizar `tokenizer.chat_template`
-2. Calcula o padding de alinhamento (32 bytes) após a substituição
-3. Stream-copia o arquivo inteiro para `/tmp` com o novo template e padding correto
-4. Substitui o original atomicamente via `shutil.move`
-5. Salva backup do template original em `data/backups/gguf_template_backup_<ts>.jinja`
+1. Reads the GGUF header with a forward scan to locate `tokenizer.chat_template`
+2. Calculates alignment padding (32 bytes) after the substitution
+3. Stream-copies the entire file to `/tmp` with the new template and correct padding
+4. Atomically replaces the original via `shutil.move`
+5. Saves a backup of the original template to `data/backups/gguf_template_backup_<ts>.jinja`
 
 ```bash
-make fix-template   # aplica o patch
+make fix-template   # apply the patch
 ```
 
 ---
 
-## Compatibilidade
+## Compatibility
 
-O template v18 é compatível com:
+The v18 template is compatible with:
 - llama.cpp / llama-server
 - LM Studio
 - vLLM
 - MLX
-- Qualquer engine com suporte a templates HuggingFace Jinja2
+- Any engine with HuggingFace Jinja2 template support
 
 ---
 
-## Arquivo do template
+## Template file
 
-O template está em `data/templates/archive/qwen3.6/chat_template-v18.jinja` após o `make setup`.
+The template is located at `data/templates/archive/qwen3.6/chat_template-v18.jinja` after `make setup`.

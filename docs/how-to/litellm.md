@@ -1,22 +1,22 @@
-# Integrar com LiteLLM
+# Integrate with LiteLLM
 
-O projeto já inclui uma config pronta em [infra/litellm_config.yaml](../../infra/litellm_config.yaml).
+The project includes a ready-to-use config at [infra/litellm_config.yaml](../../infra/litellm_config.yaml).
 
 ---
 
-## Subir o proxy
+## Start the proxy
 
 ```bash
 make litellm-start
-# → LiteLLM proxy em http://localhost:4000
-# → use model_name="qwen" nos seus projetos
+# → LiteLLM proxy at http://localhost:4000
+# → use model_name="qwen" in your projects
 ```
 
-O Makefile instala `litellm` no `.venv` automaticamente se não estiver presente.
+The Makefile installs `litellm` into `.venv` automatically if not already present.
 
 ---
 
-## Config completa (`infra/litellm_config.yaml`)
+## Full config (`infra/litellm_config.yaml`)
 
 ```yaml
 model_list:
@@ -24,10 +24,10 @@ model_list:
     litellm_params:
       model: openai/qwen3
       api_base: http://192.168.1.139:8000/v1
-      api_key: "nao-precisa"
+      api_key: "not-needed"
     model_info:
-      context_window: 63488        # informa o LiteLLM o tamanho real da janela
-      max_input_tokens: 55296      # 63488 - 8192 (headroom para saída)
+      context_window: 63488        # tells LiteLLM the real window size
+      max_input_tokens: 55296      # 63488 - 8192 (output headroom)
       max_output_tokens: 8192
       input_cost_per_token: 0
       output_cost_per_token: 0
@@ -36,36 +36,36 @@ litellm_settings:
   drop_params: true
 ```
 
-> Substitua o IP se necessário. O arquivo está em `infra/litellm_config.yaml`.
+> Update the IP if needed. The file is at `infra/litellm_config.yaml`.
 
 ---
 
-## Usar nos projetos
+## Using in your projects
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://localhost:4000/v1",   # porta do proxy LiteLLM
-    api_key="nao-precisa"
+    base_url="http://localhost:4000/v1",   # LiteLLM proxy port
+    api_key="not-needed"
 )
 
 response = client.chat.completions.create(
-    model="qwen",                          # model_name definido no config
-    messages=[{"role": "user", "content": "Olá!"}],
+    model="qwen",                          # model_name defined in config
+    messages=[{"role": "user", "content": "Hello!"}],
     max_tokens=512
 )
 ```
 
 ---
 
-## Erro "Context size has been exceeded"
+## Error "Context size has been exceeded"
 
-`litellm.MidStreamFallbackError: Context size has been exceeded` ocorre quando o histórico da conversa ultrapassa 63.488 tokens. O LiteLLM **não sabe** o tamanho da janela sem as chaves `context_window` e `max_input_tokens` — sem elas ele deixa a requisição passar sem validar e o llama-server retorna o erro no meio do stream.
+`litellm.MidStreamFallbackError: Context size has been exceeded` occurs when the accumulated conversation history exceeds 63,488 tokens. Without the `context_window` and `max_input_tokens` keys, LiteLLM doesn't know the window size and lets the request through without validation — the llama-server then returns the error mid-stream.
 
-### Fix 1 — Via proxy (recomendado)
+### Fix 1 — Via proxy (recommended)
 
-Certifique-se de que o `infra/litellm_config.yaml` tem as duas chaves em `model_info`:
+Make sure `infra/litellm_config.yaml` has both keys under `model_info`:
 
 ```yaml
 model_info:
@@ -73,7 +73,7 @@ model_info:
   max_input_tokens: 55296
 ```
 
-### Fix 2 — Via SDK direto (sem proxy)
+### Fix 2 — Via SDK directly (no proxy)
 
 ```python
 import litellm
@@ -91,37 +91,37 @@ litellm.register_model({
 response = litellm.completion(
     model="openai/qwen3",
     api_base="http://192.168.1.139:8000/v1",
-    api_key="nao-precisa",
+    api_key="not-needed",
     messages=messages,
     max_tokens=4096,
 )
 ```
 
-### Fix 3 — Truncar histórico antes de enviar
+### Fix 3 — Trim conversation history before sending
 
 ```python
 import litellm
 
-# Verificar contagem de tokens
+# Check token count
 token_count = litellm.token_counter(model="openai/qwen3", messages=messages)
 print(f"Tokens: {token_count} / 63488")
 
-# Truncar se necessário (mantém system prompt + últimas mensagens)
+# Trim if needed (keeps system prompt + last N messages)
 if token_count > 55000:
     messages = [messages[0]] + messages[-10:]
 
-# Ou deixar o LiteLLM truncar automaticamente
+# Or let LiteLLM trim automatically
 messages = litellm.utils.trim_messages(messages, model="openai/qwen3")
 ```
 
-### Fix 4 — Sempre definir `max_tokens`
+### Fix 4 — Always set `max_tokens`
 
-Nunca deixe `max_tokens=None` com contextos longos — o llama-server interpreta como "gere até o limite da janela", o que pode exceder o espaço disponível:
+Never leave `max_tokens=None` with long contexts — llama-server interprets it as "generate up to the window limit", which may exceed the available space:
 
 ```python
 response = client.chat.completions.create(
     model="qwen",
     messages=messages,
-    max_tokens=4096,   # sempre definir
+    max_tokens=4096,   # always set this
 )
 ```

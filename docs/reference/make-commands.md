@@ -1,82 +1,82 @@
-# Referência — Comandos `make`
+# Reference — `make` Commands
 
 ```bash
-make help   # lista todos os targets com descrição
+make help   # lists all targets with descriptions
 ```
 
 ---
 
-## Setup (zero-dependência)
+## Setup (zero-dependency)
 
-| Comando | Descrição |
+| Command | Description |
 |---|---|
-| `make setup` | Pipeline completa: executa as 8 etapas abaixo em ordem |
+| `make setup` | Full pipeline: runs all 8 steps in order |
 | `make install-system-deps` | `[1]` apt: python3, cmake, git, build-essential, curl |
-| `make setup-cuda` | `[2]` Verifica CUDA toolkit, registra libcudart |
-| `make create-venv` | `[3]` Cria `.venv` Python isolado |
+| `make setup-cuda` | `[2]` Verifies CUDA toolkit, registers libcudart |
+| `make create-venv` | `[3]` Creates isolated Python `.venv` |
 | `make install-python-deps` | `[4]` pip: gguf, huggingface-hub, openai, requests |
-| `make build-llama-server` | `[5]` Clona e compila llama-server com CUDA |
-| `make build-llama-cpp-python` | `[6]` Compila llama-cpp-python com GPU offload |
-| `make download-model` | `[7]` Baixa modelo GGUF do HuggingFace (~16 GB) |
-| `make fix-template` | `[8]` Patcha o GGUF com template v18 |
+| `make build-llama-server` | `[5]` Clones and compiles llama-server with CUDA |
+| `make build-llama-cpp-python` | `[6]` Compiles llama-cpp-python with GPU offload |
+| `make download-model` | `[7]` Downloads GGUF model from HuggingFace (~16 GB) |
+| `make fix-template` | `[8]` Patches the GGUF with template v18 |
 
-Cada etapa usa um **sentinel** — verifica se já foi feita antes de agir. Rodar `make setup` duas vezes é seguro.
+Each step uses a **sentinel** — checks if it was already done before acting. Running `make setup` twice is safe.
 
 ---
 
-## Servidor
+## Server
 
-| Comando | Descrição |
+| Command | Description |
 |---|---|
-| `make start` | Sobe o servidor em foreground (Ctrl+C para parar) |
-| `make start-bg` | Sobe em background (log em `data/logs/server.log`) |
-| `make stop` | Para o servidor (libera VRAM) |
-| `make restart` | Para e sobe em background |
-| `make status` | Estado do servidor + uso de VRAM |
+| `make start` | Start server in foreground (Ctrl+C to stop) |
+| `make start-bg` | Start in background (log at `data/logs/server.log`) |
+| `make stop` | Stop the server (frees VRAM) |
+| `make restart` | Stop and restart in background |
+| `make status` | Server state + VRAM usage |
 | `make logs` | `tail -f data/logs/server.log` |
-| `make test` | Roda os 6 testes de integração da API |
+| `make test` | Runs 6 API integration tests |
 
 ---
 
-## Serviço systemd
+## systemd service
 
-| Comando | Descrição |
+| Command | Description |
 |---|---|
-| `make install-service` | Registra `qwen-server.service` (sem auto-start) |
-| `make enable-service` | Habilita auto-start no boot + inicia agora |
-| `make disable-service` | Desabilita auto-start + para o serviço |
-| `make start-service` | Inicia via systemd sem habilitar no boot |
+| `make install-service` | Registers `qwen-server.service` (no auto-start) |
+| `make enable-service` | Enables auto-start on boot + starts now |
+| `make disable-service` | Disables auto-start + stops the service |
+| `make start-service` | Starts via systemd without enabling on boot |
 
 ---
 
 ## Ollama / GPU
 
-| Comando | Descrição |
+| Command | Description |
 |---|---|
-| `make configure-ollama` | Reduz `OLLAMA_KEEP_ALIVE` de 30 min para 5 min |
-| `make ollama-unload` | Força Ollama a liberar todos os modelos da VRAM agora |
+| `make configure-ollama` | Reduces `OLLAMA_KEEP_ALIVE` from 30 min to 5 min |
+| `make ollama-unload` | Forces Ollama to release all models from VRAM now |
 
 ---
 
 ## LiteLLM
 
-| Comando | Descrição |
+| Command | Description |
 |---|---|
-| `make litellm-start` | Sobe proxy LiteLLM na porta 4000 com `infra/litellm_config.yaml` |
+| `make litellm-start` | Starts LiteLLM proxy on port 4000 using `infra/litellm_config.yaml` |
 
 ---
 
-## Limpeza
+## Cleanup
 
-| Comando | Descrição |
+| Command | Description |
 |---|---|
-| `make clean` | Remove modelo GGUF, logs e `.venv` (mantém código e templates) |
+| `make clean` | Removes GGUF model, logs and `.venv` (keeps code and templates) |
 
 ---
 
-## Sobrescrever variáveis
+## Override variables
 
-Qualquer variável do `.env` pode ser sobrescrita inline:
+Any `.env` variable can be overridden inline:
 
 ```bash
 N_CTX=32768 make start

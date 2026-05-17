@@ -1,16 +1,16 @@
-# Integrar com OpenCode
+# Integrate with OpenCode
 
-[OpenCode](https://opencode.ai) é um terminal AI coding assistant. O projeto inclui uma config pronta em [infra/opencode.json](../../infra/opencode.json).
+[OpenCode](https://opencode.ai) is a terminal AI coding assistant. The project includes a ready-to-use config at [infra/opencode.json](../../infra/opencode.json).
 
 ---
 
-## Usar a config
+## Use the config
 
 ```bash
-# Para um projeto específico (opencode lê da raiz do projeto)
-cp /root/qwen3/infra/opencode.json ~/seu-projeto/opencode.json
+# For a specific project (opencode reads from the project root)
+cp /root/qwen3/infra/opencode.json ~/your-project/opencode.json
 
-# Para uso global
+# For global use
 cp /root/qwen3/infra/opencode.json ~/.config/opencode/config.json
 ```
 
@@ -28,7 +28,7 @@ cp /root/qwen3/infra/opencode.json ~/.config/opencode/config.json
       "name": "Qwen Local (llama-server)",
       "options": {
         "baseURL": "http://192.168.1.139:8000/v1",
-        "apiKey": "nao-precisa"
+        "apiKey": "not-needed"
       },
       "models": {
         "qwen3": {
@@ -44,17 +44,17 @@ cp /root/qwen3/infra/opencode.json ~/.config/opencode/config.json
 }
 ```
 
-| Campo | Valor | Descrição |
+| Field | Value | Description |
 |---|---|---|
-| `model` | `qwen-local/qwen3` | Modelo padrão ao abrir o opencode |
-| `baseURL` | `http://192.168.1.139:8000/v1` | Endereço do llama-server |
-| `limit.context` | `63488` | Janela de contexto total |
-| `limit.output` | `4096` | Máximo de tokens gerados por resposta |
+| `model` | `qwen-local/qwen3` | Default model when opening opencode |
+| `baseURL` | `http://192.168.1.139:8000/v1` | llama-server address |
+| `limit.context` | `63488` | Total context window |
+| `limit.output` | `4096` | Maximum generated tokens per response |
 
-> Altere `baseURL` se o servidor estiver em outra máquina ou porta.
+> Update `baseURL` if the server is on a different machine or port.
 
 ---
 
-## Limites de contexto
+## Context limits
 
-O campo `limit.context` corresponde ao `--ctx-size` do llama-server (63.488). O opencode usa isso para não enviar mais tokens do que a janela suporta. O espaço efetivo para input é `context − output = 63.488 − 4.096 = 59.392 tokens`.
+The `limit.context` field corresponds to the `--ctx-size` of llama-server (63,488). OpenCode uses this to avoid sending more tokens than the window supports. The effective input space is `context − output = 63,488 − 4,096 = 59,392 tokens`.
