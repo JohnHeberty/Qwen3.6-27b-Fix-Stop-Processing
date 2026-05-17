@@ -35,6 +35,7 @@ SENTINEL_MODEL       := $(MODEL_DIR)/$(MODEL_FILE)
         download-model fix-template \
         start start-bg stop restart status logs test \
         install-service enable-service disable-service start-service \
+        configure-ollama ollama-unload \
         clean
 
 ##############################################################################
@@ -70,6 +71,11 @@ help:
 	@echo ""
 	@echo "  LIMPEZA:"
 	@echo "  make clean              Remove modelo, logs e venv (mantém código)"
+	@echo ""
+	@echo "  CONFLITO OLLAMA/GPU (compartilham 24 GB VRAM):"
+	@echo "  make configure-ollama   Reduz OLLAMA_KEEP_ALIVE 30m → 5m"
+	@echo "  make ollama-unload      Força Ollama a liberar VRAM agora"
+	@echo "  (make start já descarrega Ollama automaticamente)"
 	@echo ""
 	@echo "  API: http://localhost:8000/v1  |  Modelo: qwen3"
 	@echo ""
@@ -269,7 +275,7 @@ start-bg: _check-ready
 	@echo "Servidor iniciado em background. Acompanhe: make logs"
 
 stop:
-	@pkill -f "llama-server" 2>/dev/null && echo "Servidor parado." || echo "Nenhum servidor rodando."
+	@pkill -f "llama-server" 2>/dev/null && echo "Servidor parado. VRAM liberada — Ollama pode usar a GPU novamente." || echo "Nenhum servidor rodando."
 
 restart: stop
 	@$(MAKE) start-bg
@@ -312,6 +318,39 @@ disable-service:
 start-service:
 	@sudo systemctl start qwen-server
 	@echo "Serviço iniciado (sem auto-start no boot)."
+
+##############################################################################
+# GESTÃO DE CONFLITO OLLAMA/GPU
+##############################################################################
+configure-ollama:
+	@echo "Configurando Ollama para liberar VRAM mais rápido..."
+	@CONF="/etc/systemd/system/ollama.service.d/10-local.conf"; \
+	if [ -f "$$CONF" ]; then \
+		sudo sed -i 's/OLLAMA_KEEP_ALIVE=.*/OLLAMA_KEEP_ALIVE=5m/' "$$CONF"; \
+		sudo systemctl daemon-reload; \
+		sudo systemctl restart ollama; \
+		echo "  ✓ OLLAMA_KEEP_ALIVE → 5m (libera VRAM 5 min após último uso)"; \
+		echo "  Antes: 30 minutos. Agora: 5 minutos."; \
+	else \
+		echo "  Arquivo de config não encontrado em $$CONF"; \
+		echo "  Adicione manualmente: Environment=\"OLLAMA_KEEP_ALIVE=5m\""; \
+	fi
+
+ollama-unload:
+	@echo "Forçando Ollama a liberar todos os modelos da GPU..."
+	@MODELS=$$(curl -s http://localhost:11434/api/ps 2>/dev/null | \
+		python3 -c "import json,sys; d=json.load(sys.stdin); print('\n'.join(m['name'] for m in d.get('models',[])))" 2>/dev/null); \
+	if [ -n "$$MODELS" ]; then \
+		echo "$$MODELS" | while read M; do \
+			curl -s http://localhost:11434/api/generate \
+				-d "{\"model\":\"$$M\",\"keep_alive\":0,\"prompt\":\"\"}" > /dev/null 2>&1; \
+			echo "  ✓ $$M descarregado"; \
+		done; \
+	else \
+		echo "  Nenhum modelo carregado no Ollama."; \
+	fi
+	@nvidia-smi --query-gpu=memory.used,memory.free --format=csv,noheader 2>/dev/null | \
+		awk '{print "  GPU: "$$0}'
 
 ##############################################################################
 # LIMPEZA

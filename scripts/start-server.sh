@@ -58,6 +58,21 @@ echo "Contexto  : $N_CTX tokens"
 echo "Nome API  : $SERVED_NAME"
 echo ""
 
+# ── Liberar VRAM do Ollama antes de iniciar ────────────────────────────────────
+if curl -sf http://localhost:11434/api/ps > /dev/null 2>&1; then
+    OLLAMA_MODELS=$(curl -s http://localhost:11434/api/ps 2>/dev/null | \
+        python3 -c "import json,sys; d=json.load(sys.stdin); print(' '.join(m['name'] for m in d.get('models',[])))" 2>/dev/null)
+    if [ -n "$OLLAMA_MODELS" ]; then
+        echo "Ollama: descarregando modelos da GPU para liberar VRAM..."
+        for MODEL in $OLLAMA_MODELS; do
+            curl -s http://localhost:11434/api/generate \
+                -d "{\"model\":\"$MODEL\",\"keep_alive\":0,\"prompt\":\"\"}" \
+                > /dev/null 2>&1 && echo "  ✓ $MODEL descarregado"
+        done
+        sleep 2
+    fi
+fi
+
 if command -v nvidia-smi &>/dev/null; then
     echo "GPU:"
     nvidia-smi --query-gpu=name,memory.used,memory.free,memory.total \
@@ -65,7 +80,7 @@ if command -v nvidia-smi &>/dev/null; then
     echo ""
 fi
 
-echo "Iniciando llama-cpp-python... (pode levar 30-60s para carregar o modelo)"
+echo "Iniciando llama-server... (pode levar 30-60s para carregar o modelo)"
 echo "Para parar: Ctrl+C"
 echo ""
 
