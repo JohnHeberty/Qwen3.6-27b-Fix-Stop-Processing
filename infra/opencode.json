@@ -1,0 +1,23 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "qwen-local/qwen3",
+  "provider": {
+    "qwen-local": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Qwen Local (llama-server)",
+      "options": {
+        "baseURL": "http://localhost:8000/v1",
+        "apiKey": "nao-precisa"
+      },
+      "models": {
+        "qwen3": {
+          "name": "Qwen3.6-27B-Fixed",
+          "limit": {
+            "context": 63488,
+            "output": 4096
+          }
+        }
+      }
+    }
+  }
+}

@@ -36,6 +36,7 @@ SENTINEL_MODEL       := $(MODEL_DIR)/$(MODEL_FILE)
         start start-bg stop restart status logs test \
         install-service enable-service disable-service start-service \
         configure-ollama ollama-unload \
+        litellm-start \
         clean
 
 ##############################################################################
@@ -76,6 +77,10 @@ help:
 	@echo "  make configure-ollama   Reduz OLLAMA_KEEP_ALIVE 30m → 5m"
 	@echo "  make ollama-unload      Força Ollama a liberar VRAM agora"
 	@echo "  (make start já descarrega Ollama automaticamente)"
+	@echo ""
+	@echo "  LITELLM:"
+	@echo "  make litellm-start      Sobe LiteLLM proxy (porta 4000) com config pronta"
+	@echo "  (config: infra/litellm_config.yaml — já inclui context_window correto)"
 	@echo ""
 	@echo "  API: http://localhost:8000/v1  |  Modelo: qwen3"
 	@echo ""
@@ -351,6 +356,20 @@ ollama-unload:
 	fi
 	@nvidia-smi --query-gpu=memory.used,memory.free --format=csv,noheader 2>/dev/null | \
 		awk '{print "  GPU: "$$0}'
+
+##############################################################################
+# LITELLM
+##############################################################################
+litellm-start:
+	@if ! $(PIP) show litellm > /dev/null 2>&1; then \
+		echo "Instalando litellm..."; \
+		$(PIP) install --quiet litellm; \
+	fi
+	@echo "Subindo LiteLLM proxy em http://localhost:4000 ..."
+	@echo "  config: infra/litellm_config.yaml"
+	@echo "  use model_name=qwen nos seus projetos"
+	@echo ""
+	$(VENV)/bin/litellm --config "$(PROJECT_ROOT)/infra/litellm_config.yaml" --port 4000
 
 ##############################################################################
 # LIMPEZA
