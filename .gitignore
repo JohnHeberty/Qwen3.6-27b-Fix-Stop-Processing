@@ -1,0 +1,17 @@
+# Credenciais — nunca versionar
+.env
+
+# Modelo HF (~16 GB) — nunca versionar
+data/models/
+
+# Logs de runtime
+data/logs/
+
+# Backups do tokenizer_config.json
+data/backups/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/

@@ -1,0 +1,36 @@
+[Unit]
+Description=llama-cpp-python — Qwen3.6 27B GGUF Server (porta 8000)
+Documentation=https://docs.vllm.ai
+After=network-online.target
+Wants=network-online.target
+# Nao depende do Ollama — os dois sao independentes
+
+[Service]
+Type=simple
+
+User=root
+Group=root
+
+# Toda config vem do .env — edite la para mudar modelo, porta, contexto, etc.
+EnvironmentFile=/root/qwen3/.env
+
+# PATH precisa incluir cuda e venv para o systemd encontrar os binarios
+Environment="PATH=/root/qwen3/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+
+WorkingDirectory=/root/qwen3
+ExecStart=/root/qwen3/scripts/start-server.sh
+
+# Reiniciar automaticamente se cair
+Restart=on-failure
+RestartSec=15
+
+# Logs persistentes
+StandardOutput=append:/root/qwen3/data/logs/server.log
+StandardError=append:/root/qwen3/data/logs/server.log
+
+# Modelo GGUF leva ~60-90s para carregar
+TimeoutStartSec=300
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
