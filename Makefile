@@ -34,7 +34,8 @@ SENTINEL_MODEL       := $(MODEL_DIR)/$(MODEL_FILE)
         build-llama-server build-llama-cpp-python \
         download-model fix-template \
         start start-bg stop restart status logs test \
-        fix-template install-service clean
+        install-service enable-service disable-service start-service \
+        clean
 
 ##############################################################################
 # HELP
@@ -62,7 +63,10 @@ help:
 	@echo "  make status             Mostra estado e VRAM"
 	@echo "  make logs               Acompanha log em tempo real"
 	@echo "  make test               Roda suite de testes da API"
-	@echo "  make install-service    Instala como serviço systemd (boot)"
+	@echo "  make install-service    Registra o serviço systemd (sem auto-start)"
+	@echo "  make enable-service     Ativa auto-start no boot (CONFLITA com Ollama)"
+	@echo "  make disable-service    Desativa auto-start no boot"
+	@echo "  make start-service      Inicia via systemd sem habilitar no boot"
 	@echo ""
 	@echo "  LIMPEZA:"
 	@echo "  make clean              Remove modelo, logs e venv (mantém código)"
@@ -288,9 +292,26 @@ test:
 install-service:
 	@sudo cp "$(PROJECT_ROOT)/infra/qwen-server.service" /etc/systemd/system/
 	@sudo systemctl daemon-reload
+	@echo "Serviço registrado (NÃO habilitado no boot)."
+	@echo "  make enable-service   → ativa auto-start no boot"
+	@echo "  make start-service    → inicia agora sem auto-start"
+	@echo "  sudo systemctl status qwen-server"
+
+enable-service:
 	@sudo systemctl enable qwen-server
 	@sudo systemctl start qwen-server
-	@echo "Serviço instalado. Verifique: sudo systemctl status qwen-server"
+	@echo "Serviço habilitado — inicia automaticamente no boot."
+	@echo "ATENÇÃO: conflita com Ollama na GPU (24 GB compartilhados)."
+	@echo "Para desabilitar: make disable-service"
+
+disable-service:
+	@sudo systemctl disable qwen-server
+	@sudo systemctl stop qwen-server 2>/dev/null || true
+	@echo "Serviço desabilitado — não inicia mais no boot."
+
+start-service:
+	@sudo systemctl start qwen-server
+	@echo "Serviço iniciado (sem auto-start no boot)."
 
 ##############################################################################
 # LIMPEZA
