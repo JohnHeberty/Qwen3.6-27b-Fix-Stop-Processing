@@ -91,6 +91,7 @@ exec "$LLAMA_SERVER" \
     --n-gpu-layers "$N_GPU_LAYERS" \
     --ctx-size     "$N_CTX"        \
     --batch-size   "$N_BATCH"      \
+    --parallel     "${N_PARALLEL:-1}" \
     --host         0.0.0.0         \
     --port         "$PORT"         \
     --alias        "$SERVED_NAME"  \

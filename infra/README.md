@@ -134,17 +134,49 @@ commands in untrusted projects.
 
 ---
 
+## Running 2 projects simultaneously — root cause and fix
+
+**Symptom:** error disappears with 1 project, reappears with 2 running at the same time.
+
+**Root cause:** `llama-server --parallel` defaults to `-1` (auto). When 2 concurrent
+connections are detected, the server automatically creates **2 slots** and **divides the
+KV cache between them**:
+
+```
+--ctx-size 63488 + auto parallel = 2 slots
+→ 63,488 ÷ 2 = 31,744 tokens per slot
+→ LiteLLM sends up to 59,392 tokens → exceeds 31,744 → "Context size has been exceeded"
+```
+
+**Fix:** force `--parallel 1` so the server always uses a single slot with the full
+63,488 token KV cache and processes requests sequentially (queued).
+
+This is now set via `N_PARALLEL=1` in `.env` and passed as `--parallel "$N_PARALLEL"` in
+`scripts/start-server.sh`. **Restart the server after pulling this change:**
+
+```bash
+make stop && make start
+```
+
+**Trade-off:** with `--parallel 1`, the second project's requests queue behind the first.
+Each individual request still completes correctly. Latency increases when both are actively
+generating at the exact same time, but there are no context errors.
+
+**If you need true parallel serving** (2 simultaneous streams without queuing), you would
+need to double the context: `N_CTX=126976 --parallel 2`, which requires ~16 GB of KV
+cache — not possible on a 24 GB card that already uses 16 GB for model weights.
+
+---
+
 ## llama-server verification
 
-Confirm the server was started with the correct context size:
+Confirm the server was started with the correct context size and parallelism:
 
 ```bash
 # Check running process
 ps aux | grep llama-server | grep -v grep
 
-# Should show: --ctx-size 63488
-# Example:
-# /root/llama.cpp/build/bin/llama-server --model ... --ctx-size 63488 --n-gpu-layers -1
+# Should show: --ctx-size 63488 --parallel 1
 ```
 
 Or via the API:

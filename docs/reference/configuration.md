@@ -24,6 +24,7 @@ cp .env.example .env
 | `N_GPU_LAYERS` | `-1` | no | Layers to offload to GPU. `-1` = all |
 | `N_CTX` | `63488` | no | Maximum context size in tokens |
 | `N_BATCH` | `512` | no | Batch size for prompt processing |
+| `N_PARALLEL` | `1` | no | Number of parallel request slots. **Keep at `1`** — with `auto` (-1) the server splits the KV cache across detected connections, reducing tokens per slot |
 
 ---
 
