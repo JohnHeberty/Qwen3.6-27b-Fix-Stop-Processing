@@ -12,7 +12,7 @@ VENV="$PROJECT_ROOT/.venv"
 [ -f "$PROJECT_ROOT/.env" ] && set -a && source "$PROJECT_ROOT/.env" && set +a
 
 MODEL_DIR="${MODEL_DIR:-$PROJECT_ROOT/data/models}"
-MODEL_FILE="${MODEL_FILE:-Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf}"
+MODEL_FILE="${MODEL_FILE:-Qwen3.6-27B-Q4_K_M.gguf}"
 PORT="${PORT:-8000}"
 SERVED_NAME="${SERVED_NAME:-qwen3}"
 N_GPU_LAYERS="${N_GPU_LAYERS:--1}"
@@ -37,10 +37,11 @@ echo ""
 }
 source "$VENV/bin/activate"
 
-LLAMA_SERVER="${LLAMA_SERVER:-/root/llama.cpp/build/bin/llama-server}"
+LLAMA_CPP_DIR="${LLAMA_CPP_DIR:-$HOME/llama.cpp}"
+LLAMA_SERVER="${LLAMA_SERVER:-$LLAMA_CPP_DIR/build/bin/llama-server}"
 [ -x "$LLAMA_SERVER" ] || {
     echo "ERRO: llama-server nao encontrado em $LLAMA_SERVER"
-    echo "      Execute: cd /root/llama.cpp && cmake --build build --target llama-server"
+    echo "      Execute: make build-llama-server"
     exit 1
 }
 
