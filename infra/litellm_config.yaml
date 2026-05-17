@@ -2,12 +2,12 @@ model_list:
   - model_name: qwen
     litellm_params:
       model: openai/qwen3
-      api_base: http://192.168.1.139:8000/v1
-      api_key: "nao-precisa"
+      api_base: http://localhost:8000/v1
+      api_key: "nao-precisa"\
+      max_tokens: 4096
     model_info:
-      context_window: 63488
-      max_input_tokens: 55296
-      max_output_tokens: 8192
+      max_input_tokens: 59392
+      max_output_tokens: 4096
       input_cost_per_token: 0
       output_cost_per_token: 0
 

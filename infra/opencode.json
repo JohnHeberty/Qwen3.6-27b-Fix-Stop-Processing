@@ -1,6 +1,5 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "qwen-local/qwen3",
   "provider": {
     "qwen-local": {
       "npm": "@ai-sdk/openai-compatible",
@@ -13,11 +12,63 @@
         "qwen3": {
           "name": "Qwen3.6-27B-Fixed",
           "limit": {
-            "context": 63488,
+            "context": 59392,
             "output": 4096
           }
         }
       }
     }
-  }
+  },
+  "plugin": [
+    "opencode-pty",
+    "opencode-websearch-cited@1.2.0"
+  ],
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "reserved": 4096
+  },
+  "watcher": {
+    "ignore": [
+      "node_modules/**",
+      "vendor/**",
+      "dist/**",
+      "build/**",
+      ".git/**",
+      ".next/**",
+      ".nuxt/**",
+      "coverage/**",
+      "logs/**",
+      "*.log",
+      "*.lock",
+      "*.min.js",
+      "*.map",
+      "*.png",
+      "*.jpg",
+      "*.jpeg",
+      "*.webp",
+      "*.gif",
+      "*.ico",
+      "*.pdf",
+      "*.zip",
+      "*.rar",
+      "*.7z"
+    ]
+  },
+  "permission": {
+    "read": "allow",
+    "edit": "allow",
+    "bash": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "list": "allow",
+    "todowrite": "allow",
+    "lsp": "allow",
+    "task": "allow",
+    "doom_loop": "allow",
+    "question": "allow",
+    "external_directory": "allow"
+  },
+  "model": "qwen-local/qwen3",
+  "small_model": "qwen-local/qwen3"
 }
