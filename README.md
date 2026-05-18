@@ -1,5 +1,15 @@
 # Qwen3.6 27B — Local GGUF Server · OpenAI-compatible API
 
+**This project fixes the bugs that make Qwen3.6 27B unusable out of the box on a local RTX 3090.**
+
+The community has been reporting these problems ([Reddit](https://www.reddit.com/r/LocalLLaMA/comments/1t49pqu/struggling_with_qwen36_27b_35b_locally_3090_slow/), [llama.cpp #22746](https://github.com/ggml-org/llama.cpp/issues/22746)):
+
+- **Broken tool calling and thinking mode** — the official GGUF ships with a Jinja2 template that has critical bugs in KV cache handling, `<think>` block termination, and function call formatting. Fixed here by patching the template v18 directly into the GGUF binary.
+- **Fused GDN kernel crash on SM 8.6 (RTX 3090)** — the Qwen3_5 hybrid architecture uses a CUDA kernel that produces invalid output on SM 8.6 GPUs. Fixed by patching llama.cpp source before compilation.
+- **KV cache never warm / full prompt re-processing on every request** — llama.cpp's checkpoint eviction policy (FIFO) causes the server to discard useful cache entries and re-process the entire prompt from scratch on every agentic request, adding 5–25 s of unnecessary latency. Mitigated here by forcing `--parallel 1` (tracked upstream in [#22746](https://github.com/ggml-org/llama.cpp/issues/22746), fix merged via [PR #22826](https://github.com/ggml-org/llama.cpp/pull/22826)).
+
+The result is a validated setup that actually works: 63,488 token context, functional tool calling, stable thinking mode, and a warm KV cache across requests.
+
 > Local inference server for **Qwen3.6 27B** using [llama-server](https://github.com/ggml-org/llama.cpp) with GGUF Q4_K_M model.  
 > 100% OpenAI-compatible API · Thinking mode · Tool calling · **63,488 token context**
 
