@@ -9,11 +9,13 @@ integrating with LiteLLM Gateway and OpenCode.
 
 | File | Scope | Purpose |
 |---|---|---|
-| `install-top-plugins.md` | global (once) | OpenCode plugins to install on the machine |
-| `opencode.json` | global or per-project | OpenCode base configuration |
-| `repomix.config.json` | per-project | Repomix config — clean codebase packing for context |
-| `litellm_config.yaml` | server | LiteLLM Gateway proxy configuration |
-| `qwen-server.service` | system | systemd unit — auto-start llama-server on boot |
+| `opencode/install-plugins.md` | global (once) | OpenCode plugins to install on the machine |
+| `opencode/config.json` | global or per-project | OpenCode base configuration |
+| `repomix/repomix.config.json` | per-project | Repomix config — clean codebase packing for context |
+| `litellm/config.yaml` | server | LiteLLM Gateway proxy configuration |
+| `litellm/docker-compose.yaml` | server | LiteLLM + Postgres via Docker Compose |
+| `litellm/.env.example` | server | Environment variables template (copy to `.env`) |
+| `llama-server/qwen-server.service` | system | systemd unit — auto-start llama-server on boot |
 
 ---
 
@@ -34,7 +36,7 @@ Verify: `curl -s http://localhost:8000/v1/models` should return `{"data":[{"id":
 
 ### Step 2 — Install OpenCode plugins (once per machine)
 
-See [`install-top-plugins.md`](install-top-plugins.md) for the full list. Run these once globally:
+See [`opencode/install-plugins.md`](opencode/install-plugins.md) for the full list. Run these once globally:
 
 ```bash
 opencode plugin @tarquinen/opencode-dcp@latest --global
@@ -55,13 +57,13 @@ Verify: `opencode plugin list` should show the installed plugins.
 
 ```bash
 mkdir -p ~/.config/opencode
-cp infra/opencode.json ~/.config/opencode/config.json
+cp infra/opencode/config.json ~/.config/opencode/config.json
 ```
 
 **Option B — Per-project config** (overrides global for that specific project):
 
 ```bash
-cp infra/opencode.json ~/your-project/opencode.json
+cp infra/opencode/config.json ~/your-project/opencode.json
 ```
 
 OpenCode loads `opencode.json` from the **project root first**, then falls back to
@@ -88,7 +90,7 @@ file that OpenCode can use as context. The provided config ignores binaries, loc
 and build artifacts — keeping the packed output clean and token-efficient.
 
 ```bash
-cp infra/repomix.config.json ~/your-project/repomix.config.json
+cp infra/repomix/repomix.config.json ~/your-project/repomix.config.json
 ```
 
 To generate a codebase pack (useful before starting a large refactor):
@@ -107,6 +109,22 @@ OpenCode's Repomix MCP plugin can also run this automatically during a session.
 Use LiteLLM when the llama-server is on a **different machine** or when you want a proxy
 with context validation and fallbacks.
 
+**First, create the `.env` file:**
+
+```bash
+cp infra/litellm/.env.example infra/litellm/.env
+# then edit .env and change the values
+```
+
+| Variable | Default | Description |
+|---|---|---|
+| `LITELLM_MASTER_KEY` | `sk-litellm-master` | Auth key clients must pass — must start with `sk-`. Use this as `apiKey` in `opencode.json` |
+| `LITELLM_SALT_KEY` | *(random hex)* | Internal salt for key hashing — change in production |
+| `UI_USERNAME` | `admin@admin.com` | Login for the LiteLLM web UI at `:4000/ui` |
+| `UI_PASSWORD` | `admin1234` | Password for the web UI — change in production |
+
+> **Important:** the `apiKey` in `opencode.json` (and any other client) must match `LITELLM_MASTER_KEY` exactly. If you get `Authentication Error, LiteLLM Virtual Key expected`, this value is wrong or missing the `sk-` prefix.
+
 ```bash
 make litellm-start   # starts proxy at http://localhost:4000
 ```
@@ -114,6 +132,11 @@ make litellm-start   # starts proxy at http://localhost:4000
 Then in your `opencode.json`, change the provider `baseURL` to:
 ```json
 "baseURL": "http://<server-ip>:4000/v1"
+```
+
+And set `apiKey` to match `LITELLM_MASTER_KEY`:
+```json
+"apiKey": "sk-litellm-master"
 ```
 
 And change the model name from `qwen-local/qwen3` to `litellm/qwen`.
@@ -163,7 +186,7 @@ at the cost of a smaller safety margin. If context errors reappear, fall back to
 
 ---
 
-## LiteLLM Gateway (`litellm_config.yaml`)
+## LiteLLM Gateway (`litellm/config.yaml`)
 
 ### Key settings
 
@@ -192,7 +215,7 @@ a primary + alias setup.
 
 ### Recommended additions
 
-Add these to `litellm_config.yaml` to enable pre-call context validation and automatic
+Add these to `litellm/config.yaml` to enable pre-call context validation and automatic
 fallback when the context is exceeded:
 
 ```yaml
@@ -325,7 +348,7 @@ curl -s http://localhost:8000/v1/models | python3 -c \
   "import json,sys; d=json.load(sys.stdin); print(d['data'][0]['meta']['n_ctx'])"
 
 # Copy OpenCode config to a project
-cp infra/opencode.json ~/your-project/opencode.json
+cp infra/opencode/config.json ~/your-project/opencode.json
 ```
 
 ---

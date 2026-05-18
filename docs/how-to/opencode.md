@@ -1,6 +1,6 @@
 # Integrate with OpenCode
 
-[OpenCode](https://opencode.ai) is a terminal AI coding assistant. The project includes a ready-to-use config at [infra/opencode.json](../../infra/opencode.json).
+[OpenCode](https://opencode.ai) is a terminal AI coding assistant. The project includes a ready-to-use config at [infra/opencode/config.json](../../infra/opencode/config.json).
 
 ---
 
@@ -8,15 +8,15 @@
 
 ```bash
 # For a specific project (opencode reads from the project root)
-cp /root/qwen3/infra/opencode.json ~/your-project/opencode.json
+cp /root/qwen3/infra/opencode/config.json ~/your-project/opencode.json
 
 # For global use
-cp /root/qwen3/infra/opencode.json ~/.config/opencode/config.json
+cp /root/qwen3/infra/opencode/config.json ~/.config/opencode/config.json
 ```
 
 ---
 
-## Config (`infra/opencode.json`)
+## Config (`infra/opencode/config.json`)
 
 ```json
 {

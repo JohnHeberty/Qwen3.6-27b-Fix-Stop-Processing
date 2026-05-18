@@ -1,6 +1,25 @@
 # Integrate with LiteLLM
 
-The project includes a ready-to-use config at [infra/litellm_config.yaml](../../infra/litellm_config.yaml).
+The project includes a ready-to-use config at [infra/litellm/config.yaml](../../infra/litellm/config.yaml).
+
+---
+
+## Environment variables (`infra/litellm/.env`)
+
+The Docker Compose setup requires an `.env` file in `infra/litellm/`. Copy the example and edit:
+
+```bash
+cp infra/litellm/.env.example infra/litellm/.env
+```
+
+| Variable | Default | Description |
+|---|---|---|
+| `LITELLM_MASTER_KEY` | `sk-litellm-master` | Auth key clients must pass as `apiKey` — must start with `sk-` |
+| `LITELLM_SALT_KEY` | *(random hex)* | Internal salt for key hashing — change in production |
+| `UI_USERNAME` | `admin@admin.com` | Login for the web UI at `:4000/ui` |
+| `UI_PASSWORD` | `admin1234` | Password for the web UI — change in production |
+
+> The `apiKey` in `opencode.json` and all other clients must match `LITELLM_MASTER_KEY` exactly. `Authentication Error, LiteLLM Virtual Key expected` means the key is wrong or missing the `sk-` prefix.
 
 ---
 
@@ -16,7 +35,7 @@ The Makefile installs `litellm` into `.venv` automatically if not already presen
 
 ---
 
-## Full config (`infra/litellm_config.yaml`)
+## Full config (`infra/litellm/config.yaml`)
 
 ```yaml
 model_list:
@@ -36,7 +55,7 @@ litellm_settings:
   drop_params: true
 ```
 
-> Update the IP if needed. The file is at `infra/litellm_config.yaml`.
+> Update the IP if needed. The file is at `infra/litellm/config.yaml`.
 
 ---
 
@@ -47,7 +66,7 @@ from openai import OpenAI
 
 client = OpenAI(
     base_url="http://localhost:4000/v1",   # LiteLLM proxy port
-    api_key="not-needed"
+    api_key="sk-litellm-master"            # must match LITELLM_MASTER_KEY in .env
 )
 
 response = client.chat.completions.create(
@@ -65,7 +84,7 @@ response = client.chat.completions.create(
 
 ### Fix 1 — Via proxy (recommended)
 
-Make sure `infra/litellm_config.yaml` has both keys under `model_info`:
+Make sure `infra/litellm/config.yaml` has both keys under `model_info`:
 
 ```yaml
 model_info:

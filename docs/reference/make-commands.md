@@ -62,7 +62,7 @@ Each step uses a **sentinel** — checks if it was already done before acting. R
 
 | Command | Description |
 |---|---|
-| `make litellm-start` | Starts LiteLLM proxy on port 4000 using `infra/litellm_config.yaml` |
+| `make litellm-start` | Starts LiteLLM proxy on port 4000 using `infra/litellm/config.yaml` |
 
 ---
 

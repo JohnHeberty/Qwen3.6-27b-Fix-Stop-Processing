@@ -24,7 +24,7 @@
 | Requirement | Minimum | Used/Validated | Check |
 |---|---|---|---|
 | OS | Debian 12 / Ubuntu 22.04+ | Debian 12 (Bookworm) | `lsb_release -a` |
-| NVIDIA Driver | ≥ 525 | **590.48.01** ✓ | `nvidia-smi` |
+| NVIDIA Driver | ≥ 560 | **590.48.01** ✓ | `nvidia-smi` |
 | CUDA Toolkit | 12.x | **12.8** at `/usr/local/cuda` | `nvcc --version` |
 | Git | any | — | `git --version` |
 
@@ -190,7 +190,7 @@ sudo journalctl -u qwen-server -f      # live logs
 
 ## LiteLLM Integration
 
-A ready-to-use config is available at `infra/litellm_config.yaml`. To start the proxy on port 4000:
+A ready-to-use config is available at `infra/litellm/config.yaml`. To start the proxy on port 4000:
 
 ```bash
 make litellm-start

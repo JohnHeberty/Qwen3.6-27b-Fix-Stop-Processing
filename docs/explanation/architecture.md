@@ -75,9 +75,16 @@ qwen3/
 │   └── test_api.py         API integration tests (6 endpoints)
 │
 ├── infra/
-│   ├── qwen-server.service systemd unit for autostart
-│   ├── litellm_config.yaml LiteLLM proxy config
-│   └── opencode.json       OpenCode terminal assistant config
+│   ├── litellm/
+│   │   ├── docker-compose.yaml  LiteLLM + Postgres via Docker
+│   │   └── config.yaml          LiteLLM proxy config
+│   ├── opencode/
+│   │   ├── config.json          OpenCode terminal assistant config
+│   │   └── install-plugins.md   Plugin installation guide
+│   ├── llama-server/
+│   │   └── qwen-server.service  systemd unit for autostart
+│   └── repomix/
+│       └── repomix.config.json  Repomix codebase packing config
 │
 └── docs/                   documentation (Diátaxis)
     ├── index.md

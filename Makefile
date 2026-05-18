@@ -80,7 +80,7 @@ help:
 	@echo ""
 	@echo "  LITELLM:"
 	@echo "  make litellm-start      Sobe LiteLLM proxy (porta 4000) com config pronta"
-	@echo "  (config: infra/litellm_config.yaml — já inclui context_window correto)"
+	@echo "  (config: infra/litellm/config.yaml — já inclui context_window correto)"
 	@echo ""
 	@echo "  API: http://localhost:8000/v1  |  Modelo: qwen3"
 	@echo ""
@@ -301,7 +301,7 @@ test:
 	@$(PYTHON) "$(PROJECT_ROOT)/tests/test_api.py"
 
 install-service:
-	@sudo cp "$(PROJECT_ROOT)/infra/qwen-server.service" /etc/systemd/system/
+	@sudo cp "$(PROJECT_ROOT)/infra/llama-server/qwen-server.service" /etc/systemd/system/
 	@sudo systemctl daemon-reload
 	@echo "Serviço registrado (NÃO habilitado no boot)."
 	@echo "  make enable-service   → ativa auto-start no boot"
@@ -366,10 +366,10 @@ litellm-start:
 		$(PIP) install --quiet litellm; \
 	fi
 	@echo "Subindo LiteLLM proxy em http://localhost:4000 ..."
-	@echo "  config: infra/litellm_config.yaml"
+	@echo "  config: infra/litellm/config.yaml"
 	@echo "  use model_name=qwen nos seus projetos"
 	@echo ""
-	$(VENV)/bin/litellm --config "$(PROJECT_ROOT)/infra/litellm_config.yaml" --port 4000
+	$(VENV)/bin/litellm --config "$(PROJECT_ROOT)/infra/litellm/config.yaml" --port 4000
 
 ##############################################################################
 # LIMPEZA

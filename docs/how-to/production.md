@@ -34,7 +34,7 @@ sudo journalctl -u qwen-server -f       # live logs
 ### Install manually (without Makefile)
 
 ```bash
-sudo cp infra/qwen-server.service /etc/systemd/system/
+sudo cp infra/llama-server/qwen-server.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now qwen-server
 ```
