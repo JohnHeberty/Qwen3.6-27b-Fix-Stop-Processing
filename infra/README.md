@@ -7,11 +7,130 @@ integrating with LiteLLM Gateway and OpenCode.
 
 ## Files
 
-| File | Purpose |
-|---|---|
-| `qwen-server.service` | systemd unit — auto-start llama-server on boot |
-| `litellm_config.yaml` | LiteLLM Gateway proxy configuration |
-| `opencode.json` | OpenCode terminal AI assistant configuration |
+| File | Scope | Purpose |
+|---|---|---|
+| `install-top-plugins.md` | global (once) | OpenCode plugins to install on the machine |
+| `opencode.json` | global or per-project | OpenCode base configuration |
+| `repomix.config.json` | per-project | Repomix config — clean codebase packing for context |
+| `litellm_config.yaml` | server | LiteLLM Gateway proxy configuration |
+| `qwen-server.service` | system | systemd unit — auto-start llama-server on boot |
+
+---
+
+## Project Setup Guide
+
+How to configure a new project before opening OpenCode for the best results.
+
+### Step 1 — Start the server
+
+```bash
+make start       # foreground
+make start-bg    # background (recommended for daily use)
+```
+
+Verify: `curl -s http://localhost:8000/v1/models` should return `{"data":[{"id":"qwen3",...}]}`.
+
+---
+
+### Step 2 — Install OpenCode plugins (once per machine)
+
+See [`install-top-plugins.md`](install-top-plugins.md) for the full list. Run these once globally:
+
+```bash
+opencode plugin @tarquinen/opencode-dcp@latest --global
+opencode plugin opencode-pty@latest --global
+opencode plugin opencode-websearch-cited@1.2.0 --global
+
+# Serena MCP (LSP-aware code intelligence)
+docker pull ghcr.io/oraios/serena:1.2.0
+```
+
+Verify: `opencode plugin list` should show the installed plugins.
+
+---
+
+### Step 3 — Configure OpenCode
+
+**Option A — Global config** (recommended, applies to all projects):
+
+```bash
+mkdir -p ~/.config/opencode
+cp infra/opencode.json ~/.config/opencode/config.json
+```
+
+**Option B — Per-project config** (overrides global for that specific project):
+
+```bash
+cp infra/opencode.json ~/your-project/opencode.json
+```
+
+OpenCode loads `opencode.json` from the **project root first**, then falls back to
+`~/.config/opencode/config.json`. Use per-project when you need different models or
+permissions for a specific project.
+
+Key settings in the provided config:
+
+| Setting | Value | Why |
+|---|---|---|
+| `model` | `qwen-local/qwen3` | Default model — the local llama-server |
+| `limit.context` | `59,392` | Aligned with LiteLLM `max_input_tokens` |
+| `limit.output` | `4,096` | Leaves room within the 63,488 hard limit |
+| `compaction.auto` | `true` | Auto-prunes history before hitting the limit |
+| `compaction.reserved` | `4,096` | Buffer kept free during compaction |
+| `permission.*` | `allow` | All tools pre-approved — no prompts during sessions |
+
+---
+
+### Step 4 — Add Repomix config to your project
+
+[Repomix](https://github.com/yamadashy/repomix) packs your entire codebase into a single
+file that OpenCode can use as context. The provided config ignores binaries, lock files,
+and build artifacts — keeping the packed output clean and token-efficient.
+
+```bash
+cp infra/repomix.config.json ~/your-project/repomix.config.json
+```
+
+To generate a codebase pack (useful before starting a large refactor):
+
+```bash
+cd ~/your-project
+npx repomix   # outputs repomix-output.xml
+```
+
+OpenCode's Repomix MCP plugin can also run this automatically during a session.
+
+---
+
+### Step 5 — (Optional) LiteLLM Gateway
+
+Use LiteLLM when the llama-server is on a **different machine** or when you want a proxy
+with context validation and fallbacks.
+
+```bash
+make litellm-start   # starts proxy at http://localhost:4000
+```
+
+Then in your `opencode.json`, change the provider `baseURL` to:
+```json
+"baseURL": "http://<server-ip>:4000/v1"
+```
+
+And change the model name from `qwen-local/qwen3` to `litellm/qwen`.
+
+---
+
+### Pre-flight checklist
+
+Before opening OpenCode in a project:
+
+```
+□ make status          → server RUNNING at :8000
+□ opencode plugin list → @tarquinen/opencode-dcp, opencode-pty, opencode-websearch-cited
+□ opencode.json        → in ~/.config/opencode/ or project root
+□ repomix.config.json  → in project root
+□ (optional) make litellm-start → proxy at :4000
+```
 
 ---
 

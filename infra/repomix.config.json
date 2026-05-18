@@ -1,0 +1,45 @@
+{
+  "output": {
+    "style": "xml",
+    "removeComments": true,
+    "removeEmptyLines": true,
+    "showLineNumbers": false,
+    "truncateBase64": true,
+    "topFilesLength": 20
+  },
+  "ignore": {
+    "customPatterns": [
+      "node_modules/**",
+      "vendor/**",
+      "dist/**",
+      "build/**",
+      ".git/**",
+      ".next/**",
+      ".nuxt/**",
+      "coverage/**",
+      "logs/**",
+      "*.log",
+      "*.lock",
+      "package-lock.json",
+      "yarn.lock",
+      "pnpm-lock.yaml",
+      "*.min.js",
+      "*.map",
+      "*.png",
+      "*.jpg",
+      "*.jpeg",
+      "*.webp",
+      "*.gif",
+      "*.ico",
+      "*.pdf",
+      "*.zip",
+      "*.rar",
+      "*.7z",
+      "*.exe",
+      "*.dll"
+    ]
+  },
+  "security": {
+    "enableSecurityCheck": true
+  }
+}

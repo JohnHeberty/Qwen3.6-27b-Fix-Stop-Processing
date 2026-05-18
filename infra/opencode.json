@@ -21,6 +21,7 @@
   },
   "plugin": [
     "opencode-pty",
+    "@tarquinen/opencode-dcp",
     "opencode-websearch-cited@1.2.0"
   ],
   "compaction": {
