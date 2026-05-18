@@ -38,14 +38,13 @@ See details in [explanation/template-v18.md](template-v18.md).
 
 The pip package (`llama-cpp-python`) uses a generic pre-compiled binary. Compiling from source with `-DGGML_CUDA=ON` ensures:
 - Full GPU usage (all layers offloaded)
-- Source patches applied (disable fused GDN — required for the Qwen3_5 hybrid architecture on SM 8.6)
 - Optimizations specific to the target card
 
 ---
 
 ## Qwen3_5 architecture
 
-Qwen3.6 27B uses the **hybrid Qwen3_5 architecture**: 64 layers total, with 48 linear attention layers (DeltaNet/GDN) and 16 full attention layers. The **Fused Gated Delta Net** CUDA kernel has a bug on SM 8.6 GPUs (RTX 3090) that produces invalid output. The Makefile applies a source patch to llama.cpp to disable this kernel before compiling.
+Qwen3.6 27B uses the **hybrid Qwen3_5 architecture**: 64 layers total, with 48 linear attention layers (DeltaNet/GDN) and 16 full attention layers.
 
 ---
 
