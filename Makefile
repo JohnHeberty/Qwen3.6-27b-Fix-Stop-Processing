@@ -301,6 +301,7 @@ test:
 	@$(PYTHON) "$(PROJECT_ROOT)/tests/test_api.py"
 
 install-service:
+	@chmod +x "$(PROJECT_ROOT)/scripts/start-server.sh" "$(PROJECT_ROOT)/scripts/setup.sh"
 	@sudo cp "$(PROJECT_ROOT)/infra/llama-server/qwen-server.service" /etc/systemd/system/
 	@sudo systemctl daemon-reload
 	@echo "Serviço registrado (NÃO habilitado no boot)."
