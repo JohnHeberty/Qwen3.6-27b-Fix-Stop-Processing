@@ -22,7 +22,7 @@ cp .env.example .env
 | `PORT` | `8000` | no | Server listening port |
 | `SERVED_NAME` | `qwen3` | no | Model name exposed in the API (`/v1/models`) |
 | `N_GPU_LAYERS` | `-1` | no | Layers to offload to GPU. `-1` = all |
-| `N_CTX` | `98304` | no | Maximum context size in tokens (zero-penalty ceiling on RTX 3090) |
+| `N_CTX` | `81920` | no | Maximum context size in tokens (zero-penalty ceiling on RTX 3090) |
 | `N_BATCH` | `512` | no | Batch size for prompt processing |
 | `N_PARALLEL` | `1` | no | Number of parallel request slots. **Keep at `1`** — with `auto` (-1) the server splits the KV cache across detected connections, reducing tokens per slot |
 
@@ -50,7 +50,7 @@ CUDA_HOME=/usr/local/cuda
 PORT=8000
 SERVED_NAME=qwen3
 N_GPU_LAYERS=-1
-N_CTX=98304
+N_CTX=81920
 N_BATCH=512
 ```
 

@@ -190,7 +190,7 @@ curl http://localhost:8000/v1/models
 
 | Parameter | Value |
 |---|---|
-| Total context | 98,304 tokens |
-| Effective input space | ~94,208 tokens (98,304 − 4,096 output headroom) |
+| Total context | 81,920 tokens |
+| Effective input space | ~77,824 tokens (81,920 − 4,096 output headroom) |
 | Recommended `max_tokens` | 512–8,192 |
 | Minimum `max_tokens` (thinking mode) | 300 |

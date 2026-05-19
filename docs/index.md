@@ -49,4 +49,4 @@ For those who want to understand the technical decisions behind the project.
 
 ---
 
-*Server running at `http://localhost:8000/v1` · model `qwen3` · 98,304 token context*
+*Server running at `http://localhost:8000/v1` · model `qwen3` · 81,920 token context*
