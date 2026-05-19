@@ -75,8 +75,8 @@ Key settings in the provided config:
 | Setting | Value | Why |
 |---|---|---|
 | `model` | `qwen-local/qwen3` | Default model — the local llama-server |
-| `limit.context` | `59,392` | Aligned with LiteLLM `max_input_tokens` |
-| `limit.output` | `4,096` | Leaves room within the 63,488 hard limit |
+| `limit.context` | `94,208` | Aligned with LiteLLM `max_input_tokens` |
+| `limit.output` | `4,096` | Leaves room within the 98,304 hard limit |
 | `compaction.auto` | `true` | Auto-prunes history before hitting the limit |
 | `compaction.reserved` | `4,096` | Buffer kept free during compaction |
 | `permission.*` | `allow` | All tools pre-approved — no prompts during sessions |
@@ -162,27 +162,23 @@ Before opening OpenCode in a project:
 Understanding the token budget is critical to avoid `Context size has been exceeded` errors.
 
 ```
-llama-server hard limit:     63,488 tokens  (--ctx-size 63488)
+llama-server hard limit:     98,304 tokens  (--ctx-size 98304, zero-penalty on RTX 3090)
 Reserved for output:        - 4,096 tokens  (max_output_tokens / limit.output)
                             ──────────────
-Effective input budget:      59,392 tokens  ← aggressive option adopted
+Effective input budget:      94,208 tokens
 ```
 
-**Why 59,392 and not the full 63,488?**
+**Why 94,208 and not the full 98,304?**
 
-If `max_input_tokens` equals the total context, a request with `input=63488 + output=4096`
-would exceed the server's hard limit of 63,488. LiteLLM and OpenCode need room to fit
+If `max_input_tokens` equals the total context, a request with `input=98304 + output=4096`
+would exceed the server's hard limit of 98,304. LiteLLM and OpenCode need room to fit
 the output tokens inside the same context window.
 
-**Conservative vs aggressive:**
+**Why 98,304 as the limit?**
 
-| Option | `max_input_tokens` | Input headroom | Safety margin |
-|---|---|---|---|
-| Conservative | 51,200 | 12,288 spare tokens | High — absorbs tools, system prompt, compaction overhead |
-| **Aggressive (adopted)** | **59,392** | **4,096 spare tokens** | Tight — maximizes usable context, requires `max_output_tokens` to be respected |
-
-The aggressive option (`59,392`) was adopted here. It maximizes the effective input window
-at the cost of a smaller safety margin. If context errors reappear, fall back to `51,200`.
+Benchmarks on RTX 3090 show that up to 98,304 tokens the inference speed is identical to
+63,488 (~35 tok/s, fully in VRAM, RSS ~1.5 GB). At 114,688 the speed drops to ~10 tok/s
+and RSS doubles. See the benchmark table in the root README for full data.
 
 ---
 
@@ -192,7 +188,7 @@ at the cost of a smaller safety margin. If context errors reappear, fall back to
 
 ```yaml
 model_info:
-  max_input_tokens: 59392   # aggressive — 63488 minus output budget
+  max_input_tokens: 94208   # 98304 minus output budget (4096)
   max_output_tokens: 4096   # must match max_tokens in litellm_params
 ```
 
@@ -240,7 +236,7 @@ requests at the router level instead of letting them fail on the server.
 
 ```json
 "limit": {
-  "context": 59392,
+  "context": 94208,
   "output": 4096
 }
 ```
@@ -264,8 +260,8 @@ trigger compaction (pruning old conversation turns) before sending a request.
 | `prune` | `true` | Removes old assistant output turns to free space |
 | `reserved` | `4096` | Tokens kept as buffer during compaction |
 
-With `context: 59392` and `reserved: 4096`, compaction triggers before the conversation
-reaches 59,392 tokens, keeping `4,096` tokens free. If context errors persist, increase
+With `context: 94208` and `reserved: 4096`, compaction triggers before the conversation
+reaches 94,208 tokens, keeping `4,096` tokens free. If context errors persist, increase
 `reserved` to `8192` or `12000`.
 
 ### Permissions
@@ -285,13 +281,13 @@ connections are detected, the server automatically creates **2 slots** and **div
 KV cache between them**:
 
 ```
---ctx-size 63488 + auto parallel = 2 slots
-→ 63,488 ÷ 2 = 31,744 tokens per slot
-→ LiteLLM sends up to 59,392 tokens → exceeds 31,744 → "Context size has been exceeded"
+--ctx-size 98304 + auto parallel = 2 slots
+→ 98,304 ÷ 2 = 49,152 tokens per slot
+→ LiteLLM sends up to 94,208 tokens → exceeds 49,152 → "Context size has been exceeded"
 ```
 
 **Fix:** force `--parallel 1` so the server always uses a single slot with the full
-63,488 token KV cache and processes requests sequentially (queued).
+98,304 token KV cache and processes requests sequentially (queued).
 
 This is now set via `N_PARALLEL=1` in `.env` and passed as `--parallel "$N_PARALLEL"` in
 `scripts/start-server.sh`. **Restart the server after pulling this change:**
@@ -318,7 +314,7 @@ Confirm the server was started with the correct context size and parallelism:
 # Check running process
 ps aux | grep llama-server | grep -v grep
 
-# Should show: --ctx-size 63488 --parallel 1
+# Should show: --ctx-size 98304 --parallel 1
 ```
 
 Or via the API:
@@ -326,10 +322,10 @@ Or via the API:
 ```bash
 curl -s http://localhost:8000/v1/models | python3 -c \
   "import json,sys; d=json.load(sys.stdin); print('n_ctx:', d['data'][0]['meta']['n_ctx'])"
-# → n_ctx: 63488
+# → n_ctx: 98304
 ```
 
-If `n_ctx` is less than `63488`, the server was started with a different `N_CTX` value.
+If `n_ctx` is less than `98304`, the server was started with a different `N_CTX` value.
 Check `.env` and restart with `make restart`.
 
 ---
@@ -356,13 +352,13 @@ cp infra/opencode/config.json ~/your-project/opencode.json
 ## Token budget summary
 
 ```
-llama-server  : 63,488 total
-LiteLLM input : 59,392 (max_input_tokens)
+llama-server  : 98,304 total  (zero-penalty ceiling on RTX 3090, benchmarked)
+LiteLLM input : 94,208 (max_input_tokens)
 LiteLLM output:  4,096 (max_output_tokens)
-OpenCode ctx  : 59,392 (limit.context)
+OpenCode ctx  : 94,208 (limit.context)
 OpenCode out  :  4,096 (limit.output)
 Compaction buf:  4,096 (reserved)
 ```
 
-All values are aligned. A request that uses the full input budget (59,392 tokens) plus
-the output budget (4,096 tokens) equals 63,488 — exactly the server's hard limit.
+All values are aligned. A request that uses the full input budget (94,208 tokens) plus
+the output budget (4,096 tokens) equals 98,304 — exactly the server's hard limit.

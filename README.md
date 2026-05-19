@@ -7,7 +7,7 @@ The community has been reporting these problems ([Reddit](https://www.reddit.com
 - **Broken tool calling and thinking mode** — the official GGUF ships with a Jinja2 template that has critical bugs in KV cache handling, `<think>` block termination, and function call formatting. Fixed here by patching the template v18 directly into the GGUF binary.
 - **KV cache split across concurrent connections** — when `--parallel N` is used and multiple requests arrive simultaneously, llama-server creates N slots and divides the context window between them (63,488 ÷ 2 = 31,744 tokens per slot), causing "Context size exceeded" errors under LiteLLM or agentic workloads. Fixed here by forcing `--parallel 1` so the full 63,488-token KV cache is always available to each request.
 
-The result is a validated setup that actually works: 63,488 token context, functional tool calling, stable thinking mode, and a warm KV cache across requests.
+The result is a validated setup that actually works: **98,304 token context** (maximum without performance penalty on RTX 3090), functional tool calling, stable thinking mode, and a warm KV cache across requests.
 
 ---
 
@@ -37,10 +37,10 @@ Inference: 200 tokens generated, 27-token prompt. RSS = `llama-server` process s
 - **256k é inviável:** 13 GB de RAM, 77 s para 200 tokens (2.6 tok/s).
 - A lentidão não é só tamanho de prompt — o Qwen3_5 tem 48 camadas DeltaNet/GDN com estado recorrente que escala com `N_CTX`, então mesmo um prompt curto fica lento num contexto grande.
 
-**Recomendação:** `N_CTX=63488` para uso diário (padrão). Use `N_CTX=98304` se precisar de contexto longo sem abrir mão de velocidade.
+**Recomendação:** `N_CTX=98304` (padrão atual — máximo sem penalidade de velocidade no RTX 3090).
 
 > Local inference server for **Qwen3.6 27B** using [llama-server](https://github.com/ggml-org/llama.cpp) with GGUF Q4_K_M model.  
-> 100% OpenAI-compatible API · Thinking mode · Tool calling · **63,488 token context**
+> 100% OpenAI-compatible API · Thinking mode · Tool calling · **98,304 token context** (96k, zero-penalty on RTX 3090)
 
 **Tested and validated on: Zotac GeForce RTX 3090 Trinity OC · 24,576 MB VRAM · Driver 590.48.01 · Debian 12 · CUDA 12.8**
 
@@ -56,7 +56,7 @@ Inference: 200 tokens generated, 27-token prompt. RSS = `llama-server` process s
 | RAM | 16 GB | 32 GB |
 | Free disk space | 25 GB | 30 GB |
 
-> The Q4_K_M model uses ~16 GB of VRAM. With 24,576 MB (RTX 3090), ~8 GB remain for KV cache — enough for **63,488 tokens** of context.
+> The Q4_K_M model uses ~16 GB of VRAM. With 24,576 MB (RTX 3090), ~6.5 GB remain for KV cache — enough for **98,304 tokens** of context at full speed (benchmarked).
 
 ### Software
 
@@ -235,7 +235,7 @@ A ready-to-use config is available at `infra/litellm/config.yaml`. To start the 
 make litellm-start
 ```
 
-In your projects, point to `http://localhost:4000` with `model="qwen"`. The config already includes `context_window: 63488` to prevent the `Context size has been exceeded` error.
+In your projects, point to `http://localhost:4000` with `model="qwen"`. The config already includes `max_input_tokens: 94208` to prevent the `Context size has been exceeded` error.
 
 ---
 

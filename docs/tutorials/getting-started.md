@@ -14,7 +14,7 @@ From zero to a running server.
 | RAM | 16 GB | 32 GB |
 | Free disk space | 25 GB | 30 GB |
 
-> The Q4_K_M model uses ~16 GB of VRAM. With 24,576 MB (RTX 3090), ~8 GB remain for KV cache — enough for 63,488 tokens of context.
+> The Q4_K_M model uses ~16 GB of VRAM. With 24,576 MB (RTX 3090), ~6.5 GB remain for KV cache — enough for 98,304 tokens at full speed (benchmarked).
 
 ### Software
 

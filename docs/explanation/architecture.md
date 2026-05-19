@@ -15,11 +15,11 @@ A local inference server for **Qwen3.6 27B** with an OpenAI-compatible API. Any 
 | Aspect | vLLM (previous) | llama-server (current) |
 |---|---|---|
 | Model format | AWQ (safetensors, ~20 GB) | GGUF Q4_K_M (~16 GB) |
-| Context on RTX 3090 | 6,272 tokens | 63,488 tokens |
+| Context on RTX 3090 | 6,272 tokens | 98,304 tokens |
 | Customizable template | no (limited) | yes (binary patch directly in GGUF) |
 | Compilation required | no | yes (with CUDA) |
 
-The AWQ safetensors model with the Qwen3_5 DeltaNet+Mamba architecture left only ~6,272 tokens of context available on the RTX 3090. The GGUF Q4_K_M uses 16 GB of VRAM for weights, leaving ~8 GB for KV cache — enough for 63,488 tokens.
+The AWQ safetensors model with the Qwen3_5 DeltaNet+Mamba architecture left only ~6,272 tokens of context available on the RTX 3090. The GGUF Q4_K_M uses 16 GB of VRAM for weights, leaving ~6.5 GB for KV cache — enough for 98,304 tokens at full speed (benchmarked, zero inference penalty vs 63k).
 
 ### Why GGUF Q4_K_M?
 
