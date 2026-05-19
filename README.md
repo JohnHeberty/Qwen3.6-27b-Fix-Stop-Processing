@@ -16,29 +16,29 @@ The result is a validated setup that actually works: **81,920 token context** (m
 All measurements: Q4_K_M · `--n-gpu-layers -1` · `--parallel 1` · Debian 13 · Driver 590.48.01.  
 Inference: 200 tokens generated, 27-token prompt. RSS = `llama-server` process system RAM.
 
-> ⚠️ **Nota metodológica:** a coluna RSS mede o processo após a **primeira inferência real**. Medições feitas antes da primeira inferência subestimam o RSS em até 6 GB (os buffers CUDA de cálculo só são alocados ao processar o primeiro request).
+| `N_CTX` | Context | VRAM used | VRAM free | 200 tok time | tok/s | Viable? |
+|---|---|---|---|---|---|---|
+| 63,488 | 62k | 20,582 MiB | 3,544 MiB | 5.6 s | 35.7 | ✓ |
+| 65,536 | 64k | 20,704 MiB | 3,422 MiB | 5.5 s | 36.4 | ✓ |
+| 81,920 | **80k** | 21,728 MiB | 2,398 MiB | 5.6 s | 35.8 | ✓ padrão |
+| 98,304 | 96k | 22,752 MiB | 1,374 MiB | 5.6 s | 35.7 | ✓ |
+| 114,688 | 112k | 22,768 MiB | 1,358 MiB | 19.6 s | 10.2 | ⚠️ |
+| 131,072 | 128k | 22,356 MiB | 1,770 MiB | 37.2 s | 5.4 | ⚠️ |
+| 163,840 | 160k | 22,852 MiB | 1,274 MiB | 43.7 s | 4.6 | ⚠️ |
+| 196,608 | 192k | 22,846 MiB | 1,280 MiB | 57.9 s | 3.5 | ⚠️ |
+| 229,376 | 224k | 22,842 MiB | 1,284 MiB | 73.6 s | 2.7 | ⚠️ |
+| 262,144 | 256k | 22,786 MiB | 1,340 MiB | 77.2 s | 2.6 | ✗ |
 
-| `N_CTX` | Context | VRAM used | VRAM free | RSS pós-inferência | 200 tok time | tok/s | Viable? |
-|---|---|---|---|---|---|---|---|
-| 63,488 | **62k** | 20,582 MiB | 3,544 MiB | **1.5 GB** | 5.6 s | 35.7 | ✓ padrão |
-| 65,536 | 64k | 20,704 MiB | 3,422 MiB | ~1.5 GB | 5.5 s | 36.4 | ✓ |
-| 81,920 | 80k | 21,728 MiB | 2,398 MiB | ~1.5 GB | 5.6 s | 35.8 | ✓ |
-| 98,304 | 96k | 22,752 MiB | 1,374 MiB | **~8 GB** | 5.6 s | 35.7 | ⚠️ só com ≥ 32 GB RAM |
-| 114,688 | 112k | 22,768 MiB | 1,358 MiB | ~8–9 GB | 19.6 s | 10.2 | ⚠️ |
-| 131,072 | 128k | 22,356 MiB | 1,770 MiB | ~9 GB | 37.2 s | 5.4 | ⚠️ |
-| 163,840 | 160k | 22,852 MiB | 1,274 MiB | ~10 GB | 43.7 s | 4.6 | ⚠️ |
-| 196,608 | 192k | 22,846 MiB | 1,280 MiB | ~11 GB | 57.9 s | 3.5 | ⚠️ |
-| 229,376 | 224k | 22,842 MiB | 1,284 MiB | ~13 GB | 73.6 s | 2.7 | ⚠️ |
-| 262,144 | 256k | 22,786 MiB | 1,340 MiB | ~13 GB | 77.2 s | 2.6 | ✗ |
+> **Nota sobre RAM do sistema:** o RSS do processo oscila entre 1 GB e 9 GB independentemente do `N_CTX` — é o CUDA alocando e liberando buffers de computação durante a inferência, não o KV cache. O VRAM é o indicador correto: ele fica fixo após o startup e não cresce durante a inferência.
 
 **Conclusões:**
 
-- **63k–80k: zero penalidade real.** RSS estável em ~1.5 GB, mesmo tok/s. É o range seguro em qualquer máquina.
-- **96k (98,304): mesmo tok/s (35.7) mas RAM sobe para ~8 GB** após a primeira inferência — o CUDA aloca buffers de cálculo grandes para o contexto inteiro. Funciona bem em máquinas com ≥ 32 GB RAM.
-- **De 112k em diante: penalidade dupla** — RAM cresce E tok/s cai (35 → 10). Não recomendado para uso diário.
+- **Até 96k (98,304): zero penalidade de velocidade.** VRAM sobe linearmente, tok/s idêntico (~35). O KV cache cabe inteiro na VRAM.
+- **A fronteira está entre 96k e 112k:** de 98k para 114k o tok/s cai de 35 para 10 — o KV cache passa a disputar VRAM com os buffers de cálculo.
+- **De 112k em diante: penalidade grave** — tok/s cai continuamente (35 → 10 → 5 → 3 → 2).
 - **256k é inviável:** 77 s para 200 tokens (2.6 tok/s).
 
-**Recomendação:** `N_CTX=81920` (padrão atual — 80k, zero penalidade de velocidade e RAM). Use `N_CTX=98304` se tiver ≥ 32 GB RAM e precisar de 96k.
+**Recomendação:** `N_CTX=81920` (padrão — 80k, boa margem de VRAM livre, mesmo tok/s do 63k).
 
 > Local inference server for **Qwen3.6 27B** using [llama-server](https://github.com/ggml-org/llama.cpp) with GGUF Q4_K_M model.  
 > 100% OpenAI-compatible API · Thinking mode · Tool calling · **81,920 token context** (96k, zero-penalty on RTX 3090)
