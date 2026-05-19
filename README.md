@@ -16,28 +16,29 @@ The result is a validated setup that actually works: **98,304 token context** (m
 All measurements: Q4_K_M · `--n-gpu-layers -1` · `--parallel 1` · Debian 13 · Driver 590.48.01.  
 Inference: 200 tokens generated, 27-token prompt. RSS = `llama-server` process system RAM.
 
-| `N_CTX` | Context | VRAM used | VRAM free | RSS (RAM) | 200 tok time | tok/s | Viable? |
+> ⚠️ **Nota metodológica:** a coluna RSS mede o processo após a **primeira inferência real**. Medições feitas antes da primeira inferência subestimam o RSS em até 6 GB (os buffers CUDA de cálculo só são alocados ao processar o primeiro request).
+
+| `N_CTX` | Context | VRAM used | VRAM free | RSS pós-inferência | 200 tok time | tok/s | Viable? |
 |---|---|---|---|---|---|---|---|
-| 63,488 | **62k** | 20,582 MiB | 3,544 MiB | 1.4 GB | 5.6 s | 35.7 | ✓ |
-| 65,536 | **64k** | 20,704 MiB | 3,422 MiB | 1.4 GB | 5.5 s | 36.4 | ✓ |
-| 81,920 | **80k** | 21,728 MiB | 2,398 MiB | 1.4 GB | 5.6 s | 35.8 | ✓ |
-| 98,304 | **96k** | 22,752 MiB | 1,374 MiB | 1.5 GB | 5.6 s | 35.7 | ✓ ← máximo sem penalidade |
-| 114,688 | 112k | 22,768 MiB | 1,358 MiB | 2.9 GB | 19.6 s | 10.2 | ⚠️ |
-| 131,072 | 128k | 22,356 MiB | 1,770 MiB | 4.4 GB | 37.2 s | 5.4 | ⚠️ |
-| 163,840 | 160k | 22,852 MiB | 1,274 MiB | 6.2 GB | 43.7 s | 4.6 | ⚠️ |
-| 196,608 | 192k | 22,846 MiB | 1,280 MiB | 8.5 GB | 57.9 s | 3.5 | ⚠️ |
-| 229,376 | 224k | 22,842 MiB | 1,284 MiB | 10.7 GB | 73.6 s | 2.7 | ⚠️ |
-| 262,144 | 256k | 22,786 MiB | 1,340 MiB | 13.1 GB | 77.2 s | 2.6 | ✗ |
+| 63,488 | **62k** | 20,582 MiB | 3,544 MiB | **1.5 GB** | 5.6 s | 35.7 | ✓ padrão |
+| 65,536 | 64k | 20,704 MiB | 3,422 MiB | ~1.5 GB | 5.5 s | 36.4 | ✓ |
+| 81,920 | 80k | 21,728 MiB | 2,398 MiB | ~1.5 GB | 5.6 s | 35.8 | ✓ |
+| 98,304 | 96k | 22,752 MiB | 1,374 MiB | **~8 GB** | 5.6 s | 35.7 | ⚠️ só com ≥ 16 GB RAM livre |
+| 114,688 | 112k | 22,768 MiB | 1,358 MiB | ~8–9 GB | 19.6 s | 10.2 | ⚠️ |
+| 131,072 | 128k | 22,356 MiB | 1,770 MiB | ~9 GB | 37.2 s | 5.4 | ⚠️ |
+| 163,840 | 160k | 22,852 MiB | 1,274 MiB | ~10 GB | 43.7 s | 4.6 | ⚠️ |
+| 196,608 | 192k | 22,846 MiB | 1,280 MiB | ~11 GB | 57.9 s | 3.5 | ⚠️ |
+| 229,376 | 224k | 22,842 MiB | 1,284 MiB | ~13 GB | 73.6 s | 2.7 | ⚠️ |
+| 262,144 | 256k | 22,786 MiB | 1,340 MiB | ~13 GB | 77.2 s | 2.6 | ✗ |
 
 **Conclusões:**
 
-- **Até 96k (98,304): zero penalidade.** VRAM sobe linearmente, RSS fica em ~1.5 GB, tok/s idêntico ao 63k. O llama.cpp mantém o KV cache inteiramente na VRAM.
-- **A fronteira está entre 96k e 112k.** De 98k para 114k o RSS dobra (1.5 → 2.9 GB) e o tok/s cai de 35 para 10 — o KV cache começa a transbordar para RAM do sistema.
-- **De 128k a 224k o VRAM mal varia** — o llama.cpp pré-aloca em blocos grandes, mas a RAM do sistema cresce continuamente (~2 GB por 32k tokens extras) e a inferência fica cada vez mais lenta.
-- **256k é inviável:** 13 GB de RAM, 77 s para 200 tokens (2.6 tok/s).
-- A lentidão não é só tamanho de prompt — o Qwen3_5 tem 48 camadas DeltaNet/GDN com estado recorrente que escala com `N_CTX`, então mesmo um prompt curto fica lento num contexto grande.
+- **63k–80k: zero penalidade real.** RSS estável em ~1.5 GB, mesmo tok/s. É o range seguro em qualquer máquina.
+- **96k (98,304): mesmo tok/s (35.7) mas RAM sobe para ~8 GB** após a primeira inferência — o CUDA aloca buffers de cálculo grandes para o contexto inteiro. Funciona bem em máquinas com ≥ 32 GB RAM.
+- **De 112k em diante: penalidade dupla** — RAM cresce E tok/s cai (35 → 10). Não recomendado para uso diário.
+- **256k é inviável:** 77 s para 200 tokens (2.6 tok/s).
 
-**Recomendação:** `N_CTX=98304` (padrão atual — máximo sem penalidade de velocidade no RTX 3090).
+**Recomendação:** `N_CTX=63488` (padrão — máxima velocidade, mínima RAM). Use `N_CTX=98304` se tiver ≥ 32 GB RAM e precisar de contexto de 96k.
 
 > Local inference server for **Qwen3.6 27B** using [llama-server](https://github.com/ggml-org/llama.cpp) with GGUF Q4_K_M model.  
 > 100% OpenAI-compatible API · Thinking mode · Tool calling · **98,304 token context** (96k, zero-penalty on RTX 3090)
