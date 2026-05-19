@@ -86,6 +86,9 @@ echo ""
 
 # ── Iniciar servidor ───────────────────────────────────────────────────────────
 
+EXTRA_FLAGS=""
+[ "${NO_MMAP:-1}" = "1" ] && EXTRA_FLAGS="$EXTRA_FLAGS --no-mmap"
+
 exec "$LLAMA_SERVER" \
     --model        "$MODEL_PATH"   \
     --n-gpu-layers "$N_GPU_LAYERS" \
@@ -95,4 +98,5 @@ exec "$LLAMA_SERVER" \
     --host         0.0.0.0         \
     --port         "$PORT"         \
     --alias        "$SERVED_NAME"  \
-    --jinja
+    --jinja        \
+    $EXTRA_FLAGS
