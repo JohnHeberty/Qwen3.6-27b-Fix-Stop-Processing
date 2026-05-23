@@ -16,8 +16,20 @@ MODEL_FILE="${MODEL_FILE:-Qwen3.6-27B-Q4_K_M.gguf}"
 PORT="${PORT:-8000}"
 SERVED_NAME="${SERVED_NAME:-qwen3}"
 N_GPU_LAYERS="${N_GPU_LAYERS:--1}"
-N_CTX="${N_CTX:-63488}"
+N_CTX="${N_CTX:-81920}"
 N_BATCH="${N_BATCH:-512}"
+
+# Parâmetros de amostragem (ajustáveis no .env)
+TEMPERATURE="${TEMPERATURE:-0.6}"
+TOP_K="${TOP_K:-20}"
+TOP_P="${TOP_P:-0.95}"
+MIN_P="${MIN_P:-0.05}"
+REPEAT_PENALTY="${REPEAT_PENALTY:-1.05}"
+REPEAT_LAST_N="${REPEAT_LAST_N:-64}"
+FREQUENCY_PENALTY="${FREQUENCY_PENALTY:-0.1}"
+PRESENCE_PENALTY="${PRESENCE_PENALTY:-0.0}"
+SEED="${SEED:--1}"
+N_PREDICT="${N_PREDICT:--1}"
 
 MODEL_PATH="$MODEL_DIR/$MODEL_FILE"
 
@@ -56,6 +68,9 @@ echo "Porta     : $PORT  (Ollama em 11434)"
 echo "GPU layers: $N_GPU_LAYERS (todos na GPU)"
 echo "Contexto  : $N_CTX tokens"
 echo "Nome API  : $SERVED_NAME"
+echo "Sampling  : temp=$TEMPERATURE top_k=$TOP_K top_p=$TOP_P min_p=$MIN_P"
+echo "            repeat=$REPEAT_PENALTY(last $REPEAT_LAST_N) freq=$FREQUENCY_PENALTY pres=$PRESENCE_PENALTY"
+echo "            seed=$SEED n_predict=$N_PREDICT"
 echo ""
 
 # ── Liberar VRAM do Ollama antes de iniciar ────────────────────────────────────
@@ -90,13 +105,23 @@ EXTRA_FLAGS=""
 [ "${NO_MMAP:-1}" = "1" ] && EXTRA_FLAGS="$EXTRA_FLAGS --no-mmap"
 
 exec "$LLAMA_SERVER" \
-    --model        "$MODEL_PATH"   \
-    --n-gpu-layers "$N_GPU_LAYERS" \
-    --ctx-size     "$N_CTX"        \
-    --batch-size   "$N_BATCH"      \
-    --parallel     "${N_PARALLEL:-1}" \
-    --host         0.0.0.0         \
-    --port         "$PORT"         \
-    --alias        "$SERVED_NAME"  \
-    --jinja        \
+    --model            "$MODEL_PATH"        \
+    --n-gpu-layers     "$N_GPU_LAYERS"      \
+    --ctx-size         "$N_CTX"             \
+    --batch-size       "$N_BATCH"           \
+    --parallel         "${N_PARALLEL:-1}"   \
+    --host             0.0.0.0              \
+    --port             "$PORT"              \
+    --alias            "$SERVED_NAME"       \
+    --jinja                                 \
+    --temp             "$TEMPERATURE"       \
+    --top-k            "$TOP_K"             \
+    --top-p            "$TOP_P"             \
+    --min-p            "$MIN_P"             \
+    --repeat-penalty   "$REPEAT_PENALTY"    \
+    --repeat-last-n    "$REPEAT_LAST_N"     \
+    --frequency-penalty "$FREQUENCY_PENALTY" \
+    --presence-penalty "$PRESENCE_PENALTY"  \
+    --seed             "$SEED"              \
+    -n                 "$N_PREDICT"         \
     $EXTRA_FLAGS

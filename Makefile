@@ -32,7 +32,7 @@ SENTINEL_MODEL       := $(MODEL_DIR)/$(MODEL_FILE)
 .PHONY: help setup \
         install-system-deps setup-cuda create-venv install-python-deps \
         build-llama-server build-llama-cpp-python \
-        download-model fix-template \
+        download-model fix-template update-template \
         start start-bg stop restart status logs test \
         install-service enable-service disable-service start-service \
         configure-ollama ollama-unload \
@@ -55,7 +55,8 @@ help:
 	@echo "  make build-llama-server   [5] Compila llama-server com CUDA"
 	@echo "  make build-llama-cpp-python [6] Compila llama-cpp-python com CUDA"
 	@echo "  make download-model       [7] Baixa modelo GGUF do HuggingFace"
-	@echo "  make fix-template         [8] Aplica template v18 no GGUF"
+	@echo "  make fix-template         [8] Aplica template local no GGUF (uso avançado)"
+	@echo "  make update-template          Baixa template mais recente do HF + aplica"
 	@echo ""
 	@echo "  SERVIDOR:"
 	@echo "  make start              Sobe servidor em foreground (Ctrl+C para parar)"
@@ -265,8 +266,11 @@ $(SENTINEL_MODEL): $(SENTINEL_VENV) install-python-deps
 # [8] APLICAR TEMPLATE v18
 ##############################################################################
 fix-template: $(SENTINEL_VENV)
-	@echo "[8/8] Aplicando template v18..."
+	@echo "[8/8] Aplicando template local..."
 	@$(PYTHON) "$(PROJECT_ROOT)/src/fix_template.py"
+
+update-template: $(SENTINEL_VENV)
+	@bash "$(PROJECT_ROOT)/scripts/update-template.sh"
 
 ##############################################################################
 # SERVIDOR

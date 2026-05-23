@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
-src/fix_template.py — Substitui o chat_template bugado do Qwen3.6 pelo v18
+src/fix_template.py — Aplica o chat_template corrigido (froggeric) ao Qwen3.6 GGUF
 
 Suporta dois formatos:
   - GGUF (.gguf): patcha o metadado tokenizer.chat_template dentro do arquivo
   - Safetensors: substitui o campo chat_template no tokenizer_config.json
 
 Uso:
-  python3 src/fix_template.py
-  python3 src/fix_template.py --model-dir data/models --template data/templates/...
+  python3 src/fix_template.py                          (usa template padrão: chat_template.jinja)
+  python3 src/fix_template.py --model-dir data/models --template data/templates/chat_template.jinja
+  make update-template                                 (download + aplicação automática)
 """
 
 import argparse
@@ -23,12 +24,12 @@ from pathlib import Path
 _PROJECT_ROOT = Path(__file__).parent.parent
 
 DEFAULT_MODEL_DIR  = _PROJECT_ROOT / "data" / "models"
-DEFAULT_TEMPLATE   = _PROJECT_ROOT / "data" / "templates" / "archive" / "qwen3.6" / "chat_template-v18.jinja"
+DEFAULT_TEMPLATE   = _PROJECT_ROOT / "data" / "templates" / "chat_template.jinja"
 DEFAULT_BACKUP_DIR = _PROJECT_ROOT / "data" / "backups"
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Aplica template corrigido v18 no modelo Qwen3.6")
+    p = argparse.ArgumentParser(description="Aplica template corrigido (froggeric) no modelo Qwen3.6")
     p.add_argument("--model-dir",  type=Path, default=DEFAULT_MODEL_DIR)
     p.add_argument("--template",   type=Path, default=DEFAULT_TEMPLATE)
     p.add_argument("--backup-dir", type=Path, default=DEFAULT_BACKUP_DIR)
@@ -317,7 +318,7 @@ def patch_safetensors(model_dir: Path, new_template: str, backup_dir: Path, dry_
 def main():
     args = parse_args()
 
-    print("\n=== fix_template.py — Aplicar template corrigido v18 ===\n")
+    print("\n=== fix_template.py — Aplicar template corrigido (froggeric) ===\n")
 
     if not args.model_dir.exists():
         print(f"ERRO: Pasta do modelo nao encontrada: {args.model_dir}")
