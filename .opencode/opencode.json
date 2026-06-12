@@ -1,0 +1,187 @@
+{
+    "$schema": "https://opencode.ai/config.json",
+    "lsp": true,
+    "provider": {
+        "litellm": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "LiteLLM Gateway",
+            "options": {
+                "baseURL-LOCAL": "http://192.168.1.139:11434/v1",
+                "baseURL-OLLAMA": "http://100.102.127.47:11434/v1",
+                "baseURL": "http://100.91.54.69:4000/v1",
+                "apiKey": "sk-litellm-master"
+            },
+            "models": {
+                "glm-5.1:cloud": {
+                    "name": "glm-5.1:cloud"
+                },
+                "kimi-k2.6:cloud": {
+                    "name": "kimi-k2.6:cloud"
+                },
+                "kimi-k2.5:cloud": {
+                    "name": "kimi-k2.5:cloud"
+                },
+                "qwen3.5:397b-cloud": {
+                    "name": "qwen3.5:397b-cloud"
+                },
+                "laguna-xs.2:latest": {
+                    "name": "laguna-xs.2:latest",
+                    "limit": {
+                        "context": 59392,
+                        "output": 4096
+                    },
+                    "tools": true
+                },
+                "devstral-small-2:24b": {
+                    "name": "devstral-small-2:24b",
+                    "limit": {
+                        "context": 59392,
+                        "output": 4096
+                    },
+                    "tools": true
+                },
+                "qwen": {
+                    "name": "qwen",
+                    "limit": {
+                        "context": 77824,
+                        "output": 4096
+                    },
+                    "tools": true
+                }
+            }
+        },
+        "deepseek": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "DeepSeek",
+            "apiKey": "${DEEPSEEK_API_KEY}",
+            "options": {
+                "baseURL": "https://api.deepseek.com"
+            },
+            "models": {
+                "deepseek-v4-flash": {
+                    "name": "DeepSeek V4 Flash",
+                    "limit": {
+                        "context": 1048576,
+                        "output": 8192
+                    },
+                    "tools": true
+                },
+                "deepseek-v4-pro": {
+                    "name": "DeepSeek V4 Pro",
+                    "limit": {
+                        "context": 1048576,
+                        "output": 8192
+                    },
+                    "tools": true
+                }
+            }
+        }
+    },
+    "plugin": [
+        "opencode-pty",
+        "@tarquinen/opencode-dcp",
+        "opencode-websearch-cited@1.2.0"
+    ],
+    "compaction": {
+        "auto": true,
+        "prune": true,
+        "reserved": 4096
+    },
+    "watcher": {
+        "ignore": [
+            "node_modules/**",
+            "vendor/**",
+            "dist/**",
+            "build/**",
+            ".git/**",
+            ".next/**",
+            ".nuxt/**",
+            "coverage/**",
+            "logs/**",
+            "*.log",
+            "*.lock",
+            "*.min.js",
+            "*.map",
+            "*.png",
+            "*.jpg",
+            "*.jpeg",
+            "*.webp",
+            "*.gif",
+            "*.ico",
+            "*.pdf",
+            "*.zip",
+            "*.rar",
+            "*.7z"
+        ]
+    },
+    "mcp": {
+        "repomix": {
+            "type": "local",
+            "command": [
+                "docker",
+                "run",
+                "-i",
+                "--rm",
+                "-v",
+                "/opt/jupyter:/workspace",
+                "ghcr.io/yamadashy/repomix",
+                "--mcp",
+                "--config",
+                "/workspace/.opencode/repomix.config.json"
+            ],
+            "enabled": true,
+            "timeout": 60000
+        },
+        "serena": {
+            "type": "local",
+            "command": [
+                "docker",
+                "run",
+                "--rm",
+                "-i",
+                "--network",
+                "host",
+                "-v",
+                "/opt/jupyter:/workspaces/projects/disbral-beatriz-margem",
+                "-v",
+                "/root/.serena/serena_config.yml:/root/.serena/serena_config.yml:ro",
+                "ghcr.io/oraios/serena:latest",
+                "serena",
+                "start-mcp-server",
+                "--context=ide",
+                "--project",
+                "/workspaces/projects/disbral-beatriz-margem"
+            ],
+            "enabled": true,
+            "timeout": 60000
+        },
+        "context7": {
+            "type": "remote",
+            "url": "https://mcp.context7.com/mcp",
+            "enabled": true,
+            "timeout": 30000
+        },
+        "protheus": {
+            "type": "local",
+            "command": [
+                "python3",
+                "/opt/jupyter/.opencode/mcp_protheus.py"
+            ],
+            "enabled": true
+        }
+    },
+    "permission": {
+        "read": "allow",
+        "edit": "allow",
+        "bash": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "list": "allow",
+        "todowrite": "allow",
+        "lsp": "allow",
+        "task": "allow",
+        "doom_loop": "allow",
+        "question": "allow",
+        "external_directory": "allow"
+    }
+}
