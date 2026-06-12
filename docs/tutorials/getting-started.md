@@ -14,7 +14,7 @@ From zero to a running server.
 | RAM | 16 GB | 32 GB |
 | Free disk space | 25 GB | 30 GB |
 
-> The Q4_K_M model uses ~16 GB of VRAM. With 24,576 MB (RTX 3090), ~6.5 GB remain for KV cache — enough for 98,304 tokens at full speed (benchmarked).
+> The Q5_K_M model uses ~19 GB of VRAM. With 24,576 MB (RTX 3090), ~3-4 GB remain for KV cache — enough for 65,536 tokens at good speed (benchmarked).
 
 ### Software
 
@@ -79,7 +79,7 @@ The setup runs **8 steps** with sentinels — each one checks if it was already 
 | `[4]` | `make install-python-deps` | pip: gguf, huggingface-hub, openai, requests |
 | `[5]` | `make build-llama-server` | Clones llama.cpp, applies Debian trixie patches, compiles with CUDA |
 | `[6]` | `make build-llama-cpp-python` | Compiles llama-cpp-python with GPU offload |
-| `[7]` | `make download-model` | Downloads `Qwen3.6-27B-Q4_K_M.gguf` (~16 GB) from HuggingFace |
+| `[7]` | `make download-model` | Downloads `Qwen3.6-27B-Q5_K_M.gguf` (~19 GB) from HuggingFace |
 | `[8]` | `make fix-template` | Patches the GGUF with froggeric's v18 template (binary patch with correct alignment) |
 
 Estimated time: **20–40 minutes** (depends on download speed and CPU for compilation).

@@ -7,41 +7,37 @@ The community has been reporting these problems ([Reddit](https://www.reddit.com
 - **Broken tool calling and thinking mode** — the official GGUF ships with a Jinja2 template that has critical bugs in KV cache handling, `<think>` block termination, and function call formatting. Fixed here by patching the template v18 directly into the GGUF binary.
 - **KV cache split across concurrent connections** — when `--parallel N` is used and multiple requests arrive simultaneously, llama-server creates N slots and divides the context window between them (63,488 ÷ 2 = 31,744 tokens per slot), causing "Context size exceeded" errors under LiteLLM or agentic workloads. Fixed here by forcing `--parallel 1` so the full 63,488-token KV cache is always available to each request.
 
-The result is a validated setup that actually works: **81,920 token context** (maximum without performance penalty on RTX 3090), functional tool calling, stable thinking mode, and a warm KV cache across requests.
+The result is a validated setup that actually works: **65,536 token context** (64k, balanced performance/space on RTX 3090 with Q5_K_M and KV cache q8_0), functional tool calling, stable thinking mode, and a warm KV cache across requests.
 
 ---
 
 ## Context window vs VRAM — measured on RTX 3090 (24,576 MiB)
 
-All measurements: Q4_K_M · `--n-gpu-layers -1` · `--parallel 1` · Debian 13 · Driver 590.48.01.  
-Inference: 200 tokens generated, 27-token prompt. RSS = `llama-server` process system RAM.
+All measurements: **Q5_K_M** · `--n-gpu-layers -1` · `--parallel 1` · `--cache-type-k q8_0` · `--cache-type-v q8_0` · `--batch-size 4096` · Debian 13 · Driver 590.48.01.  
+Inference: ~250k token PDF (Reinforcement Learning book) truncated to 90% of N_CTX.
 
-| `N_CTX` | Context | VRAM used | VRAM free | 200 tok time | tok/s | Viable? |
-|---|---|---|---|---|---|---|
-| 63,488 | 62k | 20,582 MiB | 3,544 MiB | 5.6 s | 35.7 | ✓ |
-| 65,536 | 64k | 20,704 MiB | 3,422 MiB | 5.5 s | 36.4 | ✓ |
-| 81,920 | **80k** | 21,728 MiB | 2,398 MiB | 5.6 s | 35.8 | ✓ padrão |
-| 98,304 | 96k | 22,752 MiB | 1,374 MiB | 5.6 s | 35.7 | ✓ |
-| 114,688 | 112k | 22,768 MiB | 1,358 MiB | 19.6 s | 10.2 | ⚠️ |
-| 131,072 | 128k | 22,356 MiB | 1,770 MiB | 37.2 s | 5.4 | ⚠️ |
-| 163,840 | 160k | 22,852 MiB | 1,274 MiB | 43.7 s | 4.6 | ⚠️ |
-| 196,608 | 192k | 22,846 MiB | 1,280 MiB | 57.9 s | 3.5 | ⚠️ |
-| 229,376 | 224k | 22,842 MiB | 1,284 MiB | 73.6 s | 2.7 | ⚠️ |
-| 262,144 | 256k | 22,786 MiB | 1,340 MiB | 77.2 s | 2.6 | ✗ |
+| `N_CTX` | Context | VRAM used | VRAM free | Prompt time | Tokens gen | tok/s | Viable? |
+|---|---|---|---|---|---|---|---|
+| 32,768 | 32k | 20,232 MiB | 3,894 MiB | 120.4 s | 1,162 | 28.9 | ✓ |
+| 49,152 | 48k | 21,163 MiB | 2,962 MiB | 101.6 s | 1,984 | 27.1 | ✓ |
+| 65,536 | **64k** | 21,765 MiB | 2,360 MiB | 146.4 s | 1,602 | 25.4 | ✓ padrão |
 
 > **Nota sobre RAM do sistema:** o RSS do processo oscila entre 1 GB e 9 GB independentemente do `N_CTX` — é o CUDA alocando e liberando buffers de computação durante a inferência, não o KV cache. O VRAM é o indicador correto: ele fica fixo após o startup e não cresce durante a inferência.
 
 **Conclusões:**
 
-- **Até 96k (98,304): zero penalidade de velocidade.** VRAM sobe linearmente, tok/s idêntico (~35). O KV cache cabe inteiro na VRAM.
-- **A fronteira está entre 96k e 112k:** de 98k para 114k o tok/s cai de 35 para 10 — o KV cache passa a disputar VRAM com os buffers de cálculo.
-- **De 112k em diante: penalidade grave** — tok/s cai continuamente (35 → 10 → 5 → 3 → 2).
-- **256k é inviável:** 77 s para 200 tokens (2.6 tok/s).
+- **Q5_K_M oferece melhor inteligência** (+2-3% em benchmarks vs Q4_K_M) com velocidade aceitável.
+- **64k tokens é o ponto ideal** — equilíbrio entre espaço e performance com ~25 tok/s.
+- **32k tokens é mais rápido** (28.9 tok/s) se velocidade for crítica.
+- **VRAM livre diminui com contexto maior** — 3.9GB livre em 32k vs 2.4GB em 64k.
+- **Qualidade preservada:** KV cache q8_0 tem perda mínima de precisão vs f16, imperceptível na prática.
 
-**Recomendação:** `N_CTX=81920` (padrão — 80k, boa margem de VRAM livre, mesmo tok/s do 63k).
+**Recomendação:** `N_CTX=65536` (64k — padrão, equilíbrio entre performance e espaço com Q5_K_M)
 
-> Local inference server for **Qwen3.6 27B** using [llama-server](https://github.com/ggml-org/llama.cpp) with GGUF Q4_K_M model.  
-> 100% OpenAI-compatible API · Thinking mode · Tool calling · **81,920 token context** (96k, zero-penalty on RTX 3090)
+> **Configuração usada:** `CACHE_TYPE_K=q8_0`, `CACHE_TYPE_V=q8_0`, `CTX_CHECKPOINTS=8`, `CACHE_RAM=2048`, `N_BATCH=4096`
+
+> Local inference server for **Qwen3.6 27B** using [llama-server](https://github.com/ggml-org/llama.cpp) with GGUF Q5_K_M model.  
+> 100% OpenAI-compatible API · Thinking mode · Tool calling · **65,536 token context** (64k, balanced performance/space on RTX 3090 with Q5_K_M)
 
 **Tested and validated on: Zotac GeForce RTX 3090 Trinity OC · 24,576 MB VRAM · Driver 590.48.01 · Debian 12 · CUDA 12.8**
 
@@ -57,7 +53,7 @@ Inference: 200 tokens generated, 27-token prompt. RSS = `llama-server` process s
 | RAM | 16 GB | 32 GB |
 | Free disk space | 25 GB | 30 GB |
 
-> The Q4_K_M model uses ~16 GB of VRAM. With 24,576 MB (RTX 3090), ~6.5 GB remain for KV cache — enough for **81,920 tokens** of context at full speed (benchmarked).
+> The Q5_K_M model uses ~19 GB of VRAM. With 24,576 MB (RTX 3090) and KV cache q8_0, ~3-4 GB remain for KV cache — enough for **65,536 tokens** of context at good speed (benchmarked).
 
 ### Software
 
@@ -111,7 +107,7 @@ Runs **8 steps** automatically. Each step checks if it was already done — runn
 | `[4]` install-python-deps | pip: gguf, huggingface-hub, openai, requests |
 | `[5]` build-llama-server | Clones and compiles llama-server with CUDA |
 | `[6]` build-llama-cpp-python | Compiles llama-cpp-python with GPU offload |
-| `[7]` download-model | Downloads `Qwen3.6-27B-Q4_K_M.gguf` (~16 GB) |
+| `[7]` download-model | Downloads `Qwen3.6-27B-Q5_K_M.gguf` (~19 GB) |
 | `[8]` fix-template | Patches the GGUF with froggeric's v18 template |
 
 Estimated time: **20–40 minutes** (compilation + model download).

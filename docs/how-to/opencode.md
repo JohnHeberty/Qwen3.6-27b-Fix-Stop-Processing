@@ -32,7 +32,7 @@ cp /root/qwen3/infra/opencode/config.json ~/.config/opencode/config.json
       },
       "models": {
         "qwen3": {
-          "name": "Qwen3.6 27B Q4_K_M",
+          "name": "Qwen3.6 27B Q5_K_M",
           "limit": {
             "context": 77824,
             "output": 4096

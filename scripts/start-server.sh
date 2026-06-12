@@ -16,8 +16,17 @@ MODEL_FILE="${MODEL_FILE:-Qwen3.6-27B-Q4_K_M.gguf}"
 PORT="${PORT:-8000}"
 SERVED_NAME="${SERVED_NAME:-qwen3}"
 N_GPU_LAYERS="${N_GPU_LAYERS:--1}"
-N_CTX="${N_CTX:-81920}"
-N_BATCH="${N_BATCH:-512}"
+N_CTX="${N_CTX:-131072}"
+N_BATCH="${N_BATCH:-4096}"
+
+# Quantização do KV Cache
+CACHE_TYPE_K="${CACHE_TYPE_K:-q8_0}"
+CACHE_TYPE_V="${CACHE_TYPE_V:-q8_0}"
+
+# Controle de RAM (prevenção OOM)
+CTX_CHECKPOINTS="${CTX_CHECKPOINTS:-8}"
+CACHE_RAM="${CACHE_RAM:-2048}"
+CACHE_IDLE_SLOTS="${CACHE_IDLE_SLOTS:-1}"
 
 # Parâmetros de amostragem (ajustáveis no .env)
 TEMPERATURE="${TEMPERATURE:-0.6}"
@@ -29,7 +38,7 @@ REPEAT_LAST_N="${REPEAT_LAST_N:-64}"
 FREQUENCY_PENALTY="${FREQUENCY_PENALTY:-0.1}"
 PRESENCE_PENALTY="${PRESENCE_PENALTY:-0.0}"
 SEED="${SEED:--1}"
-N_PREDICT="${N_PREDICT:--1}"
+N_PREDICT="${N_PREDICT:-4096}"
 
 MODEL_PATH="$MODEL_DIR/$MODEL_FILE"
 
@@ -67,7 +76,9 @@ echo "Modelo    : $MODEL_PATH"
 echo "Porta     : $PORT  (Ollama em 11434)"
 echo "GPU layers: $N_GPU_LAYERS (todos na GPU)"
 echo "Contexto  : $N_CTX tokens"
+echo "KV cache  : K=$CACHE_TYPE_K V=$CACHE_TYPE_V"
 echo "Nome API  : $SERVED_NAME"
+echo "RAM ctrl  : ctx_checkpoints=$CTX_CHECKPOINTS cache_ram=${CACHE_RAM}MiB idle_slots=$CACHE_IDLE_SLOTS"
 echo "Sampling  : temp=$TEMPERATURE top_k=$TOP_K top_p=$TOP_P min_p=$MIN_P"
 echo "            repeat=$REPEAT_PENALTY(last $REPEAT_LAST_N) freq=$FREQUENCY_PENALTY pres=$PRESENCE_PENALTY"
 echo "            seed=$SEED n_predict=$N_PREDICT"
@@ -103,6 +114,7 @@ echo ""
 
 EXTRA_FLAGS=""
 [ "${NO_MMAP:-1}" = "1" ] && EXTRA_FLAGS="$EXTRA_FLAGS --no-mmap"
+[ "${CACHE_IDLE_SLOTS:-0}" = "0" ] && EXTRA_FLAGS="$EXTRA_FLAGS --no-cache-idle-slots"
 
 exec "$LLAMA_SERVER" \
     --model            "$MODEL_PATH"        \
@@ -124,4 +136,8 @@ exec "$LLAMA_SERVER" \
     --presence-penalty "$PRESENCE_PENALTY"  \
     --seed             "$SEED"              \
     -n                 "$N_PREDICT"         \
+    --ctx-checkpoints  "$CTX_CHECKPOINTS"   \
+    --cache-ram        "$CACHE_RAM"         \
+    --cache-type-k     "$CACHE_TYPE_K"      \
+    --cache-type-v     "$CACHE_TYPE_V"      \
     $EXTRA_FLAGS

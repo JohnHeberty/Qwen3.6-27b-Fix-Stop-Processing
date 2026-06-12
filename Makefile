@@ -18,7 +18,7 @@ LLAMA_CPP_DIR    ?= $(HOME)/llama.cpp
 LLAMA_SERVER     ?= $(LLAMA_CPP_DIR)/build/bin/llama-server
 CUDA_HOME        ?= /usr/local/cuda
 MODEL_DIR        ?= $(PROJECT_ROOT)/data/models
-MODEL_FILE       ?= Qwen3.6-27B-Q4_K_M.gguf
+MODEL_FILE       ?= Qwen3.6-27B-Q5_K_M.gguf
 HF_TOKEN         ?= $(HUGGINGFACE_TOKEN)
 
 .DEFAULT_GOAL := help
@@ -256,7 +256,7 @@ $(SENTINEL_MODEL): $(SENTINEL_VENV) install-python-deps
 	fi
 	@MODEL_HF_RESOLVED="$${MODEL_HF:-unsloth/Qwen3.6-27B-MTP-GGUF}"; \
 	echo "      Repositório: $$MODEL_HF_RESOLVED"; \
-	echo "      Arquivo: $(MODEL_FILE) (~16 GB)"; \
+	echo "      Arquivo: $(MODEL_FILE) (~19 GB)"; \
 	HF_TOKEN="$(HF_TOKEN)" \
 	$(VENV)/bin/hf download "$$MODEL_HF_RESOLVED" "$(MODEL_FILE)" \
 		--local-dir "$(MODEL_DIR)"
@@ -303,6 +303,9 @@ logs:
 
 test:
 	@$(PYTHON) "$(PROJECT_ROOT)/tests/test_api.py"
+
+benchmark: _check-ready
+	@$(PYTHON) "$(PROJECT_ROOT)/tests/benchmark.py"
 
 install-service:
 	@chmod +x "$(PROJECT_ROOT)/scripts/start-server.sh" "$(PROJECT_ROOT)/scripts/setup.sh"

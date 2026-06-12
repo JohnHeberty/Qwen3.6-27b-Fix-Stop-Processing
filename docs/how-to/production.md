@@ -59,6 +59,57 @@ make ollama-unload
 
 ---
 
+## RAM Control & OOM Prevention (LXC/Proxmox)
+
+The llama-server saves prompt cache checkpoints in RAM. With long prompts (70k+ tokens), this can consume 4-5GB and cause OOM kills in containers or memory-limited environments.
+
+### Default configuration (balanced for RTX 3090 + 81920 context)
+
+The `.env` file includes balanced defaults for maximum context with stability:
+
+```bash
+CACHE_TYPE_K=q8_0        # KV cache quantization (reduces ~50% VRAM vs f16)
+CACHE_TYPE_V=q8_0        # KV cache quantization (reduces ~50% VRAM vs f16)
+CTX_CHECKPOINTS=8      # default llama.cpp: 32 (causes ~4.8GB RAM usage)
+CACHE_RAM=2048         # 2GB RAM cache (good balance)
+CACHE_IDLE_SLOTS=1     # keep idle slots warm (faster multi-turn)
+N_PREDICT=4096         # limit output length (prevent infinite generation)
+N_CTX=81920            # maximum context (zero-penalty on RTX 3090)
+```
+
+### If you experience OOM kills
+
+Check for OOM events:
+
+```bash
+dmesg -T | grep -i oom
+cat /sys/fs/cgroup/memory.events
+journalctl -k -b | grep -i killed
+```
+
+Adjust in `.env`:
+
+```bash
+# Conservative settings (sacrifice performance for stability)
+CTX_CHECKPOINTS=4      # fewer checkpoints in RAM
+CACHE_RAM=0            # disable RAM cache completely
+CACHE_IDLE_SLOTS=0     # release RAM immediately
+N_CTX=65536            # reduce context size (uses less VRAM+RAM)
+```
+
+### Maximum performance (if you have RAM to spare)
+
+```bash
+CTX_CHECKPOINTS=16     # more checkpoints = faster multi-turn
+CACHE_RAM=4096         # 4GB RAM cache
+CACHE_IDLE_SLOTS=1     # keep idle slots warm
+N_CTX=81920            # full context window
+```
+
+> **Note:** The Q5_K_M model uses ~19 GB VRAM. On RTX 3090 (24GB), you have ~3-4GB remaining for KV cache + system operations. Monitor with `nvidia-smi` and `htop`.
+
+---
+
 ## Troubleshooting
 
 ### Server won't start — "model not found"
@@ -79,7 +130,7 @@ make ollama-unload  # free Ollama memory
 make start          # try again
 ```
 
-The Q4_K_M model uses ~21 GB of VRAM. Other CUDA processes must be stopped before starting.
+The Q5_K_M model uses ~19 GB of VRAM. Other CUDA processes must be stopped before starting.
 
 ### "CUDA not found" — `[2] setup-cuda FAIL`
 
