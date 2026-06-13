@@ -45,8 +45,8 @@ model_list:
       api_base: http://192.168.1.139:8000/v1
       api_key: "not-needed"
     model_info:
-      context_window: 81920        # tells LiteLLM the real window size
-      max_input_tokens: 77824      # 81920 - 4096 (output headroom)
+      context_window: 65536        # tells LiteLLM the real window size
+      max_input_tokens: 61440      # 65536 - 4096 (output headroom)
       max_output_tokens: 4096
       input_cost_per_token: 0
       output_cost_per_token: 0
@@ -88,8 +88,8 @@ Make sure `infra/litellm/config.yaml` has both keys under `model_info`:
 
 ```yaml
 model_info:
-  context_window: 81920
-  max_input_tokens: 77824
+  context_window: 65536
+  max_input_tokens: 61440
 ```
 
 ### Fix 2 — Via SDK directly (no proxy)
@@ -99,8 +99,8 @@ import litellm
 
 litellm.register_model({
     "openai/qwen3": {
-        "max_tokens": 81920,
-        "max_input_tokens": 77824,
+        "max_tokens": 65536,
+        "max_input_tokens": 61440,
         "max_output_tokens": 4096,
         "litellm_provider": "openai",
         "mode": "chat",
@@ -123,7 +123,7 @@ import litellm
 
 # Check token count
 token_count = litellm.token_counter(model="openai/qwen3", messages=messages)
-print(f"Tokens: {token_count} / 81920")
+print(f"Tokens: {token_count} / 65536")
 
 # Trim if needed (keeps system prompt + last N messages)
 if token_count > 55000:

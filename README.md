@@ -16,23 +16,33 @@ The result is a validated setup that actually works: **65,536 token context** (6
 All measurements: **Q5_K_M** · `--n-gpu-layers -1` · `--parallel 1` · `--cache-type-k q8_0` · `--cache-type-v q8_0` · `--batch-size 4096` · Debian 13 · Driver 590.48.01.  
 Inference: ~250k token PDF (Reinforcement Learning book) truncated to 90% of N_CTX.
 
-| `N_CTX` | Context | VRAM used | VRAM free | Prompt time | Tokens gen | tok/s | Viable? |
-|---|---|---|---|---|---|---|---|
-| 32,768 | 32k | 20,232 MiB | 3,894 MiB | 120.4 s | 1,162 | 28.9 | ✓ |
-| 49,152 | 48k | 21,163 MiB | 2,962 MiB | 101.6 s | 1,984 | 27.1 | ✓ |
-| 65,536 | **64k** | 21,765 MiB | 2,360 MiB | 146.4 s | 1,602 | 25.4 | ✓ padrão |
+| `N_CTX` | Context | VRAM used | VRAM free | RAM used | RAM free | RSS | Prompt time | Tokens gen | tok/s | Viable? |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 16,384 | 16k | 19,997 MiB | 4,128 MiB | 3,709 MiB | 29,059 MiB | 1,838 MiB | 118.7 s | 798 | 29.8 | ✓ |
+| 32,768 | 32k | 20,577 MiB | 3,548 MiB | 4,028 MiB | 28,740 MiB | 2,174 MiB | 86.5 s | 2,099 | 28.4 | ✓ |
+| 49,152 | 48k | 21,175 MiB | 2,950 MiB | 4,311 MiB | 28,457 MiB | 2,497 MiB | 164.9 s | 563 | 26.9 | ✓ |
+| 65,536 | 64k | 21,767 MiB | 2,358 MiB | 4,509 MiB | 28,259 MiB | 2,695 MiB | 181.0 s | 735 | 25.5 | ✓ padrão |
+| 81,920 | 80k | 22,357 MiB | 1,768 MiB | 4,739 MiB | 28,029 MiB | 2,881 MiB | 161.0 s | 1,792 | 24.3 | ✗ |
+| 98,304 | 96k | 22,951 MiB | 1,174 MiB | 4,758 MiB | 28,010 MiB | 2,910 MiB | 213.1 s | 1,122 | 23.1 | ✗ |
 
-> **Nota sobre RAM do sistema:** o RSS do processo oscila entre 1 GB e 9 GB independentemente do `N_CTX` — é o CUDA alocando e liberando buffers de computação durante a inferência, não o KV cache. O VRAM é o indicador correto: ele fica fixo após o startup e não cresce durante a inferência.
+> **Nota sobre RAM do sistema:** o RSS do processo varia de ~1.8 GB (16k) a ~2.9 GB (96k), crescendo linearmente com o contexto. A RAM do sistema permanece estável (~3.7-4.8 GB usada) pois o sistema tem 32 GB totais. O VRAM é o recurso crítico: com 64k tokens, usa 21.8 GB deixando 2.4 GB livres.
 
 **Conclusões:**
 
 - **Q5_K_M oferece melhor inteligência** (+2-3% em benchmarks vs Q4_K_M) com velocidade aceitável.
-- **64k tokens é o ponto ideal** — equilíbrio entre espaço e performance com ~25 tok/s.
-- **32k tokens é mais rápido** (28.9 tok/s) se velocidade for crítica.
-- **VRAM livre diminui com contexto maior** — 3.9GB livre em 32k vs 2.4GB em 64k.
+- **64k tokens é o ponto ideal** — 25.5 tok/s com 2.4 GB VRAM livre (margem segura).
+- **32k tokens é mais rápido** (28.4 tok/s) se velocidade for crítica, com 3.5 GB VRAM livre.
+- **80k+ tokens não recomendado** — VRAM livre < 1.8 GB (risco de OOM em picos de uso).
+- **RAM cresce linearmente com contexto:** 3.7 GB (16k) → 4.8 GB (96k), RSS 1.8 GB → 2.9 GB.
 - **Qualidade preservada:** KV cache q8_0 tem perda mínima de precisão vs f16, imperceptível na prática.
 
-**Recomendação:** `N_CTX=65536` (64k — padrão, equilíbrio entre performance e espaço com Q5_K_M)
+**Recomendação geral:** `N_CTX=65536` (64k — equilíbrio entre performance e espaço com Q5_K_M)
+
+**Recomendação para codificação:** `N_CTX=65536` (64k)
+- Contexto suficiente para arquivos grandes (10k+ linhas) e múltiplos arquivos simultâneos
+- Velocidade de 25.5 tok/s é responsiva para uso interativo no editor
+- 2.4 GB VRAM livre dá margem para picos de uso sem risco de OOM
+- Para projetos muito grandes (>50k tokens de contexto), considere 48k (26.9 tok/s, 3.0 GB livre)
 
 > **Configuração usada:** `CACHE_TYPE_K=q8_0`, `CACHE_TYPE_V=q8_0`, `CTX_CHECKPOINTS=8`, `CACHE_RAM=2048`, `N_BATCH=4096`
 

@@ -63,7 +63,7 @@ make ollama-unload
 
 The llama-server saves prompt cache checkpoints in RAM. With long prompts (70k+ tokens), this can consume 4-5GB and cause OOM kills in containers or memory-limited environments.
 
-### Default configuration (balanced for RTX 3090 + 81920 context)
+### Default configuration (balanced for RTX 3090 + 65536 context)
 
 The `.env` file includes balanced defaults for maximum context with stability:
 
@@ -74,7 +74,7 @@ CTX_CHECKPOINTS=8      # default llama.cpp: 32 (causes ~4.8GB RAM usage)
 CACHE_RAM=2048         # 2GB RAM cache (good balance)
 CACHE_IDLE_SLOTS=1     # keep idle slots warm (faster multi-turn)
 N_PREDICT=4096         # limit output length (prevent infinite generation)
-N_CTX=81920            # maximum context (zero-penalty on RTX 3090)
+N_CTX=65536            # maximum context (zero-penalty on RTX 3090)
 ```
 
 ### If you experience OOM kills
@@ -103,7 +103,7 @@ N_CTX=65536            # reduce context size (uses less VRAM+RAM)
 CTX_CHECKPOINTS=16     # more checkpoints = faster multi-turn
 CACHE_RAM=4096         # 4GB RAM cache
 CACHE_IDLE_SLOTS=1     # keep idle slots warm
-N_CTX=81920            # full context window
+N_CTX=65536            # full context window
 ```
 
 > **Note:** The Q5_K_M model uses ~19 GB VRAM. On RTX 3090 (24GB), you have ~3-4GB remaining for KV cache + system operations. Monitor with `nvidia-smi` and `htop`.

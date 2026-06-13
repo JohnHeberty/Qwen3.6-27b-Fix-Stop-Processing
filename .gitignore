@@ -18,3 +18,4 @@ __pycache__/
 
 # Temporary files
 data/temp/
+data/logs/*.log
