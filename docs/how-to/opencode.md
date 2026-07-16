@@ -57,4 +57,4 @@ cp /root/qwen3/infra/opencode/config.json ~/.config/opencode/config.json
 
 ## Context limits
 
-The `limit.context` field tells OpenCode the effective input budget. The server runs at `--ctx-size 65536` (zero-penalty ceiling on RTX 3090); subtracting 4,096 output tokens gives `77,824` usable input tokens.
+The `limit.context` field tells OpenCode the effective input budget. The server runs at `--ctx-size 81920` with MTP enabled; subtracting 4,096 output tokens gives `77,824` usable input tokens.

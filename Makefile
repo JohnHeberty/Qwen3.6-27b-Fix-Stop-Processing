@@ -37,6 +37,7 @@ SENTINEL_MODEL       := $(MODEL_DIR)/$(MODEL_FILE)
         install-service enable-service disable-service start-service \
         configure-ollama ollama-unload \
         litellm-start \
+        benchmark-sweep \
         clean
 
 ##############################################################################
@@ -82,6 +83,10 @@ help:
 	@echo "  LITELLM:"
 	@echo "  make litellm-start      Sobe LiteLLM proxy (porta 4000) com config pronta"
 	@echo "  (config: infra/litellm/config.yaml — já inclui context_window correto)"
+	@echo ""
+	@echo "  BENCHMARK:"
+	@echo "  make benchmark-sweep    Sweep 8k→max (incremento 8k, com MTP)"
+	@echo "  make benchmark-sweep ARGS=\"--start 16384 --step 16384\"  (custom)"
 	@echo ""
 	@echo "  API: http://localhost:8000/v1  |  Modelo: qwen3"
 	@echo ""
@@ -378,6 +383,12 @@ litellm-start:
 	@echo "  use model_name=qwen nos seus projetos"
 	@echo ""
 	$(VENV)/bin/litellm --config "$(PROJECT_ROOT)/infra/litellm/config.yaml" --port 4000
+
+##############################################################################
+# BENCHMARK
+##############################################################################
+benchmark-sweep:
+	@bash "$(PROJECT_ROOT)/scripts/benchmark-ctx-sweep.sh" $(ARGS)
 
 ##############################################################################
 # LIMPEZA

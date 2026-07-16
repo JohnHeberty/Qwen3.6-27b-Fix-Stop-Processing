@@ -19,14 +19,18 @@ A local inference server for **Qwen3.6 27B** with an OpenAI-compatible API. Any 
 | Customizable template | no (limited) | yes (binary patch directly in GGUF) |
 | Compilation required | no | yes (with CUDA) |
 
-The AWQ safetensors model with the Qwen3_5 DeltaNet+Mamba architecture left only ~6,272 tokens of context available on the RTX 3090. The GGUF Q5_K_M uses 19 GB of VRAM for weights, leaving ~3-4 GB for KV cache — enough for 65,536 tokens at good speed (benchmarked).
+The AWQ safetensors model with the Qwen3_5 DeltaNet+Mamba architecture left only ~6,272 tokens of context available on the RTX 3090. The GGUF Q5_K_M uses ~19 GB of VRAM for weights, leaving ~3.5 GB for KV cache — enough for 32,768 tokens at good speed with MTP enabled (benchmarked).
 
 ### Why GGUF Q5_K_M?
 
 - High-quality quantization with iMatrix — good quality/size tradeoff
-- 16 GB VRAM for weights, ~8 GB remaining for KV cache on RTX 3090 (24,576 MB)
+- ~19 GB VRAM for weights, ~1.1 GB remaining for KV cache on RTX 3090 (24,576 MB) at 80k context
 - No Python dependency for inference (llama-server is C++)
 - Jinja2 template patchable directly in the binary
+
+### Why MTP (Multi-Token Prediction)?
+
+The model embeds MTP prediction heads that draft multiple tokens per step. With `--spec-type draft-mtp --spec-draft-n-max 3`, the server generates up to 3 candidate tokens per forward pass and validates them against the main model. On Qwen3.6-27B with Q5_K_M at 80k context, this achieves **68-72 tok/s** (vs 25-30 without MTP) with 60-69% acceptance rate. No separate draft model is needed.
 
 ### Why froggeric's template v18?
 
@@ -108,7 +112,8 @@ data/models/Qwen3.6-27B-Q5_K_M.gguf   ← v18 template patched inside the file
     │  offloads
     ▼
 GPU (RTX 3090, 24,576 MB VRAM)
-    │  generates tokens
+    │  offloads weights (~19 GB)
+    │  MTP drafts 3 tokens per step, validates with main model
     ▼
-llama-server → streaming/complete response → Client
+llama-server → streaming/complete response → Client (~70 tok/s with MTP)
 ```

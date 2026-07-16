@@ -12,9 +12,9 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 VENV="$PROJECT_ROOT/.venv"
 MODEL_DIR="${MODEL_DIR:-$PROJECT_ROOT/data/models}"
-MODEL_HF="${MODEL_HF:-HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive}"
-MODEL_FILE="${MODEL_FILE:-Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf}"
-TEMPLATE_FILE="${TEMPLATE_FILE:-data/templates/archive/qwen3.6/chat_template-v18.jinja}"
+MODEL_HF="${MODEL_HF:-unsloth/Qwen3.6-27B-MTP-GGUF}"
+MODEL_FILE="${MODEL_FILE:-Qwen3.6-27B-Q5_K_M.gguf}"
+TEMPLATE_FILE="${TEMPLATE_FILE:-data/templates/chat_template.jinja}"
 
 export HF_TOKEN="${HF_TOKEN:-${HUGGINGFACE_TOKEN:-}}"
 

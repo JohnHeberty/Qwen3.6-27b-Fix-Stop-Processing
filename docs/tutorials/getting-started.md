@@ -14,7 +14,7 @@ From zero to a running server.
 | RAM | 16 GB | 32 GB |
 | Free disk space | 25 GB | 30 GB |
 
-> The Q5_K_M model uses ~19 GB of VRAM. With 24,576 MB (RTX 3090), ~3-4 GB remain for KV cache — enough for 65,536 tokens at good speed (benchmarked).
+> The Q5_K_M model uses ~19 GB of VRAM. With 24,576 MB (RTX 3090), ~2.9 GB remain for KV cache — enough for 32,768 tokens with MTP speculative decoding at ~70 tok/s (benchmarked).
 
 ### Software
 

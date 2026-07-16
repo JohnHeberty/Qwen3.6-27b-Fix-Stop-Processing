@@ -12,11 +12,11 @@ VENV="$PROJECT_ROOT/.venv"
 [ -f "$PROJECT_ROOT/.env" ] && set -a && source "$PROJECT_ROOT/.env" && set +a
 
 MODEL_DIR="${MODEL_DIR:-$PROJECT_ROOT/data/models}"
-MODEL_FILE="${MODEL_FILE:-Qwen3.6-27B-Q4_K_M.gguf}"
+MODEL_FILE="${MODEL_FILE:-Qwen3.6-27B-Q5_K_M.gguf}"
 PORT="${PORT:-8000}"
 SERVED_NAME="${SERVED_NAME:-qwen3}"
 N_GPU_LAYERS="${N_GPU_LAYERS:--1}"
-N_CTX="${N_CTX:-131072}"
+N_CTX="${N_CTX:-81920}"
 N_BATCH="${N_BATCH:-4096}"
 
 # Quantização do KV Cache
@@ -28,15 +28,19 @@ CTX_CHECKPOINTS="${CTX_CHECKPOINTS:-8}"
 CACHE_RAM="${CACHE_RAM:-2048}"
 CACHE_IDLE_SLOTS="${CACHE_IDLE_SLOTS:-1}"
 
+# Speculative Decoding (MTP)
+ENABLE_MTP="${ENABLE_MTP:-true}"
+MTP_TOKENS="${MTP_TOKENS:-3}"
+
 # Parâmetros de amostragem (ajustáveis no .env)
-TEMPERATURE="${TEMPERATURE:-0.6}"
-TOP_K="${TOP_K:-20}"
+TEMPERATURE="${TEMPERATURE:-0.3}"
+TOP_K="${TOP_K:-40}"
 TOP_P="${TOP_P:-0.95}"
 MIN_P="${MIN_P:-0.05}"
-REPEAT_PENALTY="${REPEAT_PENALTY:-1.05}"
+REPEAT_PENALTY="${REPEAT_PENALTY:-1.15}"
 REPEAT_LAST_N="${REPEAT_LAST_N:-64}"
-FREQUENCY_PENALTY="${FREQUENCY_PENALTY:-0.1}"
-PRESENCE_PENALTY="${PRESENCE_PENALTY:-0.0}"
+FREQUENCY_PENALTY="${FREQUENCY_PENALTY:-0.2}"
+PRESENCE_PENALTY="${PRESENCE_PENALTY:-0.1}"
 SEED="${SEED:--1}"
 N_PREDICT="${N_PREDICT:-4096}"
 
@@ -79,6 +83,7 @@ echo "Contexto  : $N_CTX tokens"
 echo "KV cache  : K=$CACHE_TYPE_K V=$CACHE_TYPE_V"
 echo "Nome API  : $SERVED_NAME"
 echo "RAM ctrl  : ctx_checkpoints=$CTX_CHECKPOINTS cache_ram=${CACHE_RAM}MiB idle_slots=$CACHE_IDLE_SLOTS"
+echo "MTP       : ${ENABLE_MTP} (tokens=$MTP_TOKENS)"
 echo "Sampling  : temp=$TEMPERATURE top_k=$TOP_K top_p=$TOP_P min_p=$MIN_P"
 echo "            repeat=$REPEAT_PENALTY(last $REPEAT_LAST_N) freq=$FREQUENCY_PENALTY pres=$PRESENCE_PENALTY"
 echo "            seed=$SEED n_predict=$N_PREDICT"
@@ -115,6 +120,12 @@ echo ""
 EXTRA_FLAGS=""
 [ "${NO_MMAP:-1}" = "1" ] && EXTRA_FLAGS="$EXTRA_FLAGS --no-mmap"
 [ "${CACHE_IDLE_SLOTS:-0}" = "0" ] && EXTRA_FLAGS="$EXTRA_FLAGS --no-cache-idle-slots"
+
+# ── Speculative Decoding (MTP) ──────────────────────────────────────
+if [ "${ENABLE_MTP:-false}" = "true" ]; then
+    MTP_N="${MTP_TOKENS:-3}"
+    EXTRA_FLAGS="$EXTRA_FLAGS --spec-type draft-mtp --spec-draft-n-max $MTP_N"
+fi
 
 exec "$LLAMA_SERVER" \
     --model            "$MODEL_PATH"        \

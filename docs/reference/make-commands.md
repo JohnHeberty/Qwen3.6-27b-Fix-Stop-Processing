@@ -79,6 +79,6 @@ Each step uses a **sentinel** — checks if it was already done before acting. R
 Any `.env` variable can be overridden inline:
 
 ```bash
-N_CTX=32768 make start
+N_CTX=81920 make start
 PORT=9000 make start
 ```
