@@ -121,6 +121,12 @@ EXTRA_FLAGS=""
 [ "${NO_MMAP:-1}" = "1" ] && EXTRA_FLAGS="$EXTRA_FLAGS --no-mmap"
 [ "${CACHE_IDLE_SLOTS:-0}" = "0" ] && EXTRA_FLAGS="$EXTRA_FLAGS --no-cache-idle-slots"
 
+# ── Custom chat template (v19 fix for multi-turn tool calls) ─────────
+CUSTOM_TEMPLATE="${PROJECT_ROOT}/data/templates/custom/chat_template_v19.jinja"
+if [ -f "$CUSTOM_TEMPLATE" ]; then
+    EXTRA_FLAGS="$EXTRA_FLAGS --chat-template-file $CUSTOM_TEMPLATE"
+fi
+
 # ── Speculative Decoding (MTP) ──────────────────────────────────────
 if [ "${ENABLE_MTP:-false}" = "true" ]; then
     MTP_N="${MTP_TOKENS:-3}"

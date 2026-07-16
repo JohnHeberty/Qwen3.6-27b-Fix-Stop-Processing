@@ -54,6 +54,7 @@ help:
 	@echo "  make create-venv          [3] Cria virtualenv Python"
 	@echo "  make install-python-deps  [4] Instala gguf, huggingface-hub, etc."
 	@echo "  make build-llama-server   [5] Compila llama-server com CUDA"
+	@echo "  make update-llama-server   Atualiza llama.cpp + recompila"
 	@echo "  make build-llama-cpp-python [6] Compila llama-cpp-python com CUDA"
 	@echo "  make download-model       [7] Baixa modelo GGUF do HuggingFace"
 	@echo "  make fix-template         [8] Aplica template local no GGUF (uso avançado)"
@@ -200,6 +201,27 @@ $(SENTINEL_LLAMA): setup-cuda install-system-deps
 	@cd "$(LLAMA_CPP_DIR)" && cmake --build build --config Release \
 		-j$$(nproc) --target llama-server 2>&1 | tail -5
 	@test -f "$(LLAMA_SERVER)" && echo "      OK — $(LLAMA_SERVER)"
+
+##############################################################################
+# [5b] ATUALIZAR llama-server (pull + rebuild)
+##############################################################################
+update-llama-server:
+	@test -d "$(LLAMA_CPP_DIR)/.git" || (echo "ERRO: $(LLAMA_CPP_DIR) não é um repo git" && exit 1)
+	@echo "[5b] Atualizando llama.cpp..."
+	@cd "$(LLAMA_CPP_DIR)" && git stash 2>/dev/null || true
+	@cd "$(LLAMA_CPP_DIR)" && git pull --ff-only origin master 2>&1 | tail -3
+	@echo "      Compilando..."
+	@cd "$(LLAMA_CPP_DIR)" && cmake -B build \
+		-DGGML_CUDA=ON \
+		-DCMAKE_CUDA_COMPILER="$(CUDA_HOME)/bin/nvcc" \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DLLAMA_BUILD_SERVER=ON \
+		-DCMAKE_CUDA_FLAGS="--allow-unsupported-compiler" \
+		-DCUDA_TOOLKIT_ROOT_DIR="$(CUDA_HOME)" \
+		2>&1 | tail -3
+	@cd "$(LLAMA_CPP_DIR)" && cmake --build build --config Release \
+		-j$$(nproc) --target llama-server 2>&1 | tail -5
+	@test -f "$(LLAMA_SERVER)" && echo "      OK — versão: $$($(LLAMA_SERVER) --version 2>&1 | head -1)"
 
 # Patch para compatibilidade glibc 2.40 + nvcc (Debian trixie)
 _patch-glibc-cuda:
