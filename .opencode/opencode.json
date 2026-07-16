@@ -43,7 +43,7 @@
                 "qwen": {
                     "name": "qwen",
                     "limit": {
-                        "context": 61440,
+                        "context": 77824,
                         "output": 4096
                     },
                     "tools": true
