@@ -1,5 +1,5 @@
 diff --git a/common/json-schema-to-grammar.cpp b/common/json-schema-to-grammar.cpp
-index b18607c..66ef369 100644
+index b18607c..17920bf 100644
 --- a/common/json-schema-to-grammar.cpp
 +++ b/common/json-schema-to-grammar.cpp
 @@ -346,11 +346,11 @@ private:
@@ -18,6 +18,27 @@ index b18607c..66ef369 100644
          std::unordered_map<std::string, std::string> sub_rule_ids;
  
          size_t i = 0;
+@@ -529,6 +529,20 @@ private:
+                                 i++;
+                                 literal += sub_pattern[i];
+                                 i++;
++                            } else if (next == 'S' || next == 's' || next == 'd' || next == 'D' || next == 'w' || next == 'W') {
++                                if (!literal.empty()) {
++                                    seq.emplace_back(literal, true);
++                                    literal.clear();
++                                }
++                                switch (next) {
++                                    case 'S': seq.emplace_back("[^\\x20\\x09\\x0A\\x0D]", false); break;
++                                    case 's': seq.emplace_back("[\\x20\\x09\\x0A\\x0D]", false); break;
++                                    case 'd': seq.emplace_back("[0-9]", false); break;
++                                    case 'D': seq.emplace_back("[^0-9]", false); break;
++                                    case 'w': seq.emplace_back("[a-zA-Z0-9_]", false); break;
++                                    case 'W': seq.emplace_back("[^a-zA-Z0-9_]", false); break;
++                                }
++                                i += 2;
+                             } else {
+                                 literal += sub_pattern.substr(i, 2);
+                                 i += 2;
 diff --git a/src/llama-grammar.cpp b/src/llama-grammar.cpp
 index badcbfd..6b15d4e 100644
 --- a/src/llama-grammar.cpp
