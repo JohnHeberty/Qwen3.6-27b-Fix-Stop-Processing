@@ -25,7 +25,8 @@ from copy import deepcopy
 UPSTREAM = "http://100.91.54.69:4000"
 UPSTREAM_API_KEY = "sk-litellm-master"
 LISTEN_PORT = 4002
-MIN_TOKENS = 8192
+MIN_TOKENS = 512
+MAX_OUTPUT_TOKENS = 8192
 MAX_HISTORY = 25
 LOG_FILE = "/root/qwen3/data/logs/force-proxy.log"
 DUMP_DIR = "/root/qwen3/data/logs"
@@ -344,12 +345,15 @@ def responses_to_chat(req_json):
     # max_tokens
     max_out = req_json.get("max_output_tokens") or req_json.get("max_tokens")
     if max_out is not None:
+        if max_out > MAX_OUTPUT_TOKENS:
+            log(f"CAP max_tokens: {max_out} -> {MAX_OUTPUT_TOKENS}")
+            max_out = MAX_OUTPUT_TOKENS
         if max_out < MIN_TOKENS:
             log(f"FORCE max_tokens: {max_out} -> {MIN_TOKENS}")
             max_out = MIN_TOKENS
         out["max_tokens"] = max_out
     else:
-        out["max_tokens"] = MIN_TOKENS
+        out["max_tokens"] = MAX_OUTPUT_TOKENS
 
     # Pass through other params
     for k in ("temperature", "top_p", "frequency_penalty", "presence_penalty", "stop", "seed"):
@@ -718,10 +722,13 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             # Convert Responses API max_output_tokens → Chat Completions max_tokens
             max_out = req_json.pop("max_output_tokens", None)
             if max_out is not None:
+                max_out = min(max_out, MAX_OUTPUT_TOKENS)
                 req_json["max_tokens"] = max_out
+            else:
+                req_json["max_tokens"] = MAX_OUTPUT_TOKENS
             # Enforce MIN_TOKENS floor
-            current_max = req_json.get("max_tokens")
-            if current_max is None or current_max < MIN_TOKENS:
+            current_max = req_json.get("max_tokens") or MIN_TOKENS
+            if current_max < MIN_TOKENS:
                 req_json["max_tokens"] = MIN_TOKENS
             body = json.dumps(req_json).encode()
             log(f"PASSTHROUGH: path={upstream_path} max_tokens={req_json.get('max_tokens')} tools={len(req_json.get('tools', []))}")
