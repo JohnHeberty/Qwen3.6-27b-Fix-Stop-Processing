@@ -182,7 +182,7 @@ def sanitize_tools(tools):
         name = func.get("name", "?")
         n_props = len(params.get("properties", {}))
         depth = _schema_depth(params)
-        if n_props > 8 or depth > 3:
+        if n_props > 8 or depth >= 3:
             log(f"SIMPLIFY {name} ({n_props} props, depth={depth})")
             simplified[name] = deepcopy(params)
             func["parameters"] = {
@@ -467,6 +467,31 @@ def clean_conversation(messages):
                 continue
 
         cleaned.append(msg)
+
+    # Remove failed tool_call + error pairs (assistant generated bad args, tool rejected)
+    # This prevents model from learning "tool calls always fail" pattern
+    if len(cleaned) >= 2:
+        filtered = []
+        skip_next = False
+        for i, msg in enumerate(cleaned):
+            if skip_next:
+                skip_next = False
+                continue
+            role = msg.get("role", "")
+            content = str(msg.get("content", "") or "")
+            # If this is a tool response with validation error, skip it AND the preceding assistant
+            if role == "tool" and (
+                "Validation failed" in content
+                or "must have required properties" in content
+                or "additional properties not allowed" in content
+                or "Failed to parse" in content
+            ):
+                if filtered and filtered[-1].get("role") == "assistant":
+                    filtered.pop()
+                    log(f"CLEAN: removed failed tool_call pair (assistant + error)")
+                continue
+            filtered.append(msg)
+        cleaned = filtered
 
     # Collapse consecutive user messages into last per block
     if len(cleaned) >= 2:
