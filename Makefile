@@ -189,6 +189,14 @@ $(SENTINEL_LLAMA): setup-cuda install-system-deps
 	fi
 	@# Patch glibc 2.40+ / Debian trixie incompatibility com cudafe++
 	@$(MAKE) _patch-glibc-cuda
+	@# Aplicar patches de grammar (MAX_REPETITION_THRESHOLD + auto-anchor)
+	@if [ -f "$(PWD)/llama-cpp-grammar-patches.patch" ]; then \
+		echo "      Aplicando grammar patches..."; \
+		cd "$(LLAMA_CPP_DIR)" && git apply --check "$(PWD)/llama-cpp-grammar-patches.patch" 2>/dev/null && \
+			git apply "$(PWD)/llama-cpp-grammar-patches.patch" && \
+			echo "      Grammar patches aplicados" || \
+			echo "      WARN: grammar patches já aplicados ou conflitam"; \
+	fi
 	@# Compilar
 	@cd "$(LLAMA_CPP_DIR)" && cmake -B build \
 		-DGGML_CUDA=ON \
@@ -210,6 +218,11 @@ update-llama-server:
 	@echo "[5b] Atualizando llama.cpp..."
 	@cd "$(LLAMA_CPP_DIR)" && git stash 2>/dev/null || true
 	@cd "$(LLAMA_CPP_DIR)" && git pull --ff-only origin master 2>&1 | tail -3
+	@echo "      Aplicando patches (grammar)..."
+	@cd "$(LLAMA_CPP_DIR)" && git apply --check "$(PWD)/llama-cpp-grammar-patches.patch" 2>/dev/null && \
+		git apply "$(PWD)/llama-cpp-grammar-patches.patch" && \
+		echo "      Patches aplicados com sucesso" || \
+		echo "      WARN: patches já aplicados ou conflitam (ok se já aplicado)"
 	@echo "      Compilando..."
 	@cd "$(LLAMA_CPP_DIR)" && cmake -B build \
 		-DGGML_CUDA=ON \
