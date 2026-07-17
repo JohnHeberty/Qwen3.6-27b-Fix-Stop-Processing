@@ -165,12 +165,13 @@ def sanitize_patterns(obj):
 def sanitize_tools(tools):
     """Sanitize tool schemas for llama.cpp. Returns (sanitized_tools, simplified_map).
 
-    simplified_map: {tool_name: original_parameters} for tools simplified to json_args.
+    simplified_map is always empty now — llama.cpp patches (MAX_REPETITION_THRESHOLD
+    + auto-anchor) handle all schemas directly. We only strip features the grammar
+    builder still doesn't support (not, if/then/else, patternProperties).
     NEVER mutates the input list.
     """
     if not tools:
         return [], {}
-    simplified = {}
     result = []
     for t in tools:
         t = deepcopy(t)
@@ -180,27 +181,13 @@ def sanitize_tools(tools):
             result.append(t)
             continue
         name = func.get("name", "?")
-        n_props = len(params.get("properties", {}))
-        depth = _schema_depth(params)
-        if n_props > 8 or depth >= 3:
-            log(f"SIMPLIFY {name} ({n_props} props, depth={depth})")
-            simplified[name] = deepcopy(params)
-            func["parameters"] = {
-                "type": "object",
-                "properties": {
-                    "json_args": {
-                        "type": "string",
-                        "description": f"JSON string with arguments for {name}. See description for schema.",
-                    }
-                },
-                "required": ["json_args"],
-            }
-        else:
-            clean = flatten_combo(strip_unsupported(params))
-            func["parameters"] = clean
-            sanitize_patterns(func.get("parameters", {}))
+        clean = flatten_combo(strip_unsupported(params))
+        func["parameters"] = clean
+        sanitize_patterns(func.get("parameters", {}))
+        n_props = len(clean.get("properties", {}))
+        log(f"SANITIZED {name} ({n_props} props, no simplify)")
         result.append(t)
-    return result, simplified
+    return result, {}
 
 
 def unsimplify_args(name, arguments_str, simplified_map):
@@ -493,24 +480,65 @@ def clean_conversation(messages):
             filtered.append(msg)
         cleaned = filtered
 
-    # Collapse consecutive text-only assistant messages into just the last one
-    # Model sees "I'll do X" repeated → learns to output text instead of tool calls
+    # Remove ALL text-only assistant messages (never call tools → just describe plans)
+    # Model sees "I'll do X" → learns to output text instead of tool calls
+    # Even non-consecutive text-only assistants poison the model
     if len(cleaned) >= 2:
+        # Check if ANY assistant in history had tool_calls
+        has_any_tool_call = any(
+            m.get("role") == "assistant" and m.get("tool_calls")
+            for m in cleaned
+        )
         collapsed = []
-        assistant_run = []
+        removed = 0
         for msg in cleaned:
             role = msg.get("role", "")
             if role == "assistant" and not msg.get("tool_calls"):
-                assistant_run.append(msg)
+                removed += 1
+                continue
+            collapsed.append(msg)
+        if removed:
+            log(f"CLEAN: removed {removed} text-only assistant messages ({len(cleaned)} -> {len(collapsed)}, has_tool_calls={has_any_tool_call})")
+        cleaned = collapsed
+
+    # Collapse consecutive tool_call loops (same tool called repeatedly)
+    # Model stuck calling sessions_history/memory_search over and over → remove loop, keep only first call
+    if len(cleaned) >= 2:
+        collapsed = []
+        tool_loop_names = set()  # tools already seen in current loop
+        in_loop = False
+        loop_tool_name = None
+        loop_msgs = []
+        for msg in cleaned:
+            role = msg.get("role", "")
+            if role == "assistant" and msg.get("tool_calls"):
+                tc = msg["tool_calls"][0]
+                tool_name = tc.get("function", {}).get("name", "")
+                if tool_name == loop_tool_name:
+                    loop_msgs.append(msg)
+                    continue
+                else:
+                    # New tool or end of loop
+                    if loop_msgs:
+                        # Keep only FIRST pair from the loop
+                        if len(loop_msgs) > 2:
+                            log(f"CLEAN: collapsed {len(loop_msgs)//2}x {loop_tool_name} loop to 1")
+                        collapsed.extend(loop_msgs[:2])
+                        loop_msgs = []
+                    loop_tool_name = tool_name
+                    loop_msgs = [msg]
+            elif role == "tool" and loop_tool_name:
+                loop_msgs.append(msg)
             else:
-                if assistant_run:
-                    collapsed.append(assistant_run[-1])
-                    assistant_run = []
+                if loop_msgs:
+                    collapsed.extend(loop_msgs[:2])
+                    loop_msgs = []
+                loop_tool_name = None
                 collapsed.append(msg)
-        if assistant_run:
-            collapsed.append(assistant_run[-1])
+        if loop_msgs:
+            collapsed.extend(loop_msgs[:2])
         if len(collapsed) < len(cleaned):
-            log(f"CLEAN: collapsed {len(cleaned)} -> {len(collapsed)} messages (removed {len(cleaned)-len(collapsed)} text-only assistant)")
+            log(f"CLEAN: collapsed tool loops {len(cleaned)} -> {len(collapsed)} messages")
         cleaned = collapsed
 
     # Collapse consecutive user messages into last per block
