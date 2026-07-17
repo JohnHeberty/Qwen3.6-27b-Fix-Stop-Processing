@@ -715,11 +715,16 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         else:
             simplified_map = {}
             upstream_path = self.path
-            if max_tok is not None and max_tok < MIN_TOKENS:
-                req_json["max_tokens"] = MIN_TOKENS
-            elif max_tok is None:
+            # Convert Responses API max_output_tokens → Chat Completions max_tokens
+            max_out = req_json.pop("max_output_tokens", None)
+            if max_out is not None:
+                req_json["max_tokens"] = max_out
+            # Enforce MIN_TOKENS floor
+            current_max = req_json.get("max_tokens")
+            if current_max is None or current_max < MIN_TOKENS:
                 req_json["max_tokens"] = MIN_TOKENS
             body = json.dumps(req_json).encode()
+            log(f"PASSTHROUGH: path={upstream_path} max_tokens={req_json.get('max_tokens')} tools={len(req_json.get('tools', []))}")
 
         # ── Forward to upstream ──
         upstream_url = UPSTREAM + upstream_path
@@ -909,16 +914,27 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
     def _stream_passthrough(self, resp):
         self.send_response(resp.status)
         for key, val in resp.getheaders():
-            if key.lower() not in ("transfer-encoding", "connection"):
+            if key.lower() not in ("transfer-encoding", "connection", "content-length"):
                 self.send_header(key, val)
+        self.send_header("Connection", "close")
         self.end_headers()
-        while True:
-            chunk = resp.read(4096)
-            if not chunk:
-                break
-            self.wfile.write(chunk)
-            self.wfile.flush()
-        resp.close()
+        total_bytes = 0
+        try:
+            while True:
+                chunk = resp.read(4096)
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                self.wfile.flush()
+                total_bytes += len(chunk)
+            resp.close()
+            log(f"PASSTHROUGH done: {total_bytes} bytes forwarded")
+        except BrokenPipeError:
+            log(f"PASSTHROUGH broken pipe after {total_bytes} bytes (client disconnected)")
+        except Exception as e:
+            log(f"PASSTHROUGH error after {total_bytes} bytes: {e}")
+        finally:
+            resp.close()
 
     def _send_sse(self, data):
         line = f"data: {json.dumps(data)}\n\n"
