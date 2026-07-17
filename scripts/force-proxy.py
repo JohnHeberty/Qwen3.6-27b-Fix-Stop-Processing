@@ -493,6 +493,26 @@ def clean_conversation(messages):
             filtered.append(msg)
         cleaned = filtered
 
+    # Collapse consecutive text-only assistant messages into just the last one
+    # Model sees "I'll do X" repeated → learns to output text instead of tool calls
+    if len(cleaned) >= 2:
+        collapsed = []
+        assistant_run = []
+        for msg in cleaned:
+            role = msg.get("role", "")
+            if role == "assistant" and not msg.get("tool_calls"):
+                assistant_run.append(msg)
+            else:
+                if assistant_run:
+                    collapsed.append(assistant_run[-1])
+                    assistant_run = []
+                collapsed.append(msg)
+        if assistant_run:
+            collapsed.append(assistant_run[-1])
+        if len(collapsed) < len(cleaned):
+            log(f"CLEAN: collapsed {len(cleaned)} -> {len(collapsed)} messages (removed {len(cleaned)-len(collapsed)} text-only assistant)")
+        cleaned = collapsed
+
     # Collapse consecutive user messages into last per block
     if len(cleaned) >= 2:
         collapsed = []
@@ -660,7 +680,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             # Dump converted
             try:
                 with open(f"{DUMP_DIR}/last-converted-request.json", "w") as f:
-                    json.dump({"messages": chat_req["messages"], "tools_count": len(chat_req.get("tools", [])), "max_tokens": chat_req.get("max_tokens")}, f, indent=2, ensure_ascii=False)
+                    json.dump({"messages": chat_req["messages"], "tools": chat_req.get("tools", []), "max_tokens": chat_req.get("max_tokens")}, f, indent=2, ensure_ascii=False)
             except Exception:
                 pass
         else:
