@@ -85,6 +85,12 @@ help:
 	@echo "  make litellm-start      Sobe LiteLLM proxy (porta 4000) com config pronta"
 	@echo "  (config: infra/litellm/config.yaml — já inclui context_window correto)"
 	@echo ""
+	@echo "  FORCE PROXY (OpenClaw → LiteLLM):"
+	@echo "  make proxy-start        Sobe force-proxy (porta 4002)"
+	@echo "  make proxy-stop         Para force-proxy"
+	@echo "  make proxy-restart      Reinicia force-proxy"
+	@echo "  make proxy-logs         Acompanha log em tempo real"
+	@echo ""
 	@echo "  BENCHMARK:"
 	@echo "  make benchmark-sweep    Sweep 8k→max (incremento 8k, com MTP)"
 	@echo "  make benchmark-sweep ARGS=\"--start 16384 --step 16384\"  (custom)"
@@ -418,6 +424,43 @@ litellm-start:
 	@echo "  use model_name=qwen nos seus projetos"
 	@echo ""
 	$(VENV)/bin/litellm --config "$(PROJECT_ROOT)/infra/litellm/config.yaml" --port 4000
+
+##############################################################################
+# FORCE PROXY (OpenClaw → LiteLLM bridge)
+##############################################################################
+proxy-start:
+	@if pgrep -f "force-proxy.py" > /dev/null 2>&1; then \
+		echo "Force-proxy já está rodando (PID $$(pgrep -f 'force-proxy.py'))"; \
+	else \
+		echo "Subindo force-proxy em http://localhost:4002 ..."; \
+		nohup python3 "$(PROJECT_ROOT)/scripts/force-proxy.py" \
+			>> "$(PROJECT_ROOT)/data/logs/force-proxy.log" 2>&1 & \
+		sleep 1; \
+		if pgrep -f "force-proxy.py" > /dev/null 2>&1; then \
+			echo "  ✓ Force-proxy rodando (PID $$(pgrep -f 'force-proxy.py'))"; \
+		else \
+			echo "  ✗ Falha ao iniciar force-proxy"; \
+		fi; \
+	fi
+
+proxy-stop:
+	@if pgrep -f "force-proxy.py" > /dev/null 2>&1; then \
+		echo "Parando force-proxy..."; \
+		pkill -f "force-proxy.py"; \
+		sleep 1; \
+		if pgrep -f "force-proxy.py" > /dev/null 2>&1; then \
+			echo "  Forçando kill..."; \
+			pkill -9 -f "force-proxy.py"; \
+		fi; \
+		echo "  ✓ Force-proxy parado"; \
+	else \
+		echo "Force-proxy não está rodando"; \
+	fi
+
+proxy-restart: proxy-stop proxy-start
+
+proxy-logs:
+	@tail -f "$(PROJECT_ROOT)/data/logs/force-proxy.log"
 
 ##############################################################################
 # BENCHMARK

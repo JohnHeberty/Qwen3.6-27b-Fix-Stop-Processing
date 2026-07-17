@@ -23,6 +23,7 @@ from copy import deepcopy
 
 # ── Config ──────────────────────────────────────────────────────────────────
 UPSTREAM = "http://100.91.54.69:4000"
+UPSTREAM_API_KEY = "sk-litellm-master"
 LISTEN_PORT = 4002
 MIN_TOKENS = 512
 MAX_HISTORY = 25
@@ -637,7 +638,7 @@ def chat_to_responses_nonstream(resp_json, resp_id, simplified_map):
     return {
         "id": resp_id,
         "object": "response",
-        "status": status_map.get(finish, "completed"),
+        "status": status_map.get(finish or "stop", "completed"),
         "output": output,
         "usage": {
             "input_tokens": usage.get("prompt_tokens", 0),
@@ -728,7 +729,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             method="POST",
             headers={
                 "Content-Type": "application/json",
-                "Authorization": self.headers.get("Authorization", ""),
+                "Authorization": f"Bearer {UPSTREAM_API_KEY}",
             },
         )
 
@@ -780,8 +781,9 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
 
                 self.send_response(resp.status)
                 for key, val in resp.getheaders():
-                    if key.lower() not in ("transfer-encoding", "connection"):
+                    if key.lower() not in ("transfer-encoding", "connection", "content-length"):
                         self.send_header(key, val)
+                self.send_header("Content-Length", str(len(resp_body)))
                 self.end_headers()
                 self.wfile.write(resp_body)
 
@@ -946,7 +948,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         req = urllib.request.Request(
             upstream_url,
             method=self.command,
-            headers={"Authorization": self.headers.get("Authorization", "")},
+            headers={"Authorization": f"Bearer {UPSTREAM_API_KEY}"},
         )
         try:
             resp = urllib.request.urlopen(req, timeout=30)
