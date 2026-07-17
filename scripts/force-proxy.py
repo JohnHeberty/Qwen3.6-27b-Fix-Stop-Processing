@@ -586,6 +586,133 @@ def clean_conversation(messages):
     return cleaned
 
 
+# ── Passthrough Conversation Cleanup ───────────────────────────────────────
+
+# Patterns that indicate model output tool_call as TEXT content instead of structured tool_calls
+_XML_TOOL_CALL_RE = re.compile(
+    r'<tool_call>\s*\n?\s*<function=.*?>',
+    re.DOTALL,
+)
+
+# Patterns that indicate model describing actions instead of calling tools
+_ACTION_DESC_RE = re.compile(
+    r'^(?:Vou |Vou criar|Vou fazer|Vou atualizar|Vou remover|Vou adicionar|'
+    r'Vou executar|Vou configurar|Vou buscar|Vou verificar|Vou listar|'
+    r'I\'ll |I will |Let me |Deixa eu |Preciso |Tentar |Rodar )',
+    re.IGNORECASE,
+)
+
+# Noisy user messages to strip
+_NOISE_USER_RE = re.compile(
+    r'^(?:[\?\!\.]+$|Eai\?*$|Tá on\?*$|Continue.*|Diga.*|Remove.*consegue\?)',
+    re.IGNORECASE,
+)
+
+
+def clean_passthrough_conversation(messages):
+    """Clean Chat Completions messages to remove text-based tool_call pollution.
+
+    In the passthrough path, OpenClaw sends raw conversation history. Some assistant
+    messages contain XML tool_call patterns as TEXT content (not structured tool_calls).
+    The model then learns this pattern and repeats it. This function removes those
+    corrupted messages and cleans noise.
+
+    Returns cleaned list (new list, never mutates input).
+    """
+    if not messages:
+        return messages
+
+    cleaned = []
+    removed = 0
+    xml_removed = 0
+
+    for idx, msg in enumerate(messages):
+        role = msg.get("role", "")
+        content = msg.get("content", "") or ""
+
+        # Skip non-string content
+        if not isinstance(content, str):
+            cleaned.append(msg)
+            continue
+
+        # Remove assistant messages with XML tool_call patterns as text content
+        if role == "assistant" and not msg.get("tool_calls"):
+            if _XML_TOOL_CALL_RE.search(content):
+                xml_removed += 1
+                log(f"PASSTHROUGH CLEAN: removed XML tool_call as text at [{idx}]: {repr(content[:100])}")
+                continue
+
+        # Remove text-only assistant messages that describe actions (not call tools)
+        if role == "assistant" and not msg.get("tool_calls"):
+            text = content.strip()
+            if text and len(text) < 50 and _ACTION_DESC_RE.match(text):
+                removed += 1
+                continue
+
+        # Remove tiny assistant messages without tool_calls
+        if role == "assistant" and not msg.get("tool_calls"):
+            text = content.strip()
+            if not text or text == "..." or len(text) < 3:
+                removed += 1
+                continue
+
+        # Remove noise user messages (but keep last user)
+        if role == "user":
+            text = re.sub(r'^\[.*?\]\s*', '', content.strip())
+            # Don't remove if it's the last user message
+            is_last_user = (idx == len(messages) - 1 or
+                           (idx == len(messages) - 2 and messages[-1].get("role") == "system"))
+            if not is_last_user and _NOISE_USER_RE.match(text):
+                removed += 1
+                continue
+
+        cleaned.append(msg)
+
+    # Remove failed tool_call + error pairs
+    if len(cleaned) >= 2:
+        filtered = []
+        skip_next = False
+        for i, msg in enumerate(cleaned):
+            if skip_next:
+                skip_next = False
+                continue
+            role = msg.get("role", "")
+            content = str(msg.get("content", "") or "")
+            if role == "tool" and (
+                "Validation failed" in content
+                or "must have required properties" in content
+                or "Failed to parse" in content
+            ):
+                if filtered and filtered[-1].get("role") == "assistant":
+                    filtered.pop()
+                    removed += 1
+                continue
+            filtered.append(msg)
+        cleaned = filtered
+
+    # Collapse consecutive user messages
+    if len(cleaned) >= 2:
+        collapsed = []
+        user_run = []
+        for msg in cleaned:
+            if msg.get("role") == "user":
+                user_run.append(msg)
+            else:
+                if user_run:
+                    collapsed.append(user_run[-1])
+                    user_run = []
+                collapsed.append(msg)
+        if user_run:
+            collapsed.append(user_run[-1])
+        cleaned = collapsed
+
+    total_removed = len(messages) - len(cleaned)
+    if total_removed:
+        log(f"PASSTHROUGH CLEAN: {len(messages)} -> {len(cleaned)} msgs (xml={xml_removed}, action_desc={removed}, total={total_removed})")
+
+    return cleaned
+
+
 # ── Response Conversion ────────────────────────────────────────────────────
 
 def chat_to_responses_nonstream(resp_json, resp_id, simplified_map):
@@ -730,8 +857,21 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
             current_max = req_json.get("max_tokens") or MIN_TOKENS
             if current_max < MIN_TOKENS:
                 req_json["max_tokens"] = MIN_TOKENS
+            # Clean conversation to remove text-based tool_call pollution
+            if "messages" in req_json:
+                n_before = len(req_json["messages"])
+                req_json["messages"] = clean_passthrough_conversation(req_json["messages"])
+                if len(req_json["messages"]) != n_before:
+                    log(f"PASSTHROUGH: {n_before} -> {len(req_json['messages'])} msgs after cleanup")
             body = json.dumps(req_json).encode()
-            log(f"PASSTHROUGH: path={upstream_path} max_tokens={req_json.get('max_tokens')} tools={len(req_json.get('tools', []))}")
+            n_msgs = len(req_json.get("messages", []))
+            n_tools = len(req_json.get("tools", []))
+            log(f"PASSTHROUGH: path={upstream_path} max_tokens={req_json.get('max_tokens')} tools={n_tools} msgs={n_msgs}")
+            try:
+                with open(f"{DUMP_DIR}/last-passthrough-request.json", "w") as f:
+                    json.dump(req_json, f, indent=2, ensure_ascii=False)
+            except Exception:
+                pass
 
         # ── Forward to upstream ──
         upstream_url = UPSTREAM + upstream_path
