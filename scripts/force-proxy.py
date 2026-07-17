@@ -16,6 +16,7 @@ import socketserver
 import sys
 import threading
 import time
+import urllib.error
 import urllib.request
 import uuid
 from copy import deepcopy
@@ -737,7 +738,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         self.send_response(resp.status)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
-        self.send_header("Connection", "keep-alive")
+        self.send_header("Connection", "close")
         self.end_headers()
 
         self._send_sse({"type": "response.created", "response": {"id": resp_id, "object": "response", "status": "in_progress"}})
@@ -822,7 +823,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         self._send_sse({"type": "response.output_item.done", "output_index": 0, "item": {"type": "message", "role": "assistant", "status": "completed"}})
 
         status_map = {"stop": "completed", "length": "incomplete", "tool_calls": "completed"}
-        self._send_sse({"type": "response.completed", "response": {"id": resp_id, "object": "response", "status": status_map.get(finish_reason, "completed")}})
+        self._send_sse({"type": "response.completed", "response": {"id": resp_id, "object": "response", "status": status_map.get(finish_reason or "stop", "completed")}})
 
         resp.close()
         log(f"STREAM done: text={len(text_buf)} chars, tools={len(tool_calls_buf)}, finish={finish_reason}")
