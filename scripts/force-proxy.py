@@ -25,7 +25,7 @@ from copy import deepcopy
 UPSTREAM = "http://100.91.54.69:4000"
 UPSTREAM_API_KEY = "sk-litellm-master"
 LISTEN_PORT = 4002
-MIN_TOKENS = 512
+MIN_TOKENS = 8192
 MAX_HISTORY = 25
 LOG_FILE = "/root/qwen3/data/logs/force-proxy.log"
 DUMP_DIR = "/root/qwen3/data/logs"
