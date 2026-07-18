@@ -590,8 +590,7 @@ def clean_conversation(messages):
 
 # Patterns that indicate model output tool_call as TEXT content instead of structured tool_calls
 _XML_TOOL_CALL_RE = re.compile(
-    r'<tool_call>\s*\n?\s*<function=.*?>',
-    re.DOTALL,
+    r'<tool_call>',
 )
 
 # Patterns that indicate model describing actions instead of calling tools
@@ -656,12 +655,20 @@ def clean_passthrough_conversation(messages):
                 removed += 1
                 continue
 
+        # Remove OpenClaw context block user messages (they lose the real user message)
+        if role == "user" and "OpenClaw runtime context for the immediately preceding user message." in content:
+            log(f"PASSTHROUGH CLEAN: removed context block at [{idx}]")
+            removed += 1
+            continue
+
         # Remove noise user messages (but keep last user)
         if role == "user":
             text = re.sub(r'^\[.*?\]\s*', '', content.strip())
-            # Don't remove if it's the last user message
+            # Don't remove if it's the last user message or second-to-last (last might be context block)
             is_last_user = (idx == len(messages) - 1 or
-                           (idx == len(messages) - 2 and messages[-1].get("role") == "system"))
+                           (idx == len(messages) - 2 and messages[-1].get("role") == "system") or
+                           (idx == len(messages) - 2 and "OpenClaw runtime context" in str(messages[-1].get("content", ""))) or
+                           (idx == len(messages) - 3 and messages[-1].get("role") == "system" and "OpenClaw runtime context" in str(messages[-2].get("content", ""))))
             if not is_last_user and _NOISE_USER_RE.match(text):
                 removed += 1
                 continue
