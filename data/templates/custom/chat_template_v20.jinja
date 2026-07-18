@@ -219,8 +219,36 @@ Reminder:
                     {%- endif %}
                 {%- elif tool_call.arguments is defined and tool_call.arguments is string %}
                     {%- if tool_call.arguments | trim | length > 0 %}
-                        {{- tool_call.arguments }}
-                        {{- '\n' }}
+                        {%- set _args_str = tool_call.arguments | trim %}
+                        {%- if _args_str.startswith('{') and _args_str.endswith('}') %}
+                            {%- set _args_inner = _args_str[1:-1] | trim %}
+                            {%- set _has_nested = '{' in _args_inner or '[' in _args_inner %}
+                            {%- if _has_nested %}
+                                {{- _args_str }}
+                                {{- '\n' }}
+                            {%- elif _args_inner | length > 0 %}
+                                {%- set _pairs = _args_inner.split(',') %}
+                                {%- for _pair in _pairs %}
+                                    {%- set _kv = _pair.split(':', 1) %}
+                                    {%- if _kv | length == 2 %}
+                                        {%- set _key = _kv[0] | trim | replace('"', '') %}
+                                        {%- set _val = _kv[1] | trim %}
+                                        {%- if _val.startswith('"') and _val.endswith('"') %}
+                                            {%- set _val = _val[1:-1] %}
+                                        {%- endif %}
+                                        {{- "<parameter=" ~ _key ~ ">\n" }}
+                                        {{- _val }}
+                                        {{- "\n</parameter>\n" }}
+                                    {%- endif %}
+                                {%- endfor %}
+                            {%- endif %}
+                        {%- elif _args_str.startswith('[') and _args_str.endswith(']') %}
+                            {{- _args_str }}
+                            {{- '\n' }}
+                        {%- else %}
+                            {{- _args_str }}
+                            {{- '\n' }}
+                        {%- endif %}
                     {%- endif %}
                 {%- endif %}
                 {{- '</function>\n</tool_call>' }}
