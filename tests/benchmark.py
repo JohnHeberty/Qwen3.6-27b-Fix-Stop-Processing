@@ -4,13 +4,14 @@ Benchmark — Sweep incremental de contexto (8k→max) com MTP.
 
 Testa N_CTX de --start ate --max, incremento de --step, reiniciando o
 servidor entre cada teste. Para quando VRAM insuficiente ou servidor crasha.
+Salva resultado em CSV incrementalmente a cada teste.
 
 Uso:
     python3 tests/benchmark.py                          # sweep 8k→131k, step 8k
     python3 tests/benchmark.py --start 16384 --step 16384
     python3 tests/benchmark.py --start 8192 --step 8192 --max 65536
     python3 tests/benchmark.py --fill 80 --max-tokens 4096
-    python3 tests/benchmark.py --resume data/temp/bench_partial_XXX.json
+    python3 tests/benchmark.py --resume data/temp/benchmark_20250101_120000.csv
 """
 
 import argparse
@@ -21,6 +22,12 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+
+try:
+    import pandas as pd
+except ImportError:
+    subprocess.run([sys.executable, "-m", "pip", "install", "pandas", "-q"], check=True)
+    import pandas as pd
 
 try:
     import requests
@@ -35,7 +42,6 @@ HEALTH_URL = "http://localhost:8000/health"
 CHAT_URL = "http://localhost:8000/v1/chat/completions"
 PDF_PATH = PROJECT_ROOT / "data" / "temp" / "RL_OREILLY_full.md"
 TEMP_DIR = PROJECT_ROOT / "data" / "temp"
-LOGS_DIR = PROJECT_ROOT / "data" / "logs"
 
 DEFAULT_START = 8192
 DEFAULT_STEP = 8192
@@ -44,15 +50,24 @@ DEFAULT_FILL = 90
 DEFAULT_MAX_TOKENS = 2048
 VRAM_OOM_THRESHOLD = 200  # MiB livre
 
+CSV_SEP = ";"
+CSV_DEC = ","
+
+CSV_COLUMNS = [
+    "timestamp", "n_ctx", "fill_pct", "prompt_tokens_est", "tokens_gen",
+    "prompt_time_s", "gen_time_s", "total_time_s", "tok_per_sec",
+    "vram_used", "vram_free", "ram_free_before", "ram_free_after",
+    "ram_delta", "rss", "status",
+]
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def log(msg):
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
 def get_vram():
-    """ Retorna (used_mib, free_mib). """
     r = subprocess.run(
         ["nvidia-smi", "--query-gpu=memory.used,memory.free",
          "--format=csv,noheader,nounits"],
@@ -63,7 +78,6 @@ def get_vram():
 
 
 def get_ram_free():
-    """ Retorna RAM livre em MiB. """
     with open("/proc/meminfo") as f:
         for line in f:
             if line.startswith("MemAvailable:"):
@@ -72,7 +86,6 @@ def get_ram_free():
 
 
 def get_rss():
-    """ Retorna RSS total do llama-server em MiB. """
     r = subprocess.run(["ps", "-o", "rss=", "-C", "llama-server"],
                        capture_output=True, text=True)
     if r.returncode == 0 and r.stdout.strip():
@@ -81,7 +94,6 @@ def get_rss():
 
 
 def wait_server(timeout=180):
-    """ Aguarda servidor ficar pronto. """
     start = time.time()
     while time.time() - start < timeout:
         try:
@@ -94,7 +106,6 @@ def wait_server(timeout=180):
 
 
 def stop_server():
-    """ Para o servidor. """
     subprocess.run(["pkill", "-f", "llama-server"], capture_output=True)
     time.sleep(3)
     subprocess.run(["pkill", "-9", "-f", "llama-server"], capture_output=True)
@@ -102,7 +113,6 @@ def stop_server():
 
 
 def start_server(n_ctx):
-    """ Atualiza N_CTX no .env e inicia o servidor em background. """
     env_path = PROJECT_ROOT / ".env"
     if env_path.exists():
         lines = env_path.read_text().splitlines()
@@ -139,7 +149,6 @@ def load_pdf():
 
 
 def build_prompt(pdf_text, target_tokens):
-    """ Trunca o PDF e monta o prompt. Retorna (prompt, estimated_tokens). """
     target_chars = int(target_tokens * 3.5)
     truncated = pdf_text[:target_chars]
     estimated = len(truncated) // 3.5
@@ -152,13 +161,36 @@ def build_prompt(pdf_text, target_tokens):
     return prompt, int(estimated)
 
 
+# ── CSV I/O ───────────────────────────────────────────────────────────────────
+
+def save_csv_row(row: dict, csv_path: Path):
+    """Append uma linha ao CSV. Cria com header se nao existir."""
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    df = pd.DataFrame([row])
+    if not csv_path.exists():
+        df.to_csv(csv_path, sep=CSV_SEP, decimal=CSV_DEC, index=False)
+    else:
+        df.to_csv(csv_path, sep=CSV_SEP, decimal=CSV_DEC, index=False,
+                  mode="a", header=False)
+    log(f"CSV: +1 linha -> {csv_path.name} ({get_row_count(csv_path)} linhas total)")
+
+
+def get_row_count(csv_path: Path) -> int:
+    if not csv_path.exists():
+        return 0
+    df = pd.read_csv(csv_path, sep=CSV_SEP, decimal=CSV_DEC)
+    return len(df)
+
+
+def load_csv(csv_path: Path):
+    if not csv_path.exists():
+        return pd.DataFrame(columns=CSV_COLUMNS)
+    return pd.read_csv(csv_path, sep=CSV_SEP, decimal=CSV_DEC)
+
+
 # ── Teste individual ──────────────────────────────────────────────────────────
 
 def run_test(pdf_text, n_ctx, fill_pct, max_tokens):
-    """
-    Executa um teste de contexto.
-    Retorna dict com metricas ou None em falha.
-    """
     target_tokens = int(n_ctx * fill_pct / 100)
     prompt, est_tokens = build_prompt(pdf_text, target_tokens)
 
@@ -169,11 +201,9 @@ def run_test(pdf_text, n_ctx, fill_pct, max_tokens):
     rss_before = get_rss()
     log(f"VRAM: {vram_used}/{vram_free} MiB | RAM livre: {ram_free_before} MiB | RSS: {rss_before} MiB")
 
-    # Request com streaming
     start_time = time.time()
     first_token_time = None
     token_count = 0
-    response_text = ""
 
     try:
         stream = requests.post(
@@ -205,7 +235,6 @@ def run_test(pdf_text, n_ctx, fill_pct, max_tokens):
                 if delta:
                     if first_token_time is None:
                         first_token_time = time.time()
-                    response_text += delta
                     token_count += 1
             except (json.JSONDecodeError, IndexError, KeyError):
                 pass
@@ -215,7 +244,6 @@ def run_test(pdf_text, n_ctx, fill_pct, max_tokens):
         gen_time = (time.time() - first_token_time) if first_token_time else 0
         tok_per_sec = token_count / gen_time if gen_time > 0 else 0
 
-        # Medicoes pos-request
         vram_used_after, vram_free_after = get_vram()
         ram_free_after = get_ram_free()
         rss_after = get_rss()
@@ -225,7 +253,8 @@ def run_test(pdf_text, n_ctx, fill_pct, max_tokens):
             status = "vram_exhausted"
             log(f"!! VRAM livre < {VRAM_OOM_THRESHOLD} MiB")
 
-        result = {
+        row = {
+            "timestamp": datetime.now().isoformat(),
             "n_ctx": n_ctx,
             "fill_pct": fill_pct,
             "prompt_tokens_est": est_tokens,
@@ -246,87 +275,19 @@ def run_test(pdf_text, n_ctx, fill_pct, max_tokens):
         log(f"Resultado: {token_count} tokens em {gen_time:.1f}s = {tok_per_sec:.1f} tok/s | "
             f"VRAM: {vram_used_after}/{vram_free_after} MiB | Status: {status}")
 
-        return result
+        return row
 
     except requests.exceptions.ConnectionError:
         log("!! Conexao perdida — servidor crashou?")
-        return {"n_ctx": n_ctx, "status": "oom", "tokens_gen": 0, "tok_per_sec": 0}
+        return {"timestamp": datetime.now().isoformat(), "n_ctx": n_ctx,
+                "status": "oom", "tokens_gen": 0, "tok_per_sec": 0,
+                "fill_pct": fill_pct, "prompt_tokens_est": 0,
+                "prompt_time_s": 0, "gen_time_s": 0, "total_time_s": 0,
+                "vram_used": 0, "vram_free": 0, "ram_free_before": 0,
+                "ram_free_after": 0, "ram_delta": 0, "rss": 0}
     except Exception as e:
         log(f"ERRO: {e}")
         return None
-
-
-# ── Checkpoint ────────────────────────────────────────────────────────────────
-
-def save_checkpoint(results, path):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as f:
-        json.dump({
-            "timestamp": datetime.now().isoformat(),
-            "count": len(results),
-            "results": results,
-        }, f, indent=2, ensure_ascii=False)
-    log(f"Checkpoint: {len(results)} resultado(s) -> {path.name}")
-
-
-def load_checkpoint(path):
-    if not path.exists():
-        log(f"ERRO: Checkpoint nao encontrado: {path}")
-        return None
-    with open(path) as f:
-        return json.load(f).get("results", [])
-
-
-# ── Report ────────────────────────────────────────────────────────────────────
-
-def generate_report(results, args):
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    out_path = Path(args.output) if args.output else LOGS_DIR / f"benchmark_{ts}.md"
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-
-    ok = [r for r in results if r.get("status") == "ok"]
-    failed = [r for r in results if r.get("status") != "ok"]
-
-    with open(out_path, "w") as f:
-        f.write(f"# Benchmark Sweep — {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n")
-        f.write(f"**Config:** start={args.start}, step={args.step}, max={args.max}, "
-                f"fill={args.fill}%, max_tokens={args.max_tokens}\n\n")
-
-        if ok:
-            avg_speed = sum(r["tok_per_sec"] for r in ok) / len(ok)
-            best = max(ok, key=lambda r: r["tok_per_sec"])
-            f.write(f"**Resumo:** {len(ok)} testes OK | "
-                    f"velocidade media {avg_speed:.1f} tok/s | "
-                    f"melhor {best['n_ctx'] // 1024}k @ {best['tok_per_sec']} tok/s\n\n")
-
-        f.write("## Resultados\n\n")
-        f.write("| N_CTX | Context | Prompt (est.) | Tokens gen | Prompt s | Gen s | tok/s | "
-                "VRAM used | VRAM free | RAM delta | RSS | Status |\n")
-        f.write("|---|---|---|---|---|---|---|---|---|---|---|---|\n")
-
-        for r in results:
-            ctx = r["n_ctx"]
-            status_icon = {"ok": "✓", "oom": "✗ OOM", "vram_exhausted": "✗ VRAM",
-                           "fail": "✗ FAIL"}.get(r.get("status", ""), r.get("status", ""))
-            f.write(
-                f"| {ctx:,} | {ctx // 1024}k | "
-                f"~{r.get('prompt_tokens_est', 0):,} | "
-                f"{r.get('tokens_gen', 0):,} | "
-                f"{r.get('prompt_time_s', 0)} | "
-                f"{r.get('gen_time_s', 0)} | "
-                f"{r.get('tok_per_sec', 0)} | "
-                f"{r.get('vram_used', 0)} MiB | "
-                f"{r.get('vram_free', 0)} MiB | "
-                f"{r.get('ram_delta', 0)} MiB | "
-                f"{r.get('rss', 0)} MiB | "
-                f"{status_icon} |\n"
-            )
-
-        if failed:
-            f.write(f"\n**Falhas:** {len(failed)} ({', '.join(str(r['n_ctx'] // 1024) + 'k' for r in failed)})\n")
-
-    log(f"Relatorio: {out_path}")
-    return out_path
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -343,9 +304,20 @@ def main():
                         help=f"Preenchimento do contexto em %% (padrao: {DEFAULT_FILL})")
     parser.add_argument("--max-tokens", type=int, default=DEFAULT_MAX_TOKENS,
                         help=f"Max tokens a gerar (padrao: {DEFAULT_MAX_TOKENS})")
-    parser.add_argument("--output", type=str, help="Arquivo de saida (padrao: data/logs/benchmark_<ts>.md)")
-    parser.add_argument("--resume", type=str, help="Retomar de checkpoint JSON")
+    parser.add_argument("--output", type=str,
+                        help="Arquivo CSV de saida (padrao: data/temp/benchmark_<ts>.csv)")
+    parser.add_argument("--resume", type=str,
+                        help="Retomar de CSV existente")
     args = parser.parse_args()
+
+    # Definir path do CSV
+    if args.output:
+        csv_path = Path(args.output)
+    elif args.resume:
+        csv_path = Path(args.resume)
+    else:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        csv_path = TEMP_DIR / f"benchmark_{ts}.csv"
 
     pdf_text = load_pdf()
     log(f"PDF: {len(pdf_text):,} chars (~{len(pdf_text) // 35 * 10:,} tokens)")
@@ -361,77 +333,91 @@ def main():
     for c in contexts:
         log(f"  N_CTX={c:,} ({c // 1024}k)")
 
-    # Carregar checkpoint se --resume
-    results = []
-    checkpoint_path = TEMP_DIR / f"bench_partial_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    if args.resume:
-        loaded = load_checkpoint(Path(args.resume))
-        if loaded:
-            results = loaded
-            checkpoint_path = Path(args.resume)
-            log(f"Checkpoint: {len(results)} resultado(s) carregados")
+    # Carregar resultados existentes se --resume
+    tested = set()
+    if args.resume and csv_path.exists():
+        df_existing = load_csv(csv_path)
+        tested = set(df_existing["n_ctx"].astype(int).tolist())
+        log(f"Resume: {len(tested)} contexto(s) ja no CSV")
 
-    # Filtrar contextos ja testados
-    tested = {r["n_ctx"] for r in results}
     remaining = [c for c in contexts if c not in tested]
     if tested:
-        log(f"Skip: {len(tested)} contexto(s) ja testados, {len(remaining)} restantes")
+        log(f"Skip: {len(tested)} ja testados, {len(remaining)} restantes")
 
     if not remaining:
         log("Nenhum teste restante")
-    else:
-        log(f"\nIniciando sweep...")
+        return
 
-    # Executar testes
+    log(f"\nIniciando sweep...")
+
     stopped = False
+    total = len(remaining)
     for i, n_ctx in enumerate(remaining, 1):
         if stopped:
             break
 
         log(f"\n{'=' * 60}")
-        log(f"[{i}/{len(remaining)}] N_CTX={n_ctx:,} ({n_ctx // 1024}k)")
+        log(f"[{i}/{total}] N_CTX={n_ctx:,} ({n_ctx // 1024}k)")
         log(f"{'=' * 60}")
 
         stop_server()
 
         if not start_server(n_ctx):
             log(f"ERRO: Falha ao iniciar com N_CTX={n_ctx}")
-            results.append({"n_ctx": n_ctx, "status": "fail", "tokens_gen": 0, "tok_per_sec": 0})
-            save_checkpoint(results, checkpoint_path)
+            fail_row = {
+                "timestamp": datetime.now().isoformat(),
+                "n_ctx": n_ctx, "fill_pct": args.fill,
+                "prompt_tokens_est": 0, "tokens_gen": 0,
+                "prompt_time_s": 0, "gen_time_s": 0, "total_time_s": 0,
+                "tok_per_sec": 0, "vram_used": 0, "vram_free": 0,
+                "ram_free_before": 0, "ram_free_after": 0,
+                "ram_delta": 0, "rss": 0, "status": "fail",
+            }
+            save_csv_row(fail_row, csv_path)
             continue
 
         result = run_test(pdf_text, n_ctx, args.fill, args.max_tokens)
 
         if result is None:
-            results.append({"n_ctx": n_ctx, "status": "fail", "tokens_gen": 0, "tok_per_sec": 0})
+            fail_row = {
+                "timestamp": datetime.now().isoformat(),
+                "n_ctx": n_ctx, "fill_pct": args.fill,
+                "prompt_tokens_est": 0, "tokens_gen": 0,
+                "prompt_time_s": 0, "gen_time_s": 0, "total_time_s": 0,
+                "tok_per_sec": 0, "vram_used": 0, "vram_free": 0,
+                "ram_free_before": 0, "ram_free_after": 0,
+                "ram_delta": 0, "rss": 0, "status": "fail",
+            }
+            save_csv_row(fail_row, csv_path)
         else:
-            results.append(result)
+            save_csv_row(result, csv_path)
             if result.get("status") in ("oom", "vram_exhausted"):
                 stopped = True
                 log(f"!! Sweep interrompido em N_CTX={n_ctx} ({result['status']})")
 
-        save_checkpoint(results, checkpoint_path)
-
     stop_server()
 
-    if not results:
-        log("Nenhum teste executado")
-        sys.exit(1)
+    # Resumo final
+    df = load_csv(csv_path)
+    ok = df[df["status"] == "ok"]
 
-    # Relatorio
-    report_path = generate_report(results, args)
-
-    # Resumo
     log(f"\n{'=' * 60}")
     log("RESUMO")
     log(f"{'=' * 60}")
-    for r in results:
-        icon = "✓" if r.get("status") == "ok" else "✗"
-        log(f"  {icon} {r['n_ctx'] // 1024}k: {r.get('tok_per_sec', 0)} tok/s, "
-            f"VRAM {r.get('vram_used', '?')}/{r.get('vram_free', '?')} MiB, "
-            f"status={r.get('status', '?')}")
-    log(f"\nRelatorio: {report_path}")
-    log(f"Checkpoint: {checkpoint_path}")
+    for _, r in df.iterrows():
+        icon = "✓" if r["status"] == "ok" else "✗"
+        log(f"  {icon} {int(r['n_ctx']) // 1024}k: {r['tok_per_sec']} tok/s, "
+            f"VRAM {r['vram_used']}/{r['vram_free']} MiB, "
+            f"status={r['status']}")
+
+    if not ok.empty:
+        avg_speed = ok["tok_per_sec"].mean()
+        best = ok.loc[ok["tok_per_sec"].idxmax()]
+        log(f"\nMedia: {avg_speed:.1f} tok/s")
+        log(f"Melhor: {int(best['n_ctx']) // 1024}k @ {best['tok_per_sec']} tok/s")
+
+    log(f"\nCSV: {csv_path}")
+    log(f"Linhas: {len(df)}")
 
 
 if __name__ == "__main__":
