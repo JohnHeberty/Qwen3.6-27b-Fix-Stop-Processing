@@ -12,7 +12,7 @@ VENV="$PROJECT_ROOT/.venv"
 [ -f "$PROJECT_ROOT/.env" ] && set -a && source "$PROJECT_ROOT/.env" && set +a
 
 MODEL_DIR="${MODEL_DIR:-$PROJECT_ROOT/data/models}"
-MODEL_FILE="${MODEL_FILE:-Qwen3.6-27B-Q5_K_M.gguf}"
+MODEL_FILE="${MODEL_FILE:-Qwen3.6-27B-Q4_K_M.gguf}"
 PORT="${PORT:-8000}"
 SERVED_NAME="${SERVED_NAME:-qwen3}"
 N_GPU_LAYERS="${N_GPU_LAYERS:--1}"
