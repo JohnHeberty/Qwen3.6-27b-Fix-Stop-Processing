@@ -54,8 +54,11 @@ CSV_SEP = ";"
 CSV_DEC = ","
 
 CSV_COLUMNS = [
-    "timestamp", "n_ctx", "fill_pct", "prompt_tokens_est", "tokens_gen",
-    "prompt_time_s", "gen_time_s", "total_time_s", "tok_per_sec",
+    "timestamp", "n_ctx", "fill_pct", "prompt_tokens_est",
+    "prompt_tokens", "completion_tokens", "tokens_gen",
+    "prompt_time_s", "gen_time_s", "total_time_s",
+    "tok_per_sec", "server_tok_per_sec",
+    "draft_n", "draft_accepted", "mtp_acceptance_pct",
     "vram_used", "vram_free", "ram_free_before", "ram_free_after",
     "ram_delta", "rss", "status",
 ]
@@ -201,9 +204,12 @@ def run_test(pdf_text, n_ctx, fill_pct, max_tokens):
     rss_before = get_rss()
     log(f"VRAM: {vram_used}/{vram_free} MiB | RAM livre: {ram_free_before} MiB | RSS: {rss_before} MiB")
 
-    start_time = time.time()
+    start_time = time.perf_counter()
     first_token_time = None
+    end_time = None
     token_count = 0
+    usage = None
+    server_timings = None
 
     try:
         stream = requests.post(
@@ -214,6 +220,7 @@ def run_test(pdf_text, n_ctx, fill_pct, max_tokens):
                 "max_tokens": max_tokens,
                 "temperature": 0.3,
                 "stream": True,
+                "stream_options": {"include_usage": True},
             },
             stream=True,
             timeout=600,
@@ -231,19 +238,35 @@ def run_test(pdf_text, n_ctx, fill_pct, max_tokens):
                 continue
             try:
                 chunk = json.loads(decoded[6:])
-                delta = chunk.get("choices", [{}])[0].get("delta", {})
-                content = delta.get("content") or delta.get("reasoning_content")
-                if content:
-                    if first_token_time is None:
-                        first_token_time = time.time()
-                    token_count += 1
+
+                if "usage" in chunk:
+                    usage = chunk["usage"]
+                if "timings" in chunk:
+                    server_timings = chunk["timings"]
+
+                choices = chunk.get("choices", [])
+                if choices:
+                    delta = choices[0].get("delta", {})
+                    content = delta.get("content") or delta.get("reasoning_content")
+                    if content:
+                        now = time.perf_counter()
+                        if first_token_time is None:
+                            first_token_time = now
+                        end_time = now
+                        token_count += 1
             except (json.JSONDecodeError, IndexError, KeyError):
                 pass
 
-        total_time = time.time() - start_time
+        total_time = time.perf_counter() - start_time
         prompt_time = (first_token_time - start_time) if first_token_time else total_time
-        gen_time = (time.time() - first_token_time) if first_token_time else 0
-        tok_per_sec = token_count / gen_time if gen_time > 0 else 0
+        gen_time = (end_time - first_token_time) if (first_token_time and end_time) else 0
+        completion_tokens = usage.get("completion_tokens", 0) if usage else 0
+        prompt_tokens = usage.get("prompt_tokens", 0) if usage else 0
+        tok_per_sec = completion_tokens / gen_time if gen_time > 0 else 0
+        server_tok_per_sec = server_timings.get("predicted_per_second", 0) if server_timings else 0
+        draft_n = server_timings.get("draft_n", 0) if server_timings else 0
+        draft_accepted = server_timings.get("draft_n_accepted", 0) if server_timings else 0
+        mtp_pct = round(draft_accepted / draft_n * 100, 1) if draft_n > 0 else 0
 
         vram_used_after, vram_free_after = get_vram()
         ram_free_after = get_ram_free()
@@ -259,11 +282,17 @@ def run_test(pdf_text, n_ctx, fill_pct, max_tokens):
             "n_ctx": n_ctx,
             "fill_pct": fill_pct,
             "prompt_tokens_est": est_tokens,
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
             "tokens_gen": token_count,
             "prompt_time_s": round(prompt_time, 2),
             "gen_time_s": round(gen_time, 2),
             "total_time_s": round(total_time, 2),
             "tok_per_sec": round(tok_per_sec, 1),
+            "server_tok_per_sec": round(server_tok_per_sec, 1),
+            "draft_n": draft_n,
+            "draft_accepted": draft_accepted,
+            "mtp_acceptance_pct": mtp_pct,
             "vram_used": vram_used_after,
             "vram_free": vram_free_after,
             "ram_free_before": ram_free_before,
@@ -273,7 +302,9 @@ def run_test(pdf_text, n_ctx, fill_pct, max_tokens):
             "status": status,
         }
 
-        log(f"Resultado: {token_count} tokens em {gen_time:.1f}s = {tok_per_sec:.1f} tok/s | "
+        log(f"Resultado: {completion_tokens} tokens reais, {token_count} chunks | "
+            f"{tok_per_sec:.1f} tok/s calc vs {server_tok_per_sec:.1f} server | "
+            f"MTP: {draft_accepted}/{draft_n} aceitos ({mtp_pct}%) | "
             f"VRAM: {vram_used_after}/{vram_free_after} MiB | Status: {status}")
 
         return row
@@ -282,7 +313,10 @@ def run_test(pdf_text, n_ctx, fill_pct, max_tokens):
         log("!! Conexao perdida — servidor crashou?")
         return {"timestamp": datetime.now().isoformat(), "n_ctx": n_ctx,
                 "status": "oom", "tokens_gen": 0, "tok_per_sec": 0,
+                "server_tok_per_sec": 0,
+                "draft_n": 0, "draft_accepted": 0, "mtp_acceptance_pct": 0,
                 "fill_pct": fill_pct, "prompt_tokens_est": 0,
+                "prompt_tokens": 0, "completion_tokens": 0,
                 "prompt_time_s": 0, "gen_time_s": 0, "total_time_s": 0,
                 "vram_used": 0, "vram_free": 0, "ram_free_before": 0,
                 "ram_free_after": 0, "ram_delta": 0, "rss": 0}
@@ -368,9 +402,12 @@ def main():
             fail_row = {
                 "timestamp": datetime.now().isoformat(),
                 "n_ctx": n_ctx, "fill_pct": args.fill,
-                "prompt_tokens_est": 0, "tokens_gen": 0,
+                "prompt_tokens_est": 0, "prompt_tokens": 0,
+                "completion_tokens": 0, "tokens_gen": 0,
                 "prompt_time_s": 0, "gen_time_s": 0, "total_time_s": 0,
-                "tok_per_sec": 0, "vram_used": 0, "vram_free": 0,
+                "tok_per_sec": 0, "server_tok_per_sec": 0,
+                "draft_n": 0, "draft_accepted": 0, "mtp_acceptance_pct": 0,
+                "vram_used": 0, "vram_free": 0,
                 "ram_free_before": 0, "ram_free_after": 0,
                 "ram_delta": 0, "rss": 0, "status": "fail",
             }
@@ -383,9 +420,12 @@ def main():
             fail_row = {
                 "timestamp": datetime.now().isoformat(),
                 "n_ctx": n_ctx, "fill_pct": args.fill,
-                "prompt_tokens_est": 0, "tokens_gen": 0,
+                "prompt_tokens_est": 0, "prompt_tokens": 0,
+                "completion_tokens": 0, "tokens_gen": 0,
                 "prompt_time_s": 0, "gen_time_s": 0, "total_time_s": 0,
-                "tok_per_sec": 0, "vram_used": 0, "vram_free": 0,
+                "tok_per_sec": 0, "server_tok_per_sec": 0,
+                "draft_n": 0, "draft_accepted": 0, "mtp_acceptance_pct": 0,
+                "vram_used": 0, "vram_free": 0,
                 "ram_free_before": 0, "ram_free_after": 0,
                 "ram_delta": 0, "rss": 0, "status": "fail",
             }
