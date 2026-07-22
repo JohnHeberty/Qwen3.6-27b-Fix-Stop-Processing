@@ -37,7 +37,7 @@ SENTINEL_MODEL       := $(MODEL_DIR)/$(MODEL_FILE)
         install-service enable-service disable-service start-service \
         configure-ollama ollama-unload \
         litellm-start \
-        benchmark-sweep \
+        benchmark benchmark-sweep \
         clean clean-logs cron-clean-logs cron-remove-clean-logs
 
 ##############################################################################
@@ -93,8 +93,8 @@ help:
 	@echo "  make proxy-logs         Acompanha log em tempo real"
 	@echo ""
 	@echo "  BENCHMARK:"
-	@echo "  make benchmark-sweep    Sweep 8k→max (incremento 8k, com MTP)"
-	@echo "  make benchmark-sweep ARGS=\"--start 16384 --step 16384\"  (custom)"
+	@echo "  make benchmark          Sweep 8k→max (incremento 8k, com MTP)"
+	@echo "  make benchmark ARGS=\"--start 16384 --step 16384\"  (custom)"
 	@echo ""
 	@echo "  API: http://localhost:8000/v1  |  Modelo: qwen3"
 	@echo ""
@@ -342,7 +342,7 @@ test:
 	@$(PYTHON) "$(PROJECT_ROOT)/tests/test_api.py"
 
 benchmark: _check-ready
-	@$(PYTHON) "$(PROJECT_ROOT)/tests/benchmark.py"
+	@$(PYTHON) "$(PROJECT_ROOT)/tests/benchmark.py" $(ARGS)
 
 install-service:
 	@chmod +x "$(PROJECT_ROOT)/scripts/start-server.sh" "$(PROJECT_ROOT)/scripts/setup.sh"
@@ -456,8 +456,8 @@ proxy-logs:
 ##############################################################################
 # BENCHMARK
 ##############################################################################
-benchmark-sweep:
-	@bash "$(PROJECT_ROOT)/scripts/benchmark-ctx-sweep.sh" $(ARGS)
+benchmark-sweep: _check-ready
+	@$(PYTHON) "$(PROJECT_ROOT)/tests/benchmark.py" $(ARGS)
 
 ##############################################################################
 # LIMPEZA
