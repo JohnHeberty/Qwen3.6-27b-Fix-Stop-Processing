@@ -40,15 +40,15 @@ Inference: ~250k token PDF (Reinforcement Learning book) truncated to 90% of N_C
 ## Comparação com Q5_K_M
 
 | Métrica | Q4_K_M | Q5_K_M | Delta |
-|---|---|---|---|
+|---|---|---|---|---|
 | Modelo | 17.1 GB | 19.8 GB | -2.7 GB |
-| tok/s @ 8k | 53.5 | ~73 | -27% |
-| tok/s @ 80k | 43.3 | ~68 | -36% |
-| VRAM livre @ 80k | 3,854 MiB | 1,132 MiB | +2,722 MiB |
-| Limite max | 120k | 88k (estável) | +32k |
-| MTP acceptance | 64.8% | 84.5% | -20% |
+| tok/s @ 8k | 53.5 | 51.8 | +3.3% |
+| tok/s @ 80k | 43.3 | 40.8 | +6.1% |
+| VRAM livre @ 80k | 3,854 MiB | 1,586 MiB | +2,268 MiB |
+| Limite max | 120k | 80k | +40k |
+| MTP acceptance | 64.8% | ~69% | -4% |
 
-Q4_K_M compensa a perda de velocidade com **muito mais VRAM livre** (3.8 GB vs 1.1 GB @ 80k) e contexto máximo de **120k** (vs 88k estável no Q5).
+Q4_K_M é ligeiramente mais rápido que Q5_K_M (3-6%) e suporta **120k** de contexto (vs 80k), porque ocupa 2.7 GB a menos de VRAM para pesos, deixando mais espaço para KV cache.
 
 ## Recomendações
 
