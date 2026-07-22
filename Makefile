@@ -38,7 +38,7 @@ SENTINEL_MODEL       := $(MODEL_DIR)/$(MODEL_FILE)
         configure-ollama ollama-unload \
         litellm-start \
         benchmark-sweep \
-        clean
+        clean clean-logs cron-clean-logs cron-remove-clean-logs
 
 ##############################################################################
 # HELP
@@ -73,6 +73,9 @@ help:
 	@echo ""
 	@echo "  LIMPEZA:"
 	@echo "  make clean              Remove modelo, logs e venv (mantém código)"
+	@echo "  make clean-logs         Remove logs com mais de N dias (LOG_RETENTION_DAYS no .env)"
+	@echo "  make cron-clean-logs    Instala cron diário de limpeza (usa LOG_RETENTION_DAYS)"
+	@echo "  make cron-remove-clean-logs  Remove o cron de limpeza"
 	@echo ""
 	@echo "  CONFLITO OLLAMA/GPU (compartilham 24 GB VRAM):"
 	@echo "  make configure-ollama   Reduz OLLAMA_KEEP_ALIVE 30m → 5m"
@@ -463,6 +466,27 @@ clean:
 	@echo "Removendo modelo, logs e venv..."
 	@rm -rf "$(MODEL_DIR)/"*.gguf "$(PROJECT_ROOT)/data/logs/"* "$(VENV)"
 	@echo "Código e templates mantidos. Execute 'make setup' para reconfigurar."
+
+clean-logs:
+	@DAYS="$${LOG_RETENTION_DAYS:-7}"; \
+	echo "Removendo logs com mais de $$DAYS dias em data/logs/..."; \
+	cd "$(PROJECT_ROOT)/data/logs" && \
+	find . -maxdepth 1 -type f ! -name '.gitkeep' -mtime +$$DAYS -delete -print | \
+	while read f; do echo "  removido: $$f"; done; \
+	echo "Pronto."
+
+cron-clean-logs:
+	@DAYS="$${LOG_RETENTION_DAYS:-7}"; \
+	CMD="cd $(PROJECT_ROOT) && make clean-logs"; \
+	CRON_ID="qwen-clean-logs"; \
+	(crontab -l 2>/dev/null | grep -v "$$CRON_ID") | \
+	(echo "0 3 * * * $$CMD  # $$CRON_ID") | crontab -; \
+	echo "Cron instalado: todo dia às 03:00 (retention=$$DAYS dias)"
+	@echo "Para mudar: edite LOG_RETENTION_DAYS no .env e rode make cron-clean-logs novamente"
+
+cron-remove-clean-logs:
+	@crontab -l 2>/dev/null | grep -v "qwen-clean-logs" | crontab - 2>/dev/null || true
+	@echo "Cron de limpeza de logs removido."
 
 ##############################################################################
 # INTERNO
