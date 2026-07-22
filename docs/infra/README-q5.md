@@ -46,18 +46,22 @@ Benchmark: `usage.completion_tokens` do servidor via `stream_options.include_usa
 
 > MTP n=2 aceita 68-70% dos drafts vs 59-60% do n=3. A aceitação 11% maior mais do que compensa a perda de 1 token draft por call.
 
+## MTP Sweep
+
+Veja [README-mtp-sweep-q5.md](README-mtp-sweep.md) para o sweep completo de MTP n=1-6 no Q5_K_M.
+
 ## Comparação: Q5_K_M vs Q4_K_M (ambos com MTP n=2)
 
-| Métrica | Q5_K_M | Q4_K_M |
-|---|---|---|
-| Modelo | 19.8 GB | 17.1 GB |
-| tok/s @ 8k | 51.8 | 53.5 |
-| tok/s @ 40k | 47.1 | 47.6 |
-| tok/s @ 80k | **40.8** | 43.3 |
-| Contexto máximo (MTP) | **80k** | 120k |
-| VRAM livre @ 80k | 1,586 MiB | 3,854 MiB |
+| Métrica | Q5_K_M | Q4_K_M | Δ |
+|---|---|---|---|
+| Modelo | 19.8 GB | 17.1 GB | -2.7 GB |
+| tok/s @ 8k | 51.8 | **56.5** | +9.1% |
+| tok/s @ 40k | 47.1 | **49.1** | +4.2% |
+| tok/s @ 80k | 40.8 | **44.4** | +8.8% |
+| Contexto máximo (MTP) | 80k | **128k** | +60% |
+| VRAM livre @ 80k | 1,586 MiB | **4,036 MiB** | +154% |
 
-> Q4_K_M é ligeiramente mais rápido e suporta mais contexto que Q5_K_M, porque ocupa menos VRAM para pesos, deixando mais espaço para KV cache.
+> Q4_K_M é **4-9% mais rápido** que Q5_K_M com MTP n=2, suporta **128k** de contexto (vs 80k), e tem 2.5× mais VRAM livre em 80k. Para máxima performance com muito contexto, Q4_K_M é a escolha superior no RTX 3090.
 
 ## Configuração do servidor
 
