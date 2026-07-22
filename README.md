@@ -28,7 +28,8 @@ make start    # wait for "llama server listening"
 | Model | Status | Details |
 |---|---|---|
 | **Q5_K_M** (~19 GB) | ✓ | 80k context @ 68 tok/s — [full table](docs/infra/README-q5.md) |
-| **Q4_K_M** (~17.1 GB) | ⏳ | Benchmark pending — [template](docs/infra/README-q4.md) |
+| **Q4_K_M** (~17.1 GB) | ✓ | 120k context @ 40 tok/s — [full table](docs/infra/README-q4.md) |
+| **Q6_K** (~22.9 GB) | ✓ | 40k context @ 27 tok/s — [full table](docs/infra/README-q6.md) |
 
 ---
 
