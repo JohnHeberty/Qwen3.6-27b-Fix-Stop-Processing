@@ -16,7 +16,7 @@ MODEL_FILE="${MODEL_FILE:-Qwen3.6-27B-Q5_K_M.gguf}"
 PORT="${PORT:-8000}"
 SERVED_NAME="${SERVED_NAME:-qwen3}"
 N_GPU_LAYERS="${N_GPU_LAYERS:--1}"
-N_CTX="${N_CTX:-81920}"
+N_CTX="${N_CTX:-73728}"
 N_BATCH="${N_BATCH:-4096}"
 
 # Quantização do KV Cache
