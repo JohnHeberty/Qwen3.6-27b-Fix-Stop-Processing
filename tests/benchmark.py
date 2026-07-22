@@ -231,8 +231,9 @@ def run_test(pdf_text, n_ctx, fill_pct, max_tokens):
                 continue
             try:
                 chunk = json.loads(decoded[6:])
-                delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
-                if delta:
+                delta = chunk.get("choices", [{}])[0].get("delta", {})
+                content = delta.get("content") or delta.get("reasoning_content")
+                if content:
                     if first_token_time is None:
                         first_token_time = time.time()
                     token_count += 1
