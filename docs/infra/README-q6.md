@@ -17,23 +17,21 @@
 | 49,152 | 48k | 23,024 MiB | 1,102 MiB | 4.7 | 37.7 s | ✓ **cliff** |
 | 57,344 | 56k | — | — | — | — | ~4 tok/s (KV spill) |
 
-**With MTP** (3 draft tokens — NOT recommended for Q6_K):
+**With MTP** (3 draft tokens):
 
 | `N_CTX` | Context | VRAM used | VRAM free | tok/s | Status |
 |---|---|---|---|---|---|
-| 8,192 | 8k | 22,360 MiB | 1,766 MiB | 50.0 | ✓ |
+| 8,192 | 8k | 22,360 MiB | 1,766 MiB | **50.0** | ✓ |
 | 16,384 | 16k | 22,410 MiB | 1,716 MiB | 9.3 | ✓ **cliff** |
 
 ## Conclusões
 
 - **Q6_K occupies 93% of RTX 3090 VRAM** just for model weights (22.9 GB / 24 GB).
+- **With MTP at 8k:** Works great — **50 tok/s**, comparable to Q4_K_M (53.5 tok/s). This is the best-case scenario for Q6_K.
 - **Without MTP:** 8k-40k works at ~27-29 tok/s. Cliff at 48k (KV cache spills to system RAM → 4.7 tok/s).
-- **With MTP:** Only 8k works well (50 tok/s). 16k already drops to 9.3 tok/s — MTP draft heads consume the last ~650 MiB of VRAM headroom.
+- **MTP breaks at 16k+** — only 1,716 MiB VRAM free isn't enough for MTP draft heads + KV cache simultaneously.
 - **No context above 48k is usable** — performance collapses completely.
-- **Q6_K is SLOWER than Q4_K_M at every context size** despite better weight precision, because:
-  - Less VRAM headroom → KV cache pressure
-  - MTP acceptance rate drops (more weight precision ≠ more MTP hits on a tight VRAM budget)
-  - The "quality advantage" of Q6 over Q4 is minimal for most tasks
+- **Trade-off:** Q6+MTP gives 50 tok/s but ONLY at 8k. Q6 without MTP gives 27-29 tok/s up to 40k. Q4+MTP gives 53.5 tok/s at 8k AND 47.6 tok/s at 40k — better in every way.
 
 ## Comparação: Q6_K vs Q5_K_M vs Q4_K_M
 
@@ -49,13 +47,26 @@
 
 ## Recomendações
 
-**RTX 3090 (24 GB): Use Q4_K_M ou Q5_K_M — NÃO Q6_K.**
+### Se você SÓ precisa de 8k de contexto:
+**Q6+MTP = 50 tok/s** — funciona bem, qualidade ligeiramente superior ao Q4.
+Mas Q4+MTP = 53.5 tok/s no mesmo contexto, então não há vantagem real.
+
+### Se precisa de contexto > 8k:
+**Use Q4_K_M ou Q5_K_M — NÃO Q6_K.**
 
 Q6_K é um downgrade na prática:
-- **20-30% mais lento** que Q4_K_M em qualquer contexto
+- **20-30% mais lento** que Q4_K_M em qualquer contexto acima de 8k
 - **Contexto máximo 40k** vs 120k no Q4
 - **MTP inútil** acima de 8k (VRAM insuficiente)
 - A diferença de qualidade Q6→Q4 é imperceptível para a maioria das tarefas
+
+### Resumo rápido
+
+| Cenário | Melhor opção |
+|---|---|
+| 8k + qualidade máxima | Q6+MTP (50 tok/s) ou Q4+MTP (53.5 tok/s) |
+| 8k-40k + velocidade | Q4+MTP (47-53 tok/s) |
+| 80k+ contexto | Q4_K_M sem MTP (43 tok/s @ 80k) |
 
 Q6_K só faz sentido com GPUs de **48+ GB** (A6000, A100, H100).
 
