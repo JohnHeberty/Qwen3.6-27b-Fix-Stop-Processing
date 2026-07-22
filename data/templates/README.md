@@ -233,7 +233,7 @@ Three Python-only Jinja2 filters crash on `minijinja` (the C++ runtime used by l
 ## Running the test suite
 
 ```bash
-python3 data/templates/scripts/test_v21.py
+python3 data/templates/scripts/test_template.py
 ```
 
 Tests cover: XML tool format, tool instructions, thinking bypass, `<|think_off|>` / `<|think_on|>`, Tier 1 & 2 escalation, length-gated detection, shell/search false positives, `--reasoning off` + errors, counter reset, historical think stripping, `preserve_thinking`, developer role, mid-conversation system, tool response wrapping, and string argument passthrough.
