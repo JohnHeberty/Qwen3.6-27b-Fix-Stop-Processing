@@ -16,12 +16,23 @@ from jinja2 import Environment
 # ── Setup ──────────────────────────────────────────────────────────────────────
 
 ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = ROOT.parent.parent
 VARIANTS = ["root"]
-VERSION = "v21"
 
 def load_template() -> str:
-    path = ROOT / "chat_template.jinja"
-    return path.read_text(encoding="utf-8")
+    env_file = PROJECT_ROOT / ".env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("TEMPLATE_FILE=") and not line.startswith("#"):
+                template_rel = line.split("=", 1)[1].strip()
+                template_path = PROJECT_ROOT / template_rel
+                if template_path.exists():
+                    return template_path.read_text(encoding="utf-8")
+                print(f"  Template not found: {template_path}")
+                sys.exit(1)
+    print("  TEMPLATE_FILE not set in .env")
+    sys.exit(1)
 
 def render(template_src: str, messages: list, tools=None,
            add_generation_prompt: bool = True,
@@ -377,11 +388,7 @@ def run_tests():
     print(f"\n{'═'*60}")
     print(f"  Testing v21 Chat Template")
     print(f"{'═'*60}")
-    try:
-        tmpl = load_template()
-    except FileNotFoundError:
-        print(f"  Template not found: chat_template.jinja")
-        return
+    tmpl = load_template()
     for fn in TESTS:
         label = fn.__name__.replace("test_", "").replace("_", " ").title()
         print(f"\n  [{label}]")
