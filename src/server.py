@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-src/server.py — Servidor llama-cpp-python com template v18 em runtime.
+src/server.py — Servidor llama-cpp-python com template customizado em runtime.
 
 Substitui 'python -m llama_cpp.server' — carrega o modelo GGUF e
-sobrescreve o chat_template embutido com o arquivo v18 do projeto,
+sobrescreve o chat_template embutido com o arquivo de template do projeto,
 sem precisar patchear o arquivo GGUF.
 """
 
@@ -24,7 +24,7 @@ def main():
     parser.add_argument("--template_file", default=None)
     args = parser.parse_args()
 
-    # Carregar template v18 se especificado
+    # Carregar template customizado se especificado
     chat_handler = None
     if args.template_file and Path(args.template_file).exists():
         from llama_cpp.llama_chat_format import Jinja2ChatFormatter

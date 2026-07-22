@@ -14,12 +14,12 @@ tags:
   - thinking
 ---
 
-# Fixed jinja chat templates for Qwen 3.5 & 3.6 (v18)
+# Fixed jinja chat templates for Qwen 3.5 & 3.6 (v21)
 
 <details open>
 <summary><b>Update History & Changelog (v17)</b></summary>
 
-> **2026-05-16 Update (v18): Stability & Precision Patch.** (1) **Bulletproof False-Positive Detection:** Shifted agentic error detection from broad substring matching to strict structural formats (e.g., `"error":`, `Exception:`, `Traceback`), completely curing false-positive retry loops when successful JSON returns simply contain the word "error" or "fail". (2) **Legacy Engine Compatibility:** Replaced `loop.previtem` with explicit array indexing, fixing AST crashes on older `llama.cpp` and `minijinja` builds that do not track loop state items. (3) **True Whitespace Normalization:** Fixed a bug where reasoning bypasses and hallucinated tag recovery stacked hidden multi-newlines (`\n\n\n`), strictly fulfilling the 100% KV Cache hit rate claim for all edge cases. (4) **Code Cleanup:** Removed dead conditional branches during XML tool parsing.
+> **2026-05-16 Update (v18+): Stability & Precision Patch.** (1) **Bulletproof False-Positive Detection:** Shifted agentic error detection from broad substring matching to strict structural formats (e.g., `"error":`, `Exception:`, `Traceback`), completely curing false-positive retry loops when successful JSON returns simply contain the word "error" or "fail". (2) **Legacy Engine Compatibility:** Replaced `loop.previtem` with explicit array indexing, fixing AST crashes on older `llama.cpp` and `minijinja` builds that do not track loop state items. (3) **True Whitespace Normalization:** Fixed a bug where reasoning bypasses and hallucinated tag recovery stacked hidden multi-newlines (`\n\n\n`), strictly fulfilling the 100% KV Cache hit rate claim for all edge cases. (4) **Code Cleanup:** Removed dead conditional branches during XML tool parsing.
 
 
 </details>
@@ -194,7 +194,7 @@ Forced `<think>` block prefilling combined with narrow system instructions cause
 ### 6. `enable_thinking=false` in Error Paths (v16)
 When users set `--reasoning off` in llama.cpp, error escalation directives are now injected as plain text (no `<think>` wrapper) to prevent creating degenerate prompts the model couldn't resolve in no-reasoning mode.
 
-### 7. Smart False-Positive Detection (v18)
+### 7. Smart False-Positive Detection (v18+)
 Previous versions relied on broad substring matching, which caused successful API/database returns containing the word "error" (e.g., `{"status": 200, "msg": "cleared error logs"}`) to trigger agentic retry loops. v18 replaces this with strict structural matching, looking specifically for code-level failure patterns (`"error":`, `Exception:`, `Traceback`, `command not found`, `invalid syntax`) alongside length gates and bash-echo exclusions.
 
 ### 8. minijinja Compatibility Constraints
@@ -208,7 +208,7 @@ Three Python-only Jinja2 filters crash on `minijinja` (the C++ runtime used by l
 <details>
 <summary>Comparison Matrix: Official vs Fixed vs Community</summary>
 
-| Feature | Official Qwen Templates | LuffyTheFox | mod-ellary | Pneuny | **This Fixed Template (v18)** |
+| Feature | Official Qwen Templates | LuffyTheFox | mod-ellary | Pneuny | **This Fixed Template (v21)** |
 |---------|----------|-------------|------------|--------|----------------|
 | Tool call format | XML (native) | JSON | JSON | JSON | **XML (native, qwen3_coder compatible)** |
 | Tool arguments | Fails (`\|items`) | Fixed | Missing | Fixed | **Fixed (C++ safe XML)** |
@@ -233,7 +233,7 @@ Three Python-only Jinja2 filters crash on `minijinja` (the C++ runtime used by l
 ## Running the test suite
 
 ```bash
-python3 scripts/test_v18.py
+python3 data/templates/scripts/test_v18.py
 ```
 
 Tests cover: XML tool format, tool instructions, thinking bypass, `<|think_off|>` / `<|think_on|>`, Tier 1 & 2 escalation, length-gated detection, shell/search false positives, `--reasoning off` + errors, counter reset, historical think stripping, `preserve_thinking`, developer role, mid-conversation system, tool response wrapping, and string argument passthrough.

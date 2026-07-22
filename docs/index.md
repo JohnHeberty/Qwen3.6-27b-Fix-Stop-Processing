@@ -45,7 +45,7 @@ For those who want to understand the technical decisions behind the project.
 | Document | Covers |
 |---|---|
 | [Architecture](explanation/architecture.md) | Why GGUF, llama-server, folder structure |
-| [Template v18 (froggeric)](explanation/template-v18.md) | What the template fixes and author credits |
+| [Template v21 (froggeric)](explanation/template-v21.md) | What the template fixes and author credits |
 
 ---
 

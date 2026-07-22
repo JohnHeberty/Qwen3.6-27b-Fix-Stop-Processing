@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Test suite for Qwen v18 chat templates.
+Test suite for Qwen v21 chat templates.
 Tests logical correctness using Python Jinja2 (minijinja compatibility verified separately).
 
 Usage:
-    python3 scripts/test_v18.py
-    python3 scripts/test_v18.py qwen3.6   # test one variant
+    python3 data/templates/scripts/test_v18.py
+    python3 data/templates/scripts/test_v18.py qwen3.6   # test one variant
 """
 
 import sys
@@ -17,7 +17,7 @@ from jinja2 import Environment
 
 ROOT = Path(__file__).parent.parent
 VARIANTS = ["root"]
-VERSION = "v18"
+VERSION = "v21"
 
 def load_template() -> str:
     path = ROOT / "chat_template.jinja"
@@ -375,7 +375,7 @@ results: list[bool] = []
 
 def run_tests():
     print(f"\n{'═'*60}")
-    print(f"  Testing v17 Chat Template")
+    print(f"  Testing v21 Chat Template")
     print(f"{'═'*60}")
     try:
         tmpl = load_template()

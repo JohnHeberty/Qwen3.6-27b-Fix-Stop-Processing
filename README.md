@@ -44,7 +44,7 @@ make start    # wait for "llama server listening"
 | **[Make Commands](docs/reference/make-commands.md)** | All targets |
 | **[Configuration](docs/reference/configuration.md)** | All .env variables |
 | **[Architecture](docs/explanation/architecture.md)** | GGUF vs vLLM, design decisions |
-| **[Template](docs/explanation/template-v18.md)** | froggeric — what the template fixes |
+| **[Template](docs/explanation/template-v21.md)** | froggeric v21 — what the template fixes |
 
 ---
 

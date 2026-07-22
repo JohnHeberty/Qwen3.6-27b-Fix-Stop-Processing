@@ -16,7 +16,7 @@ A local inference server for **Qwen3.6 27B** with an OpenAI-compatible API. Any 
 |---|---|---|
 | Model format | AWQ (safetensors, ~20 GB) | GGUF Q4_K_M (~17.1 GB) |
 | Context on RTX 3090 | 6,272 tokens | 98,304 tokens |
-| Customizable template | no (limited) | yes (binary patch directly in GGUF) |
+| Customizable template | no (limited) | yes (--chat-template-file at runtime) |
 | Compilation required | no | yes (with CUDA) |
 
 The AWQ safetensors model with the Qwen3_5 DeltaNet+Mamba architecture left only ~6,272 tokens of context available on the RTX 3090. The GGUF Q4_K_M uses ~17.1 GB of VRAM for weights, leaving ~5.5 GB for KV cache — enough for 80k tokens at good speed with MTP enabled (benchmarked).
@@ -32,11 +32,11 @@ The AWQ safetensors model with the Qwen3_5 DeltaNet+Mamba architecture left only
 
 The model embeds MTP prediction heads that draft multiple tokens per step. With `--spec-type draft-mtp --spec-draft-n-max 3`, the server generates up to 3 candidate tokens per forward pass and validates them against the main model. On Qwen3.6-27B with Q4_K_M at 80k context, this achieves **68-72 tok/s** (vs 25-30 without MTP) with 60-69% acceptance rate. No separate draft model is needed.
 
-### Why froggeric's template v18?
+### Why froggeric's template v21?
 
-The official Qwen3.6 template has critical bugs in KV cache, tool calling and thinking mode. The v18 fixes all of them. The patch is applied directly into the GGUF binary to ensure the correct template is used regardless of how the server is started.
+The official Qwen3.6 template has critical bugs in KV cache, tool calling and thinking mode. The v21 fixes all of them. The template is loaded at runtime via `--chat-template-file` in `start-server.sh`, overriding the GGUF-embedded template without modifying the model file.
 
-See details in [explanation/template-v18.md](template-v18.md).
+See details in [explanation/template-v21.md](template-v21.md).
 
 ### Why compile llama.cpp from source?
 
@@ -63,7 +63,7 @@ qwen3/
 │
 ├── data/
 │   ├── models/             GGUF model (~17 GB, gitignored)
-│   ├── templates/          froggeric Jinja2 templates (v8–v18)
+│   ├── templates/          froggeric Jinja2 templates (v21 = default)
 │   ├── logs/               runtime logs (gitignored)
 │   └── backups/            backups of the original GGUF template (gitignored)
 │
@@ -107,7 +107,7 @@ Client (Python SDK / curl / OpenCode)
 llama-server (port 8000)
     │  reads
     ▼
-data/models/Qwen3.6-27B-Q4_K_M.gguf   ← v18 template patched inside the file
+data/models/Qwen3.6-27B-Q4_K_M.gguf   ← template loaded at runtime via --chat-template-file
     │  offloads
     ▼
 GPU (RTX 3090, 24,576 MB VRAM)
