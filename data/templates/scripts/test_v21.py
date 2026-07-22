@@ -4,8 +4,8 @@ Test suite for Qwen v21 chat templates.
 Tests logical correctness using Python Jinja2 (minijinja compatibility verified separately).
 
 Usage:
-    python3 data/templates/scripts/test_v18.py
-    python3 data/templates/scripts/test_v18.py qwen3.6   # test one variant
+    python3 data/templates/scripts/test_v21.py
+    python3 data/templates/scripts/test_v21.py qwen3.6   # test one variant
 """
 
 import sys
