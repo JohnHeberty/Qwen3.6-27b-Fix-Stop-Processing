@@ -13,8 +13,7 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 VENV="$PROJECT_ROOT/.venv"
 MODEL_DIR="${MODEL_DIR:-$PROJECT_ROOT/data/models}"
 MODEL_HF="${MODEL_HF:-unsloth/Qwen3.6-27B-MTP-GGUF}"
-MODEL_FILE="${MODEL_FILE:-Qwen3.6-27B-Q5_K_M.gguf}"
-TEMPLATE_FILE="${TEMPLATE_FILE:-data/templates/chat_template.jinja}"
+MODEL_FILE="${MODEL_FILE:-Qwen3.6-27B-Q4_K_M.gguf}"
 
 export HF_TOKEN="${HF_TOKEN:-${HUGGINGFACE_TOKEN:-}}"
 
@@ -33,7 +32,7 @@ echo ""
 
 # ── 1. Estrutura de pastas ─────────────────────────────────────────────────────
 
-echo "[1/5] Verificando estrutura de pastas..."
+echo "[1/4] Verificando estrutura de pastas..."
 mkdir -p "$MODEL_DIR" \
          "$PROJECT_ROOT/data/templates" \
          "$PROJECT_ROOT/data/logs" \
@@ -43,7 +42,7 @@ ok "Pastas verificadas em $PROJECT_ROOT/data/"
 # ── 2. Virtualenv ──────────────────────────────────────────────────────────────
 
 echo ""
-echo "[2/5] Verificando virtualenv..."
+echo "[2/4] Verificando virtualenv..."
 
 python3 --version &>/dev/null || err "Python3 nao encontrado. Instale: sudo apt install python3 python3-venv"
 
@@ -62,7 +61,7 @@ PIP="$VENV/bin/pip"
 # ── 3. Instalar llama-cpp-python com CUDA ─────────────────────────────────────
 
 echo ""
-echo "[3/5] Instalando llama-cpp-python com CUDA..."
+echo "[3/4] Instalando llama-cpp-python com CUDA..."
 
 if command -v nvidia-smi &>/dev/null; then
     GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)
@@ -93,7 +92,7 @@ ok "gguf OK"
 # ── 4. Baixar o modelo GGUF ────────────────────────────────────────────────────
 
 echo ""
-echo "[4/5] Baixando modelo $MODEL_HF ..."
+echo "[4/4] Baixando modelo $MODEL_HF ..."
 echo "      Arquivo: $MODEL_FILE"
 echo "      Destino: $MODEL_DIR"
 echo ""
@@ -107,25 +106,6 @@ else
     [ -f "$MODEL_DIR/$MODEL_FILE" ] \
         && ok "Modelo baixado com sucesso" \
         || err "Download falhou — verifique conexao e espaco em disco"
-fi
-
-# ── 5. Aplicar template v18 no GGUF ───────────────────────────────────────────
-
-echo ""
-echo "[5/5] Aplicando template v18 no GGUF..."
-
-TEMPLATE_ABS="$PROJECT_ROOT/$TEMPLATE_FILE"
-FIX_SCRIPT="$PROJECT_ROOT/src/fix_template.py"
-
-if [ ! -f "$TEMPLATE_ABS" ]; then
-    warn "Template nao encontrado: $TEMPLATE_ABS"
-    warn "Execute manualmente: $PYTHON src/fix_template.py"
-elif [ -f "$FIX_SCRIPT" ]; then
-    "$PYTHON" "$FIX_SCRIPT" \
-        --model-dir "$MODEL_DIR" \
-        --template  "$TEMPLATE_ABS"
-else
-    warn "fix_template.py nao encontrado"
 fi
 
 # ── Resumo ─────────────────────────────────────────────────────────────────────
