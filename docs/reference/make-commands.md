@@ -10,15 +10,14 @@ make help   # lists all targets with descriptions
 
 | Command | Description |
 |---|---|
-| `make setup` | Full pipeline: runs all 8 steps in order |
+| `make setup` | Full pipeline: runs all 7 steps in order |
 | `make install-system-deps` | `[1]` apt: python3, cmake, git, build-essential, curl |
 | `make setup-cuda` | `[2]` Verifies CUDA toolkit, registers libcudart |
 | `make create-venv` | `[3]` Creates isolated Python `.venv` |
 | `make install-python-deps` | `[4]` pip: gguf, huggingface-hub, openai, requests |
 | `make build-llama-server` | `[5]` Clones and compiles llama-server with CUDA |
 | `make build-llama-cpp-python` | `[6]` Compiles llama-cpp-python with GPU offload |
-| `make download-model` | `[7]` Downloads GGUF model from HuggingFace (~16 GB) |
-| `make fix-template` | `[8]` Patches the GGUF with template v18 |
+| `make download-model` | `[7]` Downloads GGUF model from HuggingFace (~17.1 GB) |
 
 Each step uses a **sentinel** — checks if it was already done before acting. Running `make setup` twice is safe.
 

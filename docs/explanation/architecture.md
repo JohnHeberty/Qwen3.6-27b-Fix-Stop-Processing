@@ -14,27 +14,27 @@ A local inference server for **Qwen3.6 27B** with an OpenAI-compatible API. Any 
 
 | Aspect | vLLM (previous) | llama-server (current) |
 |---|---|---|
-| Model format | AWQ (safetensors, ~20 GB) | GGUF Q5_K_M (~19 GB) |
+| Model format | AWQ (safetensors, ~20 GB) | GGUF Q4_K_M (~17.1 GB) |
 | Context on RTX 3090 | 6,272 tokens | 98,304 tokens |
 | Customizable template | no (limited) | yes (binary patch directly in GGUF) |
 | Compilation required | no | yes (with CUDA) |
 
-The AWQ safetensors model with the Qwen3_5 DeltaNet+Mamba architecture left only ~6,272 tokens of context available on the RTX 3090. The GGUF Q5_K_M uses ~19 GB of VRAM for weights, leaving ~3.5 GB for KV cache — enough for 32,768 tokens at good speed with MTP enabled (benchmarked).
+The AWQ safetensors model with the Qwen3_5 DeltaNet+Mamba architecture left only ~6,272 tokens of context available on the RTX 3090. The GGUF Q4_K_M uses ~17.1 GB of VRAM for weights, leaving ~5.5 GB for KV cache — enough for 80k tokens at good speed with MTP enabled (benchmarked).
 
-### Why GGUF Q5_K_M?
+### Why GGUF Q4_K_M?
 
-- High-quality quantization with iMatrix — good quality/size tradeoff
-- ~19 GB VRAM for weights, ~1.1 GB remaining for KV cache on RTX 3090 (24,576 MB) at 80k context
+- Good quality/size tradeoff — default quantization for local inference
+- ~17.1 GB VRAM for weights, ~5.5 GB remaining for KV cache on RTX 3090 (24,576 MB) at 80k context
 - No Python dependency for inference (llama-server is C++)
 - Jinja2 template patchable directly in the binary
 
 ### Why MTP (Multi-Token Prediction)?
 
-The model embeds MTP prediction heads that draft multiple tokens per step. With `--spec-type draft-mtp --spec-draft-n-max 3`, the server generates up to 3 candidate tokens per forward pass and validates them against the main model. On Qwen3.6-27B with Q5_K_M at 80k context, this achieves **68-72 tok/s** (vs 25-30 without MTP) with 60-69% acceptance rate. No separate draft model is needed.
+The model embeds MTP prediction heads that draft multiple tokens per step. With `--spec-type draft-mtp --spec-draft-n-max 3`, the server generates up to 3 candidate tokens per forward pass and validates them against the main model. On Qwen3.6-27B with Q4_K_M at 80k context, this achieves **68-72 tok/s** (vs 25-30 without MTP) with 60-69% acceptance rate. No separate draft model is needed.
 
 ### Why froggeric's template v18?
 
-The official Qwen3.6 template has critical bugs in KV cache, tool calling and thinking mode. The v18 fixes all of them. The patch is applied directly into the GGUF binary via `src/fix_template.py` to ensure the correct template is used regardless of how the server is started.
+The official Qwen3.6 template has critical bugs in KV cache, tool calling and thinking mode. The v18 fixes all of them. The patch is applied directly into the GGUF binary to ensure the correct template is used regardless of how the server is started.
 
 See details in [explanation/template-v18.md](template-v18.md).
 
@@ -62,7 +62,7 @@ qwen3/
 ├── requirements.txt        Python dependencies
 │
 ├── data/
-│   ├── models/             GGUF model (~16 GB, gitignored)
+│   ├── models/             GGUF model (~17 GB, gitignored)
 │   ├── templates/          froggeric Jinja2 templates (v8–v18)
 │   ├── logs/               runtime logs (gitignored)
 │   └── backups/            backups of the original GGUF template (gitignored)
@@ -72,7 +72,6 @@ qwen3/
 │   └── start-server.sh     server startup script
 │
 ├── src/
-│   └── fix_template.py     binary GGUF patcher with v18 template
 │
 ├── tests/
 │   └── test_api.py         API integration tests (6 endpoints)
@@ -108,11 +107,11 @@ Client (Python SDK / curl / OpenCode)
 llama-server (port 8000)
     │  reads
     ▼
-data/models/Qwen3.6-27B-Q5_K_M.gguf   ← v18 template patched inside the file
+data/models/Qwen3.6-27B-Q4_K_M.gguf   ← v18 template patched inside the file
     │  offloads
     ▼
 GPU (RTX 3090, 24,576 MB VRAM)
-    │  offloads weights (~19 GB)
+    │  offloads weights (~17.1 GB)
     │  MTP drafts 3 tokens per step, validates with main model
     ▼
 llama-server → streaming/complete response → Client (~70 tok/s with MTP)

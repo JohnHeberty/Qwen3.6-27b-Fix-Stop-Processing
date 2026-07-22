@@ -107,7 +107,7 @@ response = client.chat.completions.create(
 
 Qwen3.6 supports **thinking mode**: the model reasons internally before responding, which improves answer quality for complex problems.
 
-**Thinking mode is enabled automatically** by the v18 template. The thinking content comes in the `reasoning_content` field:
+**Thinking mode is enabled automatically** by the default template. The thinking content comes in the `reasoning_content` field:
 
 ```python
 response = client.chat.completions.create(

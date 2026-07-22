@@ -38,7 +38,7 @@ Two-level system with a `consecutive_failures` counter for agentic workflows —
 
 ## How the patch is applied
 
-The template is patched **directly into the GGUF file** via `src/fix_template.py`. This ensures the correct template is used regardless of the client or server configuration.
+The template is patched **directly into the GGUF file** via a binary (streaming) patch script. This ensures the correct template is used regardless of the client or server configuration.
 
 The patch is binary (streaming) to avoid corrupting the byte-level vocabulary tokens:
 
@@ -48,9 +48,7 @@ The patch is binary (streaming) to avoid corrupting the byte-level vocabulary to
 4. Atomically replaces the original via `shutil.move`
 5. Saves a backup of the original template to `data/backups/gguf_template_backup_<ts>.jinja`
 
-```bash
-make fix-template   # apply the patch
-```
+> **Note:** The legacy `make fix-template` target and `src/fix_template.py` script have been removed. The patching logic is now handled elsewhere in the build pipeline.
 
 ---
 
@@ -67,4 +65,4 @@ The v18 template is compatible with:
 
 ## Template file
 
-The template is located at `data/templates/archive/qwen3.6/chat_template-v18.jinja` after `make setup`.
+The template is located at `data/templates/custom/chat_template_v21.jinja` after `make setup`.

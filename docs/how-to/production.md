@@ -108,7 +108,7 @@ CACHE_IDLE_SLOTS=1     # keep idle slots warm
 N_CTX=81920            # full context window with MTP
 ```
 
-> **Note:** The Q5_K_M model uses ~19 GB VRAM. On RTX 3090 (24GB), you have ~1.1 GB remaining for KV cache + system operations. Monitor with `nvidia-smi` and `htop`.
+> **Note:** The Q4_K_M model uses ~17.1 GB VRAM. On RTX 3090 (24GB), you have ~6.9 GB remaining for KV cache + system operations. Monitor with `nvidia-smi` and `htop`.
 
 ---
 
@@ -120,7 +120,6 @@ N_CTX=81920            # full context window with MTP
 ls -lh data/models/*.gguf
 # If empty:
 make download-model
-make fix-template
 ```
 
 ### "CUDA out of memory"
@@ -132,7 +131,7 @@ make ollama-unload  # free Ollama memory
 make start          # try again
 ```
 
-The Q5_K_M model uses ~19 GB of VRAM. Other CUDA processes must be stopped before starting.
+The Q4_K_M model uses ~17.1 GB of VRAM. Other CUDA processes must be stopped before starting.
 
 ### "CUDA not found" — `[2] setup-cuda FAIL`
 
@@ -159,7 +158,6 @@ make build-llama-server
 ```bash
 rm data/models/*.gguf
 make download-model
-make fix-template
 ```
 
 ### Empty responses or thinking mode never finishes

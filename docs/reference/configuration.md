@@ -14,9 +14,9 @@ cp .env.example .env
 |---|---|---|---|
 | `HUGGINGFACE_TOKEN` | — | **yes** | HuggingFace access token. Get one at https://huggingface.co/settings/tokens |
 | `MODEL_HF` | `unsloth/Qwen3.6-27B-MTP-GGUF` | no | HuggingFace repository of the GGUF model |
-| `MODEL_FILE` | `Qwen3.6-27B-Q5_K_M.gguf` | no | GGUF file name to download and serve |
-| `TEMPLATE_HF_REPO` | `froggeric/Qwen-Fixed-Chat-Templates` | no | HuggingFace repository for the Jinja2 template |
-| `TEMPLATE_FILE` | `data/templates/chat_template.jinja` | no | Jinja2 template file path |
+| `MODEL_FILE` | `Qwen3.6-27B-Q4_K_M.gguf` | no | GGUF file name to download and serve |
+| ~~`TEMPLATE_HF_REPO`~~ | ~~`froggeric/Qwen-Fixed-Chat-Templates`~~ | no | **Deprecated** — no longer used; templates are bundled in the image |
+| ~~`TEMPLATE_FILE`~~ | ~~`data/templates/chat_template.jinja`~~ | no | **Deprecated** — no longer used; templates are bundled in the image |
 | `LLAMA_CPP_DIR` | `~/llama.cpp` | no | Directory where llama.cpp will be cloned and compiled |
 | `LLAMA_SERVER` | `~/llama.cpp/build/bin/llama-server` | no | Path to the compiled binary |
 | `CUDA_HOME` | `/usr/local/cuda` | no | CUDA toolkit root |
@@ -55,11 +55,7 @@ HUGGINGFACE_TOKEN=hf_your_token_here
 
 # GGUF model
 MODEL_HF=unsloth/Qwen3.6-27B-MTP-GGUF
-MODEL_FILE=Qwen3.6-27B-Q5_K_M.gguf
-
-# Template
-TEMPLATE_HF_REPO=froggeric/Qwen-Fixed-Chat-Templates
-TEMPLATE_FILE=data/templates/chat_template.jinja
+MODEL_FILE=Qwen3.6-27B-Q4_K_M.gguf
 
 # llama.cpp
 LLAMA_CPP_DIR=/root/llama.cpp
