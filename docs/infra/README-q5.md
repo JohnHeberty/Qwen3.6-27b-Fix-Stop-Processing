@@ -48,7 +48,7 @@ Benchmark: `usage.completion_tokens` do servidor via `stream_options.include_usa
 
 ## MTP Sweep
 
-Veja [README-mtp-sweep-q5.md](README-mtp-sweep.md) para o sweep completo de MTP n=1-6 no Q5_K_M.
+Veja [README-mtp-sweep-q5.md](README-mtp-sweep-q5.md) para o sweep completo de MTP n=1-6.
 
 ## Comparação: Q5_K_M vs Q4_K_M (ambos com MTP n=2)
 
