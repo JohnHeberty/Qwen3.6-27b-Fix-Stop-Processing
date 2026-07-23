@@ -121,6 +121,21 @@ Primeira tentativa usou decodificação greedy pura (`temp=0`) pra determinismo 
 
 **4/4 execuções corretas nos dois caches.** O travamento do teste com `temp=0` foi um artefato de decodificação greedy (conhecido por entrar em loop de repetição), não um problema de qualidade do cache — a produção nunca usa `temp=0`. **Confirmado: `q4_0` não perde recall em contexto longo vs `q8_0`.** Sem motivo pra não usar q4_0 como padrão (já era o mais rápido e com maior teto de contexto).
 
+## Cache RAM para 2+ projetos simultâneos — testado, config atual já é suficiente
+
+Objetivo: rodar 2 projetos (sessões OpenCode) ao mesmo tempo sem que trocar de projeto force reprocessar o contexto inteiro do zero (o servidor só tem 1 slot ativo por causa de `N_PARALLEL=1`, mas `--cache-idle-slots` + `--cache-ram` salvam o estado do slot ocioso em RAM quando uma tarefa nova chega).
+
+Testado simulando 2 "projetos" alternando (contextos de ~83k e ~85k tokens, quase o teto de 106.496):
+
+| Chamada | Tempo | Detalhe |
+|---|---|---|
+| Projeto A (1ª vez) | 38.4s | processa 82.938 tokens do zero |
+| Projeto B (1ª vez) | 40.5s | processa 85.444 tokens do zero |
+| **Projeto A (2ª vez)** | **1.9s** | restaura 82.934/82.938 tokens do cache RAM (só 4 novos) |
+| **Projeto B (2ª vez)** | **2.0s** | restaura 85.440/85.444 tokens do cache RAM |
+
+**RAM consumida pra manter os dois projetos completos em cache simultaneamente: ~1,9 GB** (de 27,8 GB livres para 25,9 GB, numa máquina com 32 GB total). Ou seja, `CACHE_RAM=10240` (10 GB) já comporta uns 5-8 projetos desse tamanho antes de estourar — **não precisa aumentar nada**. `CTX_CHECKPOINTS=8` também já é suficiente (os 2 checkpoints foram criados sem problema). Config atual (`CACHE_RAM=10240`, `CTX_CHECKPOINTS=8`, `CACHE_IDLE_SLOTS=1`) já entrega exatamente o que foi pedido: múltiplos projetos com contexto quase cheio, trocando entre si com restauração quase instantânea (~2s em vez de ~40s).
+
 ## Build** `e8f19cc` (llama.cpp)
 - **Patches:** `llama-cpp-grammar-patches.patch` (MAX_REPETITION_THRESHOLD=100000, auto-anchor, regex shorthands)
 - **CMake flags:** `GGML_CUDA=ON`, `GGML_CUDA_FA=ON`, `GGML_CUDA_FA_ALL_QUANTS=ON`, `GGML_CUDA_GRAPHS=ON`, `CMAKE_CUDA_ARCHITECTURES=86`, `CMAKE_BUILD_TYPE=Release`
