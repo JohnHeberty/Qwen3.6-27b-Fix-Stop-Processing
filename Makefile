@@ -18,7 +18,7 @@ LLAMA_CPP_DIR    ?= $(HOME)/llama.cpp
 LLAMA_SERVER     ?= $(LLAMA_CPP_DIR)/build/bin/llama-server
 CUDA_HOME        ?= /usr/local/cuda
 MODEL_DIR        ?= $(PROJECT_ROOT)/data/models
-MODEL_FILE       ?= Qwen3.6-27B-Q5_K_M.gguf
+MODEL_FILE       ?= Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
 HF_TOKEN         ?= $(HUGGINGFACE_TOKEN)
 
 .DEFAULT_GOAL := help
@@ -315,9 +315,9 @@ $(SENTINEL_MODEL): $(SENTINEL_VENV) install-python-deps
 		echo "  AVISO: HUGGINGFACE_TOKEN não definido em .env"; \
 		echo "  Copie .env.example para .env e preencha o token."; \
 	fi
-	@MODEL_HF_RESOLVED="$${MODEL_HF:-unsloth/Qwen3.6-27B-MTP-GGUF}"; \
+	@MODEL_HF_RESOLVED="$${MODEL_HF:-unsloth/Qwen3.6-35B-A3B-MTP-GGUF}"; \
 	echo "      Repositório: $$MODEL_HF_RESOLVED"; \
-	echo "      Arquivo: $(MODEL_FILE) (~19 GB)"; \
+	echo "      Arquivo: $(MODEL_FILE) (~22.6 GB)"; \
 	HF_TOKEN="$(HF_TOKEN)" \
 	$(VENV)/bin/hf download "$$MODEL_HF_RESOLVED" "$(MODEL_FILE)" \
 		--local-dir "$(MODEL_DIR)"

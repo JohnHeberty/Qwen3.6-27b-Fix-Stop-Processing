@@ -68,15 +68,15 @@ The llama-server saves prompt cache checkpoints in RAM. With long prompts (70k+ 
 The `.env` file includes balanced defaults for maximum speed with MTP enabled:
 
 ```bash
-CACHE_TYPE_K=q8_0        # KV cache quantization (reduces ~50% VRAM vs f16)
-CACHE_TYPE_V=q8_0        # KV cache quantization (reduces ~50% VRAM vs f16)
+CACHE_TYPE_K=q4_0        # fastest + highest ceiling for the default 35B-A3B model (see docs/infra/index.md)
+CACHE_TYPE_V=q4_0
 CTX_CHECKPOINTS=8        # default llama.cpp: 32 (causes ~4.8GB RAM usage)
 CACHE_RAM=2048           # 2GB RAM cache (good balance)
 CACHE_IDLE_SLOTS=1       # keep idle slots warm (faster multi-turn)
-N_PREDICT=4096           # limit output length (prevent infinite generation)
-N_CTX=81920              # maximum context (80k with MTP on RTX 3090)
-ENABLE_MTP=true          # Multi-Token Prediction (~68 tok/s vs ~25 without)
-MTP_TOKENS=3             # draft 3 tokens per step (max for Qwen3.6-27B)
+N_PREDICT=8192           # limit output length (prevent infinite generation)
+N_CTX=106496             # 104k — max useful context on the default 35B-A3B model + q4_0 (see infra/configs/current.md)
+ENABLE_MTP=true          # Multi-Token Prediction (~116-143 tok/s vs ~100-130 without, on the default 35B-A3B model)
+MTP_TOKENS=2             # draft 2 tokens per step — benchmarked optimum for both models
 ```
 
 ### If you experience OOM kills
@@ -105,10 +105,10 @@ N_CTX=16384            # reduce context size (uses less VRAM+RAM)
 CTX_CHECKPOINTS=16     # more checkpoints = faster multi-turn
 CACHE_RAM=4096         # 4GB RAM cache
 CACHE_IDLE_SLOTS=1     # keep idle slots warm
-N_CTX=81920            # full context window with MTP
+N_CTX=106496           # 104k — do not raise without re-benchmarking, see note below
 ```
 
-> **Note:** The Q4_K_M model uses ~17.1 GB VRAM. On RTX 3090 (24GB), you have ~6.9 GB remaining for KV cache + system operations. Monitor with `nvidia-smi` and `htop`.
+> **Note:** The default model (35B-A3B MoE, Q4_K_M) uses ~21.5 GB VRAM for weights. On RTX 3090 (24GB), you have only ~1-2.3 GB remaining for KV cache + system operations — noticeably tighter than the 27B dense model's ~17.1 GB/~6.9 GB free. With the recommended q4_0 KV cache, raising `N_CTX` above 106,496 doesn't OOM outright but causes a sharp performance collapse (~111 tok/s → 11-13 tok/s, benchmarked up to 128k) — see [infra/configs/current.md](../infra/configs/current.md). Monitor with `nvidia-smi` and `htop`.
 
 ---
 
@@ -131,7 +131,7 @@ make ollama-unload  # free Ollama memory
 make start          # try again
 ```
 
-The Q4_K_M model uses ~17.1 GB of VRAM. Other CUDA processes must be stopped before starting.
+The default model uses ~21.5 GB of VRAM for weights alone. Other CUDA processes (including Ollama) must be stopped before starting — `make start` does this automatically.
 
 ### "CUDA not found" — `[2] setup-cuda FAIL`
 

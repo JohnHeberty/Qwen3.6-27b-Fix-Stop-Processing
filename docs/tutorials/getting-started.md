@@ -14,7 +14,7 @@ From zero to a running server.
 | RAM | 16 GB | 32 GB |
 | Free disk space | 25 GB | 30 GB |
 
-> The Q4_K_M model uses ~17.1 GB of VRAM. With 24,576 MB (RTX 3090), ~2.9 GB remain for KV cache — enough for 32,768 tokens with MTP speculative decoding at ~70 tok/s (benchmarked).
+> The default model (35B-A3B MoE, Q4_K_M) uses ~21.5 GB of VRAM for weights — all 256 experts are offloaded to GPU even though only 8/token are active during inference. With 24,576 MB (RTX 3090) and the recommended q4_0 KV cache, ~1-2.3 GB remain for KV cache, enough for up to 106,496 tokens of context with MTP speculative decoding at 111-150 tok/s (benchmarked — see [infra/configs/current.md](../infra/configs/current.md)). The original 27B dense model needs less VRAM for weights (~17.1 GB) but decodes ~2.5x slower single-user.
 
 ### Software
 
@@ -79,7 +79,7 @@ The setup runs **7 steps** with sentinels — each one checks if it was already 
 | `[4]` | `make install-python-deps` | pip: gguf, huggingface-hub, openai, requests |
 | `[5]` | `make build-llama-server` | Clones llama.cpp, applies Debian trixie patches, compiles with CUDA |
 | `[6]` | `make build-llama-cpp-python` | Compiles llama-cpp-python with GPU offload |
-| `[7]` | `make download-model` | Downloads `Qwen3.6-27B-Q4_K_M.gguf` (~17.1 GB) from HuggingFace |
+| `[7]` | `make download-model` | Downloads `Qwen3.6-35B-A3B-UD-Q4_K_M.gguf` (~22.6 GB) from HuggingFace |
 
 Estimated time: **20–40 minutes** (depends on download speed and CPU for compilation).
 

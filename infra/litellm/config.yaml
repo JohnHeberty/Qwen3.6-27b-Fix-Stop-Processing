@@ -4,11 +4,11 @@ model_list:
       model: openai/qwen3
       api_base: http://localhost:8000/v1
       api_key: "nao-precisa"
-      max_tokens: 4096
+      max_tokens: 8192
       streaming: true
     model_info:
-      max_input_tokens: 77824
-      max_output_tokens: 4096
+      max_input_tokens: 98304
+      max_output_tokens: 8192
       input_cost_per_token: 0.0000000336
       output_cost_per_token: 0.0000000336
 

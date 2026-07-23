@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/start-server.sh — Inicia llama-cpp-python servindo Qwen3.6 27B GGUF
+# scripts/start-server.sh — Inicia llama-cpp-python servindo Qwen3.6 GGUF (ver MODEL_FILE no .env)
 # Ollama continua rodando em paralelo na porta 11434 — nao e tocado
 
 set -euo pipefail
@@ -12,7 +12,7 @@ VENV="$PROJECT_ROOT/.venv"
 [ -f "$PROJECT_ROOT/.env" ] && set -a && source "$PROJECT_ROOT/.env" && set +a
 
 MODEL_DIR="${MODEL_DIR:-$PROJECT_ROOT/data/models}"
-MODEL_FILE="${MODEL_FILE:-Qwen3.6-27B-Q4_K_M.gguf}"
+MODEL_FILE="${MODEL_FILE:-Qwen3.6-35B-A3B-UD-Q4_K_M.gguf}"
 PORT="${PORT:-8000}"
 SERVED_NAME="${SERVED_NAME:-qwen3}"
 N_GPU_LAYERS="${N_GPU_LAYERS:--1}"
@@ -30,7 +30,12 @@ CACHE_IDLE_SLOTS="${CACHE_IDLE_SLOTS:-1}"
 
 # Speculative Decoding (MTP)
 ENABLE_MTP="${ENABLE_MTP:-true}"
-MTP_TOKENS="${MTP_TOKENS:-3}"
+MTP_TOKENS="${MTP_TOKENS:-2}"
+
+# External draft model (alternativa ao MTP interno)
+DRAFT_ENABLED="${DRAFT_ENABLED:-false}"
+DRAFT_MODEL_FILE="${DRAFT_MODEL_FILE:-}"
+DRAFT_N_MAX="${DRAFT_N_MAX:-5}"
 
 # Parâmetros de amostragem (ajustáveis no .env)
 TEMPERATURE="${TEMPERATURE:-0.3}"
@@ -42,7 +47,7 @@ REPEAT_LAST_N="${REPEAT_LAST_N:-64}"
 FREQUENCY_PENALTY="${FREQUENCY_PENALTY:-0.2}"
 PRESENCE_PENALTY="${PRESENCE_PENALTY:-0.1}"
 SEED="${SEED:--1}"
-N_PREDICT="${N_PREDICT:-4096}"
+N_PREDICT="${N_PREDICT:-8192}"
 
 MODEL_PATH="$MODEL_DIR/$MODEL_FILE"
 
@@ -50,7 +55,7 @@ MODEL_PATH="$MODEL_DIR/$MODEL_FILE"
 
 echo ""
 echo "================================================"
-echo "  llama-cpp-python — Qwen3.6 27B GGUF"
+echo "  llama-cpp-python — Qwen3.6 GGUF ($MODEL_FILE)"
 echo "  Ollama continua em: http://localhost:11434"
 echo "================================================"
 echo ""
@@ -83,7 +88,7 @@ echo "Contexto  : $N_CTX tokens"
 echo "KV cache  : K=$CACHE_TYPE_K V=$CACHE_TYPE_V"
 echo "Nome API  : $SERVED_NAME"
 echo "RAM ctrl  : ctx_checkpoints=$CTX_CHECKPOINTS cache_ram=${CACHE_RAM}MiB idle_slots=$CACHE_IDLE_SLOTS"
-echo "MTP       : ${ENABLE_MTP} (tokens=$MTP_TOKENS)"
+echo "Decode    : MTP=$ENABLE_MTP(tokens=$MTP_TOKENS) Draft=$DRAFT_ENABLED(n_max=$DRAFT_N_MAX)"
 echo "Sampling  : temp=$TEMPERATURE top_k=$TOP_K top_p=$TOP_P min_p=$MIN_P"
 echo "            repeat=$REPEAT_PENALTY(last $REPEAT_LAST_N) freq=$FREQUENCY_PENALTY pres=$PRESENCE_PENALTY"
 echo "            seed=$SEED n_predict=$N_PREDICT"
@@ -128,9 +133,17 @@ if [ -f "$CUSTOM_TEMPLATE" ]; then
     EXTRA_FLAGS="$EXTRA_FLAGS --chat-template-file $CUSTOM_TEMPLATE"
 fi
 
-# ── Speculative Decoding (MTP) ──────────────────────────────────────
-if [ "${ENABLE_MTP:-false}" = "true" ]; then
-    MTP_N="${MTP_TOKENS:-3}"
+# ── Speculative Decoding ────────────────────────────────────
+if [ "${DRAFT_ENABLED:-false}" = "true" ] && [ -n "$DRAFT_MODEL_FILE" ]; then
+    DRAFT_PATH="$MODEL_DIR/$DRAFT_MODEL_FILE"
+    if [ -f "$DRAFT_PATH" ]; then
+        EXTRA_FLAGS="$EXTRA_FLAGS --model-draft $DRAFT_PATH --spec-draft-n-max $DRAFT_N_MAX"
+        echo "Draft model: $DRAFT_PATH (n_max=$DRAFT_N_MAX)"
+    else
+        echo "AVISO: Draft model nao encontrado em $DRAFT_PATH — usando MTP interno"
+    fi
+elif [ "${ENABLE_MTP:-false}" = "true" ]; then
+    MTP_N="${MTP_TOKENS:-2}"
     EXTRA_FLAGS="$EXTRA_FLAGS --spec-type draft-mtp --spec-draft-n-max $MTP_N"
 fi
 

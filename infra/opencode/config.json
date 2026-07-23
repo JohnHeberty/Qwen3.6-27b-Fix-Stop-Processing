@@ -10,10 +10,10 @@
       },
       "models": {
         "qwen3": {
-          "name": "Qwen3.6-27B-Fixed",
+          "name": "Qwen3.6-35B-A3B-Fixed",
           "limit": {
-            "context": 77824,
-            "output": 4096
+            "context": 98304,
+            "output": 8192
           }
         }
       }
@@ -27,7 +27,7 @@
   "compaction": {
     "auto": true,
     "prune": true,
-    "reserved": 4096
+    "reserved": 8192
   },
   "watcher": {
     "ignore": [

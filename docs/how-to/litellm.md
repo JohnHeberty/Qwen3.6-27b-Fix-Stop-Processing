@@ -45,9 +45,9 @@ model_list:
       api_base: http://192.168.1.139:8000/v1
       api_key: "not-needed"
     model_info:
-      context_window: 81920        # tells LiteLLM the real window size
-      max_input_tokens: 77824      # 81920 - 4096 (output headroom)
-      max_output_tokens: 4096
+      context_window: 106496        # tells LiteLLM the real window size
+      max_input_tokens: 98304      # 106496 - 8192 (output headroom)
+      max_output_tokens: 8192
       input_cost_per_token: 0
       output_cost_per_token: 0
 
@@ -80,7 +80,7 @@ response = client.chat.completions.create(
 
 ## Error "Context size has been exceeded"
 
-`litellm.MidStreamFallbackError: Context size has been exceeded` occurs when the accumulated conversation history exceeds 81,920 tokens. Without the `context_window` and `max_input_tokens` keys, LiteLLM doesn't know the window size and lets the request through without validation — the llama-server then returns the error mid-stream.
+`litellm.MidStreamFallbackError: Context size has been exceeded` occurs when the accumulated conversation history exceeds 106,496 tokens. Without the `context_window` and `max_input_tokens` keys, LiteLLM doesn't know the window size and lets the request through without validation — the llama-server then returns the error mid-stream.
 
 ### Fix 1 — Via proxy (recommended)
 
@@ -88,8 +88,8 @@ Make sure `infra/litellm/config.yaml` has both keys under `model_info`:
 
 ```yaml
 model_info:
-  context_window: 81920
-  max_input_tokens: 77824
+  context_window: 106496
+  max_input_tokens: 98304
 ```
 
 ### Fix 2 — Via SDK directly (no proxy)
@@ -99,9 +99,9 @@ import litellm
 
     litellm.register_model({
     "openai/qwen3": {
-        "max_tokens": 81920,
-        "max_input_tokens": 77824,
-        "max_output_tokens": 4096,
+        "max_tokens": 106496,
+        "max_input_tokens": 98304,
+        "max_output_tokens": 8192,
         "litellm_provider": "openai",
         "mode": "chat",
     }
@@ -112,7 +112,7 @@ response = litellm.completion(
     api_base="http://192.168.1.139:8000/v1",
     api_key="not-needed",
     messages=messages,
-    max_tokens=4096,
+    max_tokens=8192,
 )
 ```
 
@@ -123,7 +123,7 @@ import litellm
 
 # Check token count
 token_count = litellm.token_counter(model="openai/qwen3", messages=messages)
-print(f"Tokens: {token_count} / 81920")
+print(f"Tokens: {token_count} / 106496")
 
 # Trim if needed (keeps system prompt + last N messages)
 if token_count > 25000:
@@ -141,6 +141,6 @@ Never leave `max_tokens=None` with long contexts — llama-server interprets it 
 response = client.chat.completions.create(
     model="qwen",
     messages=messages,
-    max_tokens=4096,   # always set this
+    max_tokens=8192,   # always set this
 )
 ```
