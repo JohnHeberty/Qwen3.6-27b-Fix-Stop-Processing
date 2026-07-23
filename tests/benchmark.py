@@ -58,6 +58,8 @@ CSV_COLUMNS = [
     "prompt_tokens", "completion_tokens", "tokens_gen",
     "prompt_time_s", "gen_time_s", "total_time_s",
     "tok_per_sec", "server_tok_per_sec",
+    "prefill_tps", "decode_tps",
+    "prompt_per_token_ms", "predicted_per_token_ms",
     "draft_n", "draft_accepted", "mtp_acceptance_pct",
     "vram_used", "vram_free", "ram_free_before", "ram_free_after",
     "ram_delta", "rss", "status",
@@ -109,9 +111,9 @@ def wait_server(timeout=180):
 
 
 def stop_server():
-    subprocess.run(["pkill", "-f", "llama-server"], capture_output=True)
+    subprocess.run(["pkill", "llama-server"], capture_output=True)
     time.sleep(3)
-    subprocess.run(["pkill", "-9", "-f", "llama-server"], capture_output=True)
+    subprocess.run(["pkill", "-9", "llama-server"], capture_output=True)
     time.sleep(2)
 
 
@@ -130,7 +132,7 @@ def start_server(n_ctx):
         env_path.write_text("\n".join(lines) + "\n")
 
     subprocess.Popen(
-        ["make", "start-bg"],
+        ["make", "restart"],
         cwd=str(PROJECT_ROOT),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL
@@ -264,6 +266,10 @@ def run_test(pdf_text, n_ctx, fill_pct, max_tokens):
         prompt_tokens = usage.get("prompt_tokens", 0) if usage else 0
         tok_per_sec = completion_tokens / gen_time if gen_time > 0 else 0
         server_tok_per_sec = server_timings.get("predicted_per_second", 0) if server_timings else 0
+        prefill_tps = server_timings.get("prompt_per_second", 0) if server_timings else 0
+        decode_tps = server_tok_per_sec
+        prompt_per_token_ms = round(server_timings.get("prompt_per_token_ms", 0), 2) if server_timings else 0
+        predicted_per_token_ms = round(server_timings.get("predicted_per_token_ms", 0), 2) if server_timings else 0
         draft_n = server_timings.get("draft_n", 0) if server_timings else 0
         draft_accepted = server_timings.get("draft_n_accepted", 0) if server_timings else 0
         mtp_pct = round(draft_accepted / draft_n * 100, 1) if draft_n > 0 else 0
@@ -290,6 +296,10 @@ def run_test(pdf_text, n_ctx, fill_pct, max_tokens):
             "total_time_s": round(total_time, 2),
             "tok_per_sec": round(tok_per_sec, 1),
             "server_tok_per_sec": round(server_tok_per_sec, 1),
+            "prefill_tps": round(prefill_tps, 1),
+            "decode_tps": round(decode_tps, 1),
+            "prompt_per_token_ms": prompt_per_token_ms,
+            "predicted_per_token_ms": predicted_per_token_ms,
             "draft_n": draft_n,
             "draft_accepted": draft_accepted,
             "mtp_acceptance_pct": mtp_pct,
@@ -302,9 +312,10 @@ def run_test(pdf_text, n_ctx, fill_pct, max_tokens):
             "status": status,
         }
 
-        log(f"Resultado: {completion_tokens} tokens reais, {token_count} chunks | "
-            f"{tok_per_sec:.1f} tok/s calc vs {server_tok_per_sec:.1f} server | "
-            f"MTP: {draft_accepted}/{draft_n} aceitos ({mtp_pct}%) | "
+        log(f"Resultado: {completion_tokens} tokens | "
+            f"TTFT={prompt_time:.1f}s prefill={prefill_tps:.1f}t/s "
+            f"decode={tok_per_sec:.1f}t/s (server:{server_tok_per_sec:.1f}) | "
+            f"MTP: {draft_accepted}/{draft_n} ({mtp_pct}%) | "
             f"VRAM: {vram_used_after}/{vram_free_after} MiB | Status: {status}")
 
         return row
@@ -314,6 +325,8 @@ def run_test(pdf_text, n_ctx, fill_pct, max_tokens):
         return {"timestamp": datetime.now().isoformat(), "n_ctx": n_ctx,
                 "status": "oom", "tokens_gen": 0, "tok_per_sec": 0,
                 "server_tok_per_sec": 0,
+                "prefill_tps": 0, "decode_tps": 0,
+                "prompt_per_token_ms": 0, "predicted_per_token_ms": 0,
                 "draft_n": 0, "draft_accepted": 0, "mtp_acceptance_pct": 0,
                 "fill_pct": fill_pct, "prompt_tokens_est": 0,
                 "prompt_tokens": 0, "completion_tokens": 0,
@@ -406,6 +419,8 @@ def main():
                 "completion_tokens": 0, "tokens_gen": 0,
                 "prompt_time_s": 0, "gen_time_s": 0, "total_time_s": 0,
                 "tok_per_sec": 0, "server_tok_per_sec": 0,
+                "prefill_tps": 0, "decode_tps": 0,
+                "prompt_per_token_ms": 0, "predicted_per_token_ms": 0,
                 "draft_n": 0, "draft_accepted": 0, "mtp_acceptance_pct": 0,
                 "vram_used": 0, "vram_free": 0,
                 "ram_free_before": 0, "ram_free_after": 0,
@@ -424,6 +439,8 @@ def main():
                 "completion_tokens": 0, "tokens_gen": 0,
                 "prompt_time_s": 0, "gen_time_s": 0, "total_time_s": 0,
                 "tok_per_sec": 0, "server_tok_per_sec": 0,
+                "prefill_tps": 0, "decode_tps": 0,
+                "prompt_per_token_ms": 0, "predicted_per_token_ms": 0,
                 "draft_n": 0, "draft_accepted": 0, "mtp_acceptance_pct": 0,
                 "vram_used": 0, "vram_free": 0,
                 "ram_free_before": 0, "ram_free_after": 0,
@@ -447,15 +464,18 @@ def main():
     log(f"{'=' * 60}")
     for _, r in df.iterrows():
         icon = "✓" if r["status"] == "ok" else "✗"
-        log(f"  {icon} {int(r['n_ctx']) // 1024}k: {r['tok_per_sec']} tok/s, "
+        log(f"  {icon} {int(r['n_ctx']) // 1024}k: "
+            f"decode={r['tok_per_sec']}t/s prefill={r['prefill_tps']}t/s "
+            f"TTFT={r['prompt_time_s']}s | "
             f"VRAM {r['vram_used']}/{r['vram_free']} MiB, "
             f"status={r['status']}")
 
     if not ok.empty:
         avg_speed = ok["tok_per_sec"].mean()
         best = ok.loc[ok["tok_per_sec"].idxmax()]
-        log(f"\nMedia: {avg_speed:.1f} tok/s")
+        log(f"\nMedia decode: {avg_speed:.1f} tok/s")
         log(f"Melhor: {int(best['n_ctx']) // 1024}k @ {best['tok_per_sec']} tok/s")
+        log(f"Prefill medio: {ok['prefill_tps'].mean():.1f} t/s")
 
     log(f"\nCSV: {csv_path}")
     log(f"Linhas: {len(df)}")

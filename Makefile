@@ -31,7 +31,7 @@ SENTINEL_MODEL       := $(MODEL_DIR)/$(MODEL_FILE)
 
 .PHONY: help setup \
         install-system-deps setup-cuda create-venv install-python-deps \
-        build-llama-server build-llama-cpp-python \
+        build-llama-server rebuild-llama-server build-llama-cpp-python \
         download-model \
         start start-bg stop restart status logs test \
         install-service enable-service disable-service start-service \
@@ -54,6 +54,7 @@ help:
 	@echo "  make create-venv          [3] Cria virtualenv Python"
 	@echo "  make install-python-deps  [4] Instala gguf, huggingface-hub, etc."
 	@echo "  make build-llama-server   [5] Compila llama-server com CUDA"
+	@echo "  make rebuild-llama-server  Recompila do zero (remove binário + build)"
 	@echo "  make update-llama-server   Atualiza llama.cpp + recompila"
 	@echo "  make build-llama-cpp-python [6] Compila llama-cpp-python com CUDA"
 	@echo "  make download-model       [7] Baixa modelo GGUF do HuggingFace"
@@ -205,11 +206,14 @@ $(SENTINEL_LLAMA): setup-cuda install-system-deps
 			echo "      WARN: grammar patches já aplicados ou conflitam"; \
 	fi
 	@# Compilar
+	@# Compilar (RTX 3090 sm_86 + all-quants FA para KV cache alternativos)
 	@cd "$(LLAMA_CPP_DIR)" && cmake -B build \
 		-DGGML_CUDA=ON \
 		-DCMAKE_CUDA_COMPILER="$(CUDA_HOME)/bin/nvcc" \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DLLAMA_BUILD_SERVER=ON \
+		-DGGML_CUDA_FA_ALL_QUANTS=ON \
+		-DCMAKE_CUDA_ARCHITECTURES=86 \
 		-DCMAKE_CUDA_FLAGS="--allow-unsupported-compiler" \
 		-DCUDA_TOOLKIT_ROOT_DIR="$(CUDA_HOME)" \
 		2>&1 | tail -5
@@ -236,12 +240,22 @@ update-llama-server:
 		-DCMAKE_CUDA_COMPILER="$(CUDA_HOME)/bin/nvcc" \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DLLAMA_BUILD_SERVER=ON \
+		-DGGML_CUDA_FA_ALL_QUANTS=ON \
+		-DCMAKE_CUDA_ARCHITECTURES=86 \
 		-DCMAKE_CUDA_FLAGS="--allow-unsupported-compiler" \
 		-DCUDA_TOOLKIT_ROOT_DIR="$(CUDA_HOME)" \
 		2>&1 | tail -3
 	@cd "$(LLAMA_CPP_DIR)" && cmake --build build --config Release \
 		-j$$(nproc) --target llama-server 2>&1 | tail -5
 	@test -f "$(LLAMA_SERVER)" && echo "      OK — versão: $$($(LLAMA_SERVER) --version 2>&1 | head -1)"
+
+##############################################################################
+# [5c] REBUILDAR llama-server (forçado — remove binário primeiro)
+##############################################################################
+rebuild-llama-server:
+	@rm -f "$(LLAMA_SERVER)"
+	@rm -f "$(LLAMA_CPP_DIR)/build/CMakeCache.txt"
+	@$(MAKE) build-llama-server
 
 # Patch para compatibilidade glibc 2.40 + nvcc (Debian trixie)
 _patch-glibc-cuda:
@@ -321,7 +335,7 @@ start-bg: _check-ready
 	@echo "Servidor iniciado em background. Acompanhe: make logs"
 
 stop:
-	@pkill -f "llama-server" 2>/dev/null && echo "Servidor parado. VRAM liberada — Ollama pode usar a GPU novamente." || echo "Nenhum servidor rodando."
+	@pkill llama-server 2>/dev/null && echo "Servidor parado. VRAM liberada — Ollama pode usar a GPU novamente." || echo "Nenhum servidor rodando."
 
 restart: stop
 	@$(MAKE) start-bg
