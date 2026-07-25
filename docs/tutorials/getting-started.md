@@ -109,7 +109,7 @@ make status
 # GPU:    NVIDIA GeForce RTX 3090, 21000 MiB used, 3100 MiB free
 
 make test
-# → 6/6 tests passed
+# → 12/12 tests passed
 ```
 
 ---

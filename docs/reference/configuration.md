@@ -15,7 +15,7 @@ cp .env.example .env
 | `HUGGINGFACE_TOKEN` | — | **yes** | HuggingFace access token. Get one at https://huggingface.co/settings/tokens |
 | `MODEL_HF` | `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` | no | HuggingFace repository of the GGUF model |
 | `MODEL_FILE` | `Qwen3.6-35B-A3B-UD-Q4_K_M.gguf` | no | GGUF file name to download and serve |
-| `TEMPLATE_FILE` | `data/templates/custom/chat_template_v21.jinja` | no | Chat template file loaded at runtime via `--chat-template-file` (froggeric v21.3) |
+| `TEMPLATE_FILE` | `data/templates/custom/chat_template_local.jinja` | no | Chat template loaded at runtime via `--chat-template-file`. Our default = froggeric v21.3 + `error_warnings` off. The pristine froggeric base is kept untouched at `custom/chat_template_v21.jinja` |
 | `ERROR_WARNINGS` | `false` | no | Enable the template's tool-error heuristic (`⚠️ SYSTEM WARNING` injection + force thinking off after 2 failures). Off by default to avoid false positives; `true` forwards `--chat-template-kwargs '{"error_warnings":true}'`. See [template-v21.md](../explanation/template-v21.md#error-escalation-in-tool-chains-opt-in--default-off) |
 | `LLAMA_CPP_DIR` | `~/llama.cpp` | no | Directory where llama.cpp will be cloned and compiled |
 | `LLAMA_SERVER` | `~/llama.cpp/build/bin/llama-server` | no | Path to the compiled binary |
@@ -57,8 +57,8 @@ HUGGINGFACE_TOKEN=hf_your_token_here
 MODEL_HF=unsloth/Qwen3.6-35B-A3B-MTP-GGUF
 MODEL_FILE=Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
 
-# Template (froggeric v21.3)
-TEMPLATE_FILE=data/templates/custom/chat_template_v21.jinja
+# Template (froggeric v21.3 + error_warnings off; base pura em custom/chat_template_v21.jinja)
+TEMPLATE_FILE=data/templates/custom/chat_template_local.jinja
 ERROR_WARNINGS=false
 
 # llama.cpp

@@ -128,7 +128,7 @@ EXTRA_FLAGS=""
 [ "${CACHE_IDLE_SLOTS:-0}" = "0" ] && EXTRA_FLAGS="$EXTRA_FLAGS --no-cache-idle-slots"
 
 # ── Custom chat template ────────────────────────────────────────────
-TEMPLATE_FILE="${TEMPLATE_FILE:-data/templates/custom/chat_template_v21.jinja}"
+TEMPLATE_FILE="${TEMPLATE_FILE:-data/templates/custom/chat_template_local.jinja}"
 CUSTOM_TEMPLATE="${PROJECT_ROOT}/${TEMPLATE_FILE}"
 if [ -f "$CUSTOM_TEMPLATE" ]; then
     EXTRA_FLAGS="$EXTRA_FLAGS --chat-template-file $CUSTOM_TEMPLATE"

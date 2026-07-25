@@ -46,13 +46,15 @@ make stop / restart / status / logs
 
 **Tests / benchmarks** (require the server to be running on :8000):
 ```bash
-make test                                   # tests/test_api.py — 6 integration tests (health, chat, thinking mode, streaming, tool calling, system prompt)
+make test                                   # tests/test_api.py — 12 integration tests (health, models, chat, thinking mode, streaming, system prompt, + 6 tool-calling: simple call, tool_choice=required, oneOf schema, correction-after-error, parallel, long multi-tool convo)
 python3 tests/test_api.py                   # same, run directly
 make benchmark ARGS="--start 16384 --step 16384"   # tests/benchmark.py — context-size sweep, restarts server between runs
 python3 tests/sweep_mtp.py --max-n 8         # sweep MTP_TOKENS (draft count) at fixed context
 ```
-There is no unit-test framework/single-test-by-name mechanism — `test_api.py` runs all 6 checks in
-one process each time. `benchmark.py`/`sweep_mtp.py` write CSVs to `data/temp/` and support
+There is no unit-test framework/single-test-by-name mechanism — `test_api.py` runs all 12 checks in
+one process each time (each has real asserts and fails on wrong content; `BASE_URL`/`TEST_MODEL` are
+overridable via env). The template itself has a separate render-level suite:
+`python3 data/templates/scripts/test_template.py` (42 checks, incl. the `error_warnings` default-off). `benchmark.py`/`sweep_mtp.py` write CSVs to `data/temp/` and support
 `--resume <csv>` to continue an interrupted sweep.
 
 > **Known caveat** (`MAXIMIZE-TOKS.md`): the tok/s figures in `benchmark.py`/`sweep_mtp.py` currently
@@ -93,7 +95,15 @@ path (`make start`) execs `llama-server` directly and does not go through `src/s
 - `N_PARALLEL` — must stay `1` (see the bug this fixes, above); do not "optimize" this back to `-1`/auto.
 - `CTX_CHECKPOINTS` / `CACHE_RAM` — bound host-RAM usage of llama-server's prompt-cache checkpoints;
   relevant because this runs in an LXC/Proxmox container prone to OOM on long prompts.
-- `TEMPLATE_FILE` — path to the froggeric Jinja2 template overriding the GGUF-embedded one.
+- `TEMPLATE_FILE` — path to the Jinja2 template overriding the GGUF-embedded one. Default is
+  `data/templates/custom/chat_template_local.jinja` (our version = froggeric v21.3 + one change).
+  The **pristine froggeric v21.3 base is kept untouched** at `custom/chat_template_v21.jinja` — edit
+  `chat_template_local.jinja`, not the v21 file, if you need to change template behavior.
+- `ERROR_WARNINGS` — `false` by default. Gates the template's tool-error heuristic (injects a
+  `⚠️ SYSTEM WARNING` and force-disables thinking after 2 consecutive tool errors). Off because the
+  string match false-positives (a `grep` hit on "error", `git status`, a test printing "0 errors").
+  `true` forwards `--chat-template-kwargs '{"error_warnings":true}'`. Only `chat_template_local.jinja`
+  honors this flag; pristine v21 has the heuristic always-on.
 
 **GPU/VRAM sharing with Ollama:** both llama-server and Ollama want the same 24 GB card. `make start`
 force-unloads Ollama models before launching. `make configure-ollama` / `make ollama-unload` and the

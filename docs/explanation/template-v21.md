@@ -30,35 +30,37 @@ The original template used `loop.previtem` (a modern Jinja2 feature) which cause
 
 `enable_thinking=false` was not respected in certain call flows. The v21 fixes the behavior so that thinking mode control is consistent.
 
-### Error escalation in tool chains (opt-in — default OFF)
+### Error escalation in tool chains
 
 Two-level system with a `consecutive_failures` counter for agentic workflows — on a tool
 response whose first 80 chars match an error pattern (`error:`, `failed to`, `traceback`, …)
 it injects a `⚠️ SYSTEM WARNING` into the prompt and, after 2 consecutive failures, forces the
-thinking block off.
+thinking block off. **In pristine froggeric v21 (`chat_template_v21.jinja`) this heuristic is
+always on.**
 
-**This heuristic is gated behind the `error_warnings` template kwarg and is `false` by
-default**, because the string match produces false positives (a `grep` that finds the word
-"error", a test printing "0 errors", reading a log, `git status`, …). A false positive injects a
-hidden "your approach is wrong" warning the app never sees, which can make the model abandon a
-correct path — the same kind of silent conversation mutation that motivated removing the proxy.
-
-Enable it only if you want the old behavior:
-- per request: `chat_template_kwargs: {"error_warnings": true}`
-- server-wide: set `ERROR_WARNINGS=true` in `.env` (start-server.sh forwards it via
-  `--chat-template-kwargs`).
-
-The `consecutive_failures` counter still runs when the flag is off, but emits nothing — the
-prompt is identical to a run with no error detection at all.
+> **Our default template gates it off.** We ship [chat_template_local.jinja](../../data/templates/custom/chat_template_local.jinja)
+> (= froggeric v21.3 + one change) as the runtime default. There the heuristic is behind an
+> `error_warnings` kwarg that defaults to **`false`**, because the string match produces false
+> positives (a `grep` that finds the word "error", a test printing "0 errors", reading a log,
+> `git status`, …). A false positive injects a hidden "your approach is wrong" warning the app
+> never sees, which can make the model abandon a correct path — the same kind of silent
+> conversation mutation that motivated removing the proxy.
+>
+> Re-enable the old behavior:
+> - per request: `chat_template_kwargs: {"error_warnings": true}`
+> - server-wide: `ERROR_WARNINGS=true` in `.env` (start-server.sh forwards it via `--chat-template-kwargs`).
+>
+> The `consecutive_failures` counter still runs when the flag is off, but emits nothing — the
+> prompt is identical to a run with no error detection at all.
 
 ---
 
 ## How the template is loaded
 
-The template is loaded **at runtime** via the `--chat-template-file` flag passed to `llama-server` in `scripts/start-server.sh`. This overrides the GGUF-embedded template without modifying the model file.
+The template is loaded **at runtime** via the `--chat-template-file` flag passed to `llama-server` in `scripts/start-server.sh`. This overrides the GGUF-embedded template without modifying the model file. The runtime default is our `chat_template_local.jinja` (this v21 base + `error_warnings` off); the pristine froggeric v21 stays available at `chat_template_v21.jinja`.
 
 ```bash
-llama-server --chat-template-file data/templates/custom/chat_template_v21.jinja ...
+llama-server --chat-template-file data/templates/custom/chat_template_local.jinja ...
 ```
 
 This approach is safer than binary-patching the GGUF because:
@@ -79,6 +81,8 @@ The v21 template is compatible with:
 
 ---
 
-## Template file
+## Template files
 
-The template is located at `data/templates/custom/chat_template_v21.jinja`.
+- `data/templates/custom/chat_template_v21.jinja` — pristine froggeric v21.3 (base, unchanged).
+- `data/templates/custom/chat_template_local.jinja` — **our runtime default**: identical to v21
+  plus the `error_warnings` gate (default off). This is what `TEMPLATE_FILE` points at.

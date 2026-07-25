@@ -33,8 +33,10 @@
 
 ## Template
 
-- **File:** `data/templates/custom/chat_template_v21.jinja`
-- **Fork:** froggeric v21.3
+- **File:** `data/templates/custom/chat_template_local.jinja` (nossa versão default)
+- **Base:** froggeric v21.3 — pura e intocada em `data/templates/custom/chat_template_v21.jinja`
+- **Nossa diferença:** heurística de detecção de erro (`⚠️ SYSTEM WARNING`) atrás do flag
+  `error_warnings`, **off por padrão** (evita falsos positivos). `ERROR_WARNINGS=true` reativa.
 - **Features:** `<thinking>` reasoning_content, tool_call handling, `requiresStringContent` passthrough
 
 ## Request Chain

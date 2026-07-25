@@ -33,7 +33,7 @@ Each step uses a **sentinel** — checks if it was already done before acting. R
 | `make restart` | Stop and restart in background |
 | `make status` | Server state + VRAM usage |
 | `make logs` | `tail -f data/logs/server.log` |
-| `make test` | Runs 6 API integration tests |
+| `make test` | Runs 12 API integration tests (incl. 6 tool-calling scenarios) |
 
 ---
 

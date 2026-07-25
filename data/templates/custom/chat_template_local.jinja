@@ -1,4 +1,6 @@
-{%- set template_version = "qwen3.6-froggeric-v21.3" %}
+{#- chat_template_local: nossa versão default = froggeric v21.3 + error_warnings OFF por padrão.
+    Base intocada em chat_template_v21.jinja. Ver docs/explanation/template-v21.md. -#}
+{%- set template_version = "qwen3.6-local-v1 (base froggeric-v21.3)" %}
 {%- set _tool_format = tool_call_format if tool_call_format is defined else 'xml' %}
 {%- set image_count = namespace(value=0) %}
 {%- set video_count = namespace(value=0) %}
@@ -8,6 +10,10 @@
 {%- set _preserve_thinking = preserve_thinking if preserve_thinking is defined else true %}
 {%- set max_tool_arg_chars = max_tool_arg_chars if max_tool_arg_chars is defined else 0 %}
 {%- set max_tool_response_chars = max_tool_response_chars if max_tool_response_chars is defined else 0 %}
+{#- error_warnings: heuristica que detecta "falha" na tool response (match de string)
+    e injeta um SYSTEM WARNING + desliga o thinking apos 2 falhas. DESLIGADA por padrao
+    (false) para evitar falsos positivos; reative via chat_template_kwargs / ERROR_WARNINGS. -#}
+{%- set _error_warnings = error_warnings if error_warnings is defined else false %}
 {%- set _has_tools = (tools is defined and tools and tools is iterable and tools is not mapping) %}
 {%- set ns_state = namespace(thinking=enable_thinking) %}
 {%- if auto_disable_thinking_with_tools and _has_tools %}
@@ -298,10 +304,12 @@ Reminder:
             {%- set content = content[:max_tool_response_chars] + '\n[TRUNCATED — original length ' ~ (content | length | string) ~ ' chars]' %}
         {%- endif %}
         {{- '\n<tool_response>\n' + content }}
-        {%- if ns2.consecutive_failures >= 2 %}
-            {{- '\n\n⚠️ SYSTEM WARNING: ' ~ ns2.consecutive_failures ~ ' consecutive tool errors detected. Your previous approach is incorrect. You MUST use a fundamentally different approach or corrected arguments.' }}
-        {%- elif ns2.consecutive_failures == 1 %}
-            {{- '\n\n⚠️ SYSTEM WARNING: The previous tool call returned an error. Diagnose the failure and retry with completely corrected arguments.' }}
+        {%- if _error_warnings %}
+            {%- if ns2.consecutive_failures >= 2 %}
+                {{- '\n\n⚠️ SYSTEM WARNING: ' ~ ns2.consecutive_failures ~ ' consecutive tool errors detected. Your previous approach is incorrect. You MUST use a fundamentally different approach or corrected arguments.' }}
+            {%- elif ns2.consecutive_failures == 1 %}
+                {{- '\n\n⚠️ SYSTEM WARNING: The previous tool call returned an error. Diagnose the failure and retry with completely corrected arguments.' }}
+            {%- endif %}
         {%- endif %}
         {{- '\n</tool_response>' }}
         {%- if loop.last %}
@@ -321,7 +329,7 @@ Reminder:
     {{- '<|im_start|>assistant\n' }}
     {%- if not ns_state.thinking %}
         {{- '<think>\n\n</think>\n\n' }}
-    {%- elif ns2.consecutive_failures >= 2 %}
+    {%- elif _error_warnings and ns2.consecutive_failures >= 2 %}
         {{- '<think>\n\n</think>\n\n' }}
     {%- else %}
         {{- '<think>\n' }}
