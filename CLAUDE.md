@@ -59,10 +59,9 @@ one process each time. `benchmark.py`/`sweep_mtp.py` write CSVs to `data/temp/` 
 > count SSE chunks received, not actual tokens from `usage.completion_tokens`. Treat published
 > tok/s numbers as approximate until the benchmark is fixed to use `stream_options.include_usage`.
 
-**Proxies / integrations:**
+**Integrations:**
 ```bash
 make litellm-start                  # LiteLLM proxy on :4000 (infra/litellm/config.yaml)
-make proxy-start / proxy-stop / proxy-restart / proxy-logs   # scripts/force-proxy.py bridge on :4002
 ```
 
 **Cleanup:**
