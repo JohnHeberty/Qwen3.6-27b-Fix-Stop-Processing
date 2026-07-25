@@ -1,5 +1,5 @@
 ##############################################################################
-# Qwen3.6 27B — Pipeline plug-and-play zero-dependência
+# Qwen3.6-35B-A3B — Pipeline plug-and-play zero-dependência
 # Uso: make setup  →  inicia tudo do zero em qualquer máquina
 ##############################################################################
 
@@ -16,6 +16,11 @@ export
 # Derivados do .env com fallbacks
 LLAMA_CPP_DIR    ?= $(HOME)/llama.cpp
 LLAMA_SERVER     ?= $(LLAMA_CPP_DIR)/build/bin/llama-server
+# Commit fixado do llama.cpp — builds reproduzíveis (upstream não tem release
+# estável e o HEAD de master pode quebrar patches/ABI). Para atualizar, rode:
+#   LLAMA_CPP_COMMIT=<novo-sha> make update-llama-server   (e teste antes de commitar)
+# Deixe vazio (LLAMA_CPP_COMMIT= make ...) para seguir o tip de master (não recomendado).
+LLAMA_CPP_COMMIT ?= e8f19cc0ad70a243c8012bf17b4be601abfc8ea2
 CUDA_HOME        ?= /usr/local/cuda
 MODEL_DIR        ?= $(PROJECT_ROOT)/data/models
 MODEL_FILE       ?= Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
@@ -32,6 +37,7 @@ SENTINEL_MODEL       := $(MODEL_DIR)/$(MODEL_FILE)
 .PHONY: help setup \
         install-system-deps setup-cuda create-venv install-python-deps \
         build-llama-server rebuild-llama-server build-llama-cpp-python \
+        update-llama-server unpatch-glibc-cuda \
         download-model \
         start start-bg stop restart status logs test \
         install-service enable-service disable-service start-service \
@@ -45,7 +51,7 @@ SENTINEL_MODEL       := $(MODEL_DIR)/$(MODEL_FILE)
 ##############################################################################
 help:
 	@echo ""
-	@echo "  Qwen3.6 27B — llama-server GGUF"
+	@echo "  Qwen3.6-35B-A3B — llama-server GGUF"
 	@echo ""
 	@echo "  SETUP (zero-dependência):"
 	@echo "  make setup              Pipeline completa: instala tudo do zero"
@@ -86,12 +92,6 @@ help:
 	@echo "  LITELLM:"
 	@echo "  make litellm-start      Sobe LiteLLM proxy (porta 4000) com config pronta"
 	@echo "  (config: infra/litellm/config.yaml — já inclui context_window correto)"
-	@echo ""
-	@echo "  FORCE PROXY (OpenClaw → LiteLLM):"
-	@echo "  make proxy-start        Sobe force-proxy (porta 4002)"
-	@echo "  make proxy-stop         Para force-proxy"
-	@echo "  make proxy-restart      Reinicia force-proxy"
-	@echo "  make proxy-logs         Acompanha log em tempo real"
 	@echo ""
 	@echo "  BENCHMARK:"
 	@echo "  make benchmark          Sweep 8k→max (incremento 8k, com MTP)"
@@ -195,9 +195,22 @@ $(SENTINEL_LLAMA): setup-cuda install-system-deps
 		echo "      Clonando llama.cpp..."; \
 		git clone --depth=1 https://github.com/ggml-org/llama.cpp.git "$(LLAMA_CPP_DIR)"; \
 	fi
+	@# Fixar no commit reproduzível (se LLAMA_CPP_COMMIT definido)
+	@if [ -n "$(LLAMA_CPP_COMMIT)" ]; then \
+		cd "$(LLAMA_CPP_DIR)" && \
+		if ! git cat-file -e "$(LLAMA_CPP_COMMIT)^{commit}" 2>/dev/null; then \
+			echo "      Buscando commit fixado $(LLAMA_CPP_COMMIT)..."; \
+			git fetch --depth=1 origin "$(LLAMA_CPP_COMMIT)" 2>/dev/null || git fetch origin; \
+		fi; \
+		git checkout -q "$(LLAMA_CPP_COMMIT)" && echo "      llama.cpp fixado em $(LLAMA_CPP_COMMIT)"; \
+	else \
+		echo "      AVISO: LLAMA_CPP_COMMIT vazio — usando tip de master (não reproduzível)"; \
+	fi
 	@# Patch glibc 2.40+ / Debian trixie incompatibility com cudafe++
 	@$(MAKE) _patch-glibc-cuda
-	@# Aplicar patches de grammar (MAX_REPETITION_THRESHOLD + auto-anchor)
+	@# Aplicar patches de grammar (MAX_REPETITION_THRESHOLD 2000->100000 + auto-anchor).
+	@# Trade-off do limite documentado em docs/explanation/architecture.md (schemas
+	@# grandes passam a compilar; schema patológico pode gerar gramática enorme).
 	@if [ -f "$(PWD)/llama-cpp-grammar-patches.patch" ]; then \
 		echo "      Aplicando grammar patches..."; \
 		cd "$(LLAMA_CPP_DIR)" && git apply --check "$(PWD)/llama-cpp-grammar-patches.patch" 2>/dev/null && \
@@ -228,7 +241,14 @@ update-llama-server:
 	@test -d "$(LLAMA_CPP_DIR)/.git" || (echo "ERRO: $(LLAMA_CPP_DIR) não é um repo git" && exit 1)
 	@echo "[5b] Atualizando llama.cpp..."
 	@cd "$(LLAMA_CPP_DIR)" && git stash 2>/dev/null || true
-	@cd "$(LLAMA_CPP_DIR)" && git pull --ff-only origin master 2>&1 | tail -3
+	@if [ -n "$(LLAMA_CPP_COMMIT)" ]; then \
+		echo "      Fixado em LLAMA_CPP_COMMIT=$(LLAMA_CPP_COMMIT) (bump: LLAMA_CPP_COMMIT=<sha> make update-llama-server)"; \
+		cd "$(LLAMA_CPP_DIR)" && (git cat-file -e "$(LLAMA_CPP_COMMIT)^{commit}" 2>/dev/null || git fetch --depth=1 origin "$(LLAMA_CPP_COMMIT)" 2>/dev/null || git fetch origin); \
+		cd "$(LLAMA_CPP_DIR)" && git checkout -q "$(LLAMA_CPP_COMMIT)"; \
+	else \
+		echo "      LLAMA_CPP_COMMIT vazio — seguindo tip de master"; \
+		cd "$(LLAMA_CPP_DIR)" && git pull --ff-only origin master 2>&1 | tail -3; \
+	fi
 	@echo "      Aplicando patches (grammar)..."
 	@cd "$(LLAMA_CPP_DIR)" && git apply --check "$(PWD)/llama-cpp-grammar-patches.patch" 2>/dev/null && \
 		git apply "$(PWD)/llama-cpp-grammar-patches.patch" && \
@@ -280,6 +300,18 @@ new='#ifdef __CUDACC__\n#define __MATHCALL_VEC(function, suffix, args) __MATHCAL
 sys.stdout.write(c.replace(old, new) if old in c else c)" > "$$MATHCALLS.tmp" && mv "$$MATHCALLS.tmp" "$$MATHCALLS"; \
 		fi; \
 	fi
+
+# Reverte o patch de headers glibc/CUDA restaurando os backups .orig.
+# ATENÇÃO: _patch-glibc-cuda modifica /usr/include (headers do sistema). O
+# ideal seria um container com CUDA/GCC compatíveis; enquanto isso, este alvo
+# permite desfazer a alteração no sistema.
+unpatch-glibc-cuda:
+	@CDEFS="/usr/include/x86_64-linux-gnu/sys/cdefs.h"; \
+	MATHCALLS="/usr/include/x86_64-linux-gnu/bits/mathcalls-macros.h"; \
+	restored=0; \
+	if [ -f "$$CDEFS.orig" ]; then mv "$$CDEFS.orig" "$$CDEFS" && echo "      Restaurado $$CDEFS" && restored=1; fi; \
+	if [ -f "$$MATHCALLS.orig" ]; then mv "$$MATHCALLS.orig" "$$MATHCALLS" && echo "      Restaurado $$MATHCALLS" && restored=1; fi; \
+	[ "$$restored" = "1" ] && echo "  ✓ Headers glibc/CUDA revertidos" || echo "  Nenhum backup .orig encontrado (nada a reverter)"
 
 ##############################################################################
 # [6] COMPILAR llama-cpp-python COM CUDA
@@ -429,43 +461,6 @@ litellm-start:
 	@echo "  use model_name=qwen nos seus projetos"
 	@echo ""
 	$(VENV)/bin/litellm --config "$(PROJECT_ROOT)/infra/litellm/config.yaml" --port 4000
-
-##############################################################################
-# FORCE PROXY (OpenClaw → LiteLLM bridge)
-##############################################################################
-proxy-start:
-	@if pgrep -f "force-proxy.py" > /dev/null 2>&1; then \
-		echo "Force-proxy já está rodando (PID $$(pgrep -f 'force-proxy.py'))"; \
-	else \
-		echo "Subindo force-proxy em http://localhost:4002 ..."; \
-		nohup python3 "$(PROJECT_ROOT)/scripts/force-proxy.py" \
-			>> "$(PROJECT_ROOT)/data/logs/force-proxy.log" 2>&1 & \
-		sleep 1; \
-		if pgrep -f "force-proxy.py" > /dev/null 2>&1; then \
-			echo "  ✓ Force-proxy rodando (PID $$(pgrep -f 'force-proxy.py'))"; \
-		else \
-			echo "  ✗ Falha ao iniciar force-proxy"; \
-		fi; \
-	fi
-
-proxy-stop:
-	@if pgrep -f "force-proxy.py" > /dev/null 2>&1; then \
-		echo "Parando force-proxy..."; \
-		pkill -f "force-proxy.py"; \
-		sleep 1; \
-		if pgrep -f "force-proxy.py" > /dev/null 2>&1; then \
-			echo "  Forçando kill..."; \
-			pkill -9 -f "force-proxy.py"; \
-		fi; \
-		echo "  ✓ Force-proxy parado"; \
-	else \
-		echo "Force-proxy não está rodando"; \
-	fi
-
-proxy-restart: proxy-stop proxy-start
-
-proxy-logs:
-	@tail -f "$(PROJECT_ROOT)/data/logs/force-proxy.log"
 
 ##############################################################################
 # BENCHMARK

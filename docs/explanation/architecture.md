@@ -55,6 +55,14 @@ The pip package (`llama-cpp-python`) uses a generic pre-compiled binary. Compili
 - Full GPU usage (all layers offloaded)
 - Optimizations specific to the target card
 
+### Build patches and their tradeoffs
+
+The build applies a few local patches (see `Makefile` and `llama-cpp-grammar-patches.patch`). Each is a deliberate tradeoff:
+
+- **Pinned llama.cpp commit** (`LLAMA_CPP_COMMIT` in the Makefile). Upstream has no stable release cadence and master can break the grammar patch or ABI at any time. The build clones and checks out a **fixed commit** for reproducibility. To move forward, run `LLAMA_CPP_COMMIT=<new-sha> make update-llama-server`, test, then commit the bumped SHA. Setting `LLAMA_CPP_COMMIT=` (empty) tracks master — not recommended.
+- **Grammar repetition limit `2000 → 100000`** (`MAX_REPETITION_THRESHOLD` in `src/llama-grammar.cpp`). Tool schemas with large `minItems`/`maxItems` or wide enums compile to grammars that exceed the stock 2000 limit and error out. Raising it lets those schemas through — the tradeoff is that a pathological schema could now build a very large grammar with high memory/compile cost. In practice our tool schemas stay far below this; revisit (e.g. an intermediate `20000`) only if a real schema is observed blowing up. Note this matters *because* schemas now reach the server intact — the discontinued force-proxy used to sanitize schemas down (and corrupt tool contracts) before they ever hit the grammar compiler.
+- **glibc 2.40 / cudafe++ header patch** (`_patch-glibc-cuda`). On Debian trixie, nvcc's `cudafe++` chokes on glibc 2.40 headers. The target edits two system headers under `/usr/include` **in place** (with `.orig` backups). This is fragile and system-global — the clean solution is a container with matching CUDA/GCC. Until then, `make unpatch-glibc-cuda` restores the `.orig` backups.
+
 ---
 
 ## Qwen3_5 architecture
