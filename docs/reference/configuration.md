@@ -34,14 +34,14 @@ cp .env.example .env
 | `CTX_CHECKPOINTS` | `8` | no | Number of context checkpoints in RAM (llama.cpp default: 32). Lower values prevent OOM with long prompts |
 | `CACHE_RAM` | `2048` | no | RAM allocated for cache in MiB (0 = disabled, use only VRAM). llama.cpp default: 8192 |
 | `CACHE_IDLE_SLOTS` | `1` | no | Keep idle cache slots in RAM (0 = release immediately, 1 = keep warm for faster multi-turn) |
-| `TEMPERATURE` | `0.3` | no | Sampling temperature. 0.1-0.4 = deterministic (coding), 0.6 = recommended by Qwen3, 0.8-1.0 = creative |
-| `TOP_K` | `40` | no | Limit sampling to K most probable tokens. 20 = focused (coding), 40 = balanced |
+| `TEMPERATURE` | `0.6` | no | Sampling temperature. Qwen-recommended for coding/tool-calling. 0.1-0.4 = deterministic, 0.8-1.0 = creative |
+| `TOP_K` | `20` | no | Limit sampling to K most probable tokens. 20 = focused (Qwen-recommended for coding), 40 = balanced |
 | `TOP_P` | `0.95` | no | Nucleus sampling threshold |
-| `MIN_P` | `0.05` | no | Minimum probability threshold relative to top token |
-| `REPEAT_PENALTY` | `1.15` | no | Penalize recently seen tokens. 1.0 = off, 1.15 = moderate |
+| `MIN_P` | `0.0` | no | Minimum probability threshold relative to top token. `0.0` = off (Qwen-recommended) |
+| `REPEAT_PENALTY` | `1.0` | no | Penalize recently seen tokens. `1.0` = off (Qwen-recommended — penalties hurt legit code/JSON repetition) |
 | `REPEAT_LAST_N` | `64` | no | Number of recent tokens to consider for repeat penalty |
-| `FREQUENCY_PENALTY` | `0.2` | no | Penalize tokens proportional to their frequency |
-| `PRESENCE_PENALTY` | `0.1` | no | Binary penalty for any token already used |
+| `FREQUENCY_PENALTY` | `0.0` | no | Penalize tokens proportional to their frequency. `0.0` = off (Qwen-recommended for coding) |
+| `PRESENCE_PENALTY` | `0.0` | no | Binary penalty for any token already used. `0.0` = off (Qwen-recommended for coding) |
 | `SEED` | `-1` | no | Random seed (-1 = random each call, any positive = reproducible) |
 | `N_PREDICT` | `8192` | no | Maximum tokens to generate per response. `-1` = unlimited (can cause infinite generation) |
 
@@ -90,15 +90,15 @@ CTX_CHECKPOINTS=8
 CACHE_RAM=2048
 CACHE_IDLE_SLOTS=1
 
-# Sampling
-TEMPERATURE=0.3
-TOP_K=40
+# Sampling (Qwen-recommended defaults for coding/tool-calling)
+TEMPERATURE=0.6
+TOP_K=20
 TOP_P=0.95
-MIN_P=0.05
-REPEAT_PENALTY=1.15
+MIN_P=0.0
+REPEAT_PENALTY=1.0
 REPEAT_LAST_N=64
-FREQUENCY_PENALTY=0.2
-PRESENCE_PENALTY=0.1
+FREQUENCY_PENALTY=0.0
+PRESENCE_PENALTY=0.0
 SEED=-1
 N_PREDICT=8192
 ```
