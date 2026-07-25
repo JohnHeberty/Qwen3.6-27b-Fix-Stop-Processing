@@ -36,7 +36,7 @@ def load_template() -> str:
 
 def render(template_src: str, messages: list, tools=None,
            add_generation_prompt: bool = True,
-           enable_thinking=None, preserve_thinking=None) -> str:
+           enable_thinking=None, preserve_thinking=None, error_warnings=None) -> str:
     env = Environment(keep_trailing_newline=False)
     env.globals["raise_exception"] = lambda msg: (_ for _ in ()).throw(ValueError(msg))
     tmpl = env.from_string(template_src)
@@ -45,6 +45,8 @@ def render(template_src: str, messages: list, tools=None,
         kwargs["enable_thinking"] = enable_thinking
     if preserve_thinking is not None:
         kwargs["preserve_thinking"] = preserve_thinking
+    if error_warnings is not None:
+        kwargs["error_warnings"] = error_warnings
     return tmpl.render(**kwargs)
 
 # ── Test helpers ───────────────────────────────────────────────────────────────
@@ -136,26 +138,27 @@ def test_think_on_after_off(t: str):
           f"tail: {repr(out[-40:])}")
 
 def test_tier1_error_escalation(t: str):
-    """First tool error injects Tier 1 correction hint."""
+    """First tool error injects Tier 1 correction hint (requires error_warnings=True)."""
     messages = [
         {"role": "user", "content": "Read a file"},
         {"role": "assistant", "content": "",
          "tool_calls": [{"function": {"name": "read_file",
                                       "arguments": {"path": "/foo", "pages": "1-30"}}}]},
-        {"role": "tool", "content": "Pages range exceeds maximum of 20 pages per request."},
+        # Precisa casar a heuristica (começa com "Error:").
+        {"role": "tool", "content": "Error: page range exceeds maximum of 20 pages per request."},
     ]
     tools = [{"name": "read_file", "description": "Read",
               "parameters": {"type": "object", "properties": {"path": {"type": "string"}},
                              "required": ["path"]}}]
-    out = render(t, messages, tools=tools)
+    out = render(t, messages, tools=tools, error_warnings=True)
     check("Tier 1: correction hint in gen-prompt",
           "The previous tool call returned an error" in out,
           f"tail: {repr(out[-120:])}")
     check("Tier 1: think block still open (not bypassed)", out.endswith("\n"))
 
 def test_tier2_error_escalation(t: str):
-    """Two consecutive tool errors trigger Tier 2 bypass."""
-    tool_error = "Pages range exceeds maximum of 20 pages per request."
+    """Two consecutive tool errors trigger Tier 2 bypass (requires error_warnings=True)."""
+    tool_error = "Error: page range exceeds maximum of 20 pages per request."
     messages = [
         {"role": "user", "content": "Read a file"},
         {"role": "assistant", "content": "",
@@ -170,7 +173,7 @@ def test_tier2_error_escalation(t: str):
     tools = [{"name": "read_file", "description": "Read",
               "parameters": {"type": "object", "properties": {"path": {"type": "string"}},
                              "required": ["path"]}}]
-    out = render(t, messages, tools=tools)
+    out = render(t, messages, tools=tools, error_warnings=True)
     check("Tier 2: think bypass injected", "<think>\n\n</think>\n\n" in out,
           f"tail: {repr(out[-200:])}")
     check("Tier 2: escalation warning present",
@@ -216,7 +219,7 @@ def test_error_counter_resets_on_success(t: str):
     tools = [{"name": "read_file", "description": "Read",
               "parameters": {"type": "object", "properties": {"path": {"type": "string"}},
                              "required": ["path"]}}]
-    out = render(t, messages, tools=tools)
+    out = render(t, messages, tools=tools, error_warnings=True)
     # Should be Tier 1 (cf=1), not Tier 2 (cf>=2)
     check("Counter reset: Tier 1 after success+new error (not Tier 2)",
           "The previous tool call returned an error" in out and
@@ -224,14 +227,15 @@ def test_error_counter_resets_on_success(t: str):
           f"tail: {repr(out[-200:])}")
 
 def test_historical_thinking_stripped(t: str):
-    """Historical assistant <think> blocks are stripped (not last message)."""
+    """Historical assistant <think> blocks are stripped when preserve_thinking=False."""
     messages = [
         {"role": "user", "content": "Q1"},
         {"role": "assistant", "content": "<think>\nmy thoughts\n</think>\n\nAnswer 1"},
         {"role": "user", "content": "Q2"},
     ]
-    out = render(t, messages)
-    check("Historical think stripped by default", "my thoughts" not in out)
+    # preserve_thinking default is True (keeps thoughts); stripping only happens when off.
+    out = render(t, messages, preserve_thinking=False)
+    check("Historical think stripped when preserve_thinking=False", "my thoughts" not in out)
 
 def test_preserve_thinking(t: str):
     """With preserve_thinking=True, historical <think> blocks are kept."""
@@ -336,7 +340,7 @@ def test_shell_result_false_positive(t: str):
 
 def test_no_thinking_with_error_escalation(t: str):
     """When enable_thinking=False and a tool errors, correction hint must NOT open a <think> block."""
-    tool_error = "Pages range exceeds maximum of 20 pages per request."
+    tool_error = "Error: page range exceeds maximum of 20 pages per request."
     messages = [
         {"role": "user", "content": "Read a file"},
         {"role": "assistant", "content": "",
@@ -347,7 +351,7 @@ def test_no_thinking_with_error_escalation(t: str):
     tools = [{"name": "read_file", "description": "Read",
               "parameters": {"type": "object", "properties": {"path": {"type": "string"}},
                              "required": ["path"]}}]
-    out = render(t, messages, tools=tools, enable_thinking=False)
+    out = render(t, messages, tools=tools, enable_thinking=False, error_warnings=True)
     check("No-think + error: correction hint present",
           "The previous tool call returned an error" in out,
           f"tail: {repr(out[-120:])}")
@@ -357,6 +361,33 @@ def test_no_thinking_with_error_escalation(t: str):
     check("No-think + error: no unclosed <think> in error section",
           "<think>\nThe previous" not in out,
           f"tail: {repr(out[-120:])}")
+
+
+def test_error_warnings_disabled_by_default(t: str):
+    """Com error_warnings default (off), uma tool error que casaria a heuristica
+    NAO deve injetar SYSTEM WARNING nem desligar o thinking."""
+    tool_error = "Error: file not found."  # casa a heuristica ("error:")
+    messages = [
+        {"role": "user", "content": "Read a file"},
+        {"role": "assistant", "content": "",
+         "tool_calls": [{"function": {"name": "read_file", "arguments": {"path": "/bad"}}}]},
+        {"role": "tool", "content": tool_error},
+        {"role": "assistant", "content": "",
+         "tool_calls": [{"function": {"name": "read_file", "arguments": {"path": "/bad2"}}}]},
+        {"role": "tool", "content": tool_error},  # 2a falha consecutiva
+    ]
+    tools = [{"name": "read_file", "description": "Read",
+              "parameters": {"type": "object", "properties": {"path": {"type": "string"}},
+                             "required": ["path"]}}]
+    # Sem passar error_warnings -> usa o default do template (false).
+    out = render(t, messages, tools=tools)
+    check("Default off: no SYSTEM WARNING injected", "SYSTEM WARNING" not in out,
+          f"tail: {repr(out[-160:])}")
+    check("Default off: no Tier-1 correction hint",
+          "The previous tool call returned an error" not in out)
+    check("Default off: no Tier-2 escalation", "consecutive tool errors" not in out)
+    check("Default off: thinking NOT force-disabled (think stays open)",
+          out.endswith("<think>\n"), f"tail: {repr(out[-40:])}")
 
 
 # ── Runner ─────────────────────────────────────────────────────────────────────
@@ -381,6 +412,7 @@ TESTS = [
     test_string_arguments_passthrough,
     test_shell_result_false_positive,
     test_no_thinking_with_error_escalation,
+    test_error_warnings_disabled_by_default,
 ]
 results: list[bool] = []
 

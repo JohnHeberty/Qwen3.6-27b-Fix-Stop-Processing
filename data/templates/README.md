@@ -98,7 +98,10 @@ Replace the `"chat_template"` string in your `tokenizer_config.json` with the ra
 ```
 
 ### oMLX
-Overwrite `chat_template.jinja` in your local model directory. Load with `--jinja`. Remove any `chat_template_kwargs` overrides because the template handles everything internally.
+Overwrite `chat_template.jinja` in your local model directory. Load with `--jinja`. The template handles everything internally with sane defaults; the one optional override is `chat_template_kwargs: {"error_warnings": true}` to opt back into the tool-error heuristic (off by default — see below).
+
+### `error_warnings` kwarg (default `false`)
+The two-tier error-escalation heuristic (`⚠️ SYSTEM WARNING` injection + force-off of thinking after 2 consecutive tool errors) is **opt-in**. It is disabled by default because its string match false-positives on legitimate tool output (a `grep` hit on "error", a test printing "0 errors", `git status`, logs). Enable per request with `chat_template_kwargs: {"error_warnings": true}` or server-wide via `ERROR_WARNINGS=true` in `.env`.
 
 ---
 

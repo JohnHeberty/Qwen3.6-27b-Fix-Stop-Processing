@@ -30,9 +30,26 @@ The original template used `loop.previtem` (a modern Jinja2 feature) which cause
 
 `enable_thinking=false` was not respected in certain call flows. The v21 fixes the behavior so that thinking mode control is consistent.
 
-### Error escalation in tool chains
+### Error escalation in tool chains (opt-in — default OFF)
 
-Two-level system with a `consecutive_failures` counter for agentic workflows — prevents infinite loops on consecutive tool call failures.
+Two-level system with a `consecutive_failures` counter for agentic workflows — on a tool
+response whose first 80 chars match an error pattern (`error:`, `failed to`, `traceback`, …)
+it injects a `⚠️ SYSTEM WARNING` into the prompt and, after 2 consecutive failures, forces the
+thinking block off.
+
+**This heuristic is gated behind the `error_warnings` template kwarg and is `false` by
+default**, because the string match produces false positives (a `grep` that finds the word
+"error", a test printing "0 errors", reading a log, `git status`, …). A false positive injects a
+hidden "your approach is wrong" warning the app never sees, which can make the model abandon a
+correct path — the same kind of silent conversation mutation that motivated removing the proxy.
+
+Enable it only if you want the old behavior:
+- per request: `chat_template_kwargs: {"error_warnings": true}`
+- server-wide: set `ERROR_WARNINGS=true` in `.env` (start-server.sh forwards it via
+  `--chat-template-kwargs`).
+
+The `consecutive_failures` counter still runs when the flag is off, but emits nothing — the
+prompt is identical to a run with no error detection at all.
 
 ---
 
