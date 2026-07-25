@@ -14,7 +14,9 @@
           "limit": {
             "context": 98304,
             "output": 8192
-          }
+          },
+          "reasoning": true,
+          "interleaved": { "field": "reasoning_content" }
         }
       }
     }
