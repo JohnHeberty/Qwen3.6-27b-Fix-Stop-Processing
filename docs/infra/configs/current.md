@@ -37,14 +37,16 @@
 - **Fork:** froggeric v21.3
 - **Features:** `<thinking>` reasoning_content, tool_call handling, `requiresStringContent` passthrough
 
-## Proxy Chain
+## Request Chain
 
 ```
-OpenClaw → force-proxy (port 4002) → LiteLLM (100.91.54.69:4000) → llama-server (port 8000)
+Cliente → LiteLLM (:4000) → llama-server (:8000)
 ```
 
-force-proxy: `scripts/force-proxy.py`, `UPSTREAM_API_KEY=sk-litellm-master`,
-`MIN_TOKENS=512`, `MAX_OUTPUT_TOKENS=8192`, `MAX_HISTORY=25`
+Os clientes falam direto com o LiteLLM (ou com o llama-server em `:8000`). O antigo
+`force-proxy.py` (bridge Responses↔ChatCompletions na porta 4002) foi **descontinuado**:
+reescrevia conversas, sanitizava schemas de ferramentas e perdia campos da Responses API,
+degradando o tool-calling. Nenhuma camada intermediária altera mais requisições.
 
 ## Draft Model Experiments
 
