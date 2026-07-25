@@ -33,20 +33,27 @@ The original template used `loop.previtem` (a modern Jinja2 feature) which cause
 ### Error escalation in tool chains
 
 Two-level system with a `consecutive_failures` counter for agentic workflows — on a tool
-response whose first 80 chars match an error pattern (`error:`, `failed to`, `traceback`, …)
-it injects a `⚠️ SYSTEM WARNING` into the prompt and, after 2 consecutive failures, forces the
-thinking block off. **In pristine froggeric v21 (`chat_template_v21.jinja`) this heuristic is
-always on.**
+response flagged as an error it injects a `⚠️ SYSTEM WARNING` into the prompt and, after 2
+consecutive failures, forces the thinking block off.
 
-> **Our default template gates it off.** We ship [chat_template_local.jinja](../../data/templates/custom/chat_template_local.jinja)
-> (= froggeric v21.3 + one change) as the runtime default. There the heuristic is behind an
-> `error_warnings` kwarg that defaults to **`false`**, because the string match produces false
-> positives (a `grep` that finds the word "error", a test printing "0 errors", reading a log,
-> `git status`, …). A false positive injects a hidden "your approach is wrong" warning the app
-> never sees, which can make the model abandon a correct path — the same kind of silent
-> conversation mutation that motivated removing the proxy.
+**In pristine froggeric v21 (`chat_template_v21.jinja`) this heuristic is always on and uses a
+loose string match** — it flags any tool response whose first 80 chars contain `error:`,
+`failed to`, `traceback`, … . That produces false positives: a `grep` that finds the word
+"error", a test printing "0 errors", reading a log, `git status`. A false positive injects a
+hidden "your approach is wrong" warning the app never sees, which can make the model abandon a
+correct path — the same kind of silent conversation mutation that motivated removing the proxy.
+
+> **Our default template fixes both problems.** We ship [chat_template_local.jinja](../../data/templates/custom/chat_template_local.jinja)
+> (= froggeric v21.3 + two changes) as the runtime default:
 >
-> Re-enable the old behavior:
+> 1. **Gated** — the heuristic is behind an `error_warnings` kwarg, default **`false`**.
+> 2. **Precise detection** — when enabled, a tool response is flagged only if it *starts with*
+>    an explicit error marker (`Error:`, `Traceback (most recent call last)`, `Fatal:`, `panic:`,
+>    …) **or** is a JSON object that declares an error (`"error": …`, `"ok": false`,
+>    `"status": "error"`). A `grep` hit, a `"0 errors"` success line, mid-line "error" in code, or
+>    a log mentioning "error" no longer trigger it.
+>
+> Because detection is now precise, enabling it is safe:
 > - per request: `chat_template_kwargs: {"error_warnings": true}`
 > - server-wide: `ERROR_WARNINGS=true` in `.env` (start-server.sh forwards it via `--chat-template-kwargs`).
 >

@@ -390,6 +390,37 @@ def test_error_warnings_disabled_by_default(t: str):
           out.endswith("<think>\n"), f"tail: {repr(out[-40:])}")
 
 
+def test_precise_error_detection(t: str):
+    """Even with error_warnings=True, detection is PRECISE: only an explicit error
+    marker at the START, or a JSON that DECLARES an error, counts as a failure.
+    False positives (grep hit, '0 errors', mid-line 'error', logs) must NOT flag."""
+    tools = [{"name": "f", "parameters": {"type": "object",
+              "properties": {"a": {"type": "string"}}}}]
+
+    def warned(tool_content):
+        msgs = [{"role": "user", "content": "x"},
+                {"role": "assistant", "content": "",
+                 "tool_calls": [{"function": {"name": "f", "arguments": {"a": "b"}}}]},
+                {"role": "tool", "content": tool_content}]
+        out = render(t, msgs, tools=tools, error_warnings=True)
+        return "SYSTEM WARNING" in out
+
+    # Real errors -> must flag
+    check("Precise: 'Error:' prefix flags", warned("Error: file not found."))
+    check("Precise: Traceback flags", warned("Traceback (most recent call last):\n  File x"))
+    check("Precise: JSON {\"error\":...} flags", warned('{"error": "boom"}'))
+    check("Precise: JSON {\"ok\": false} flags", warned('{"ok": false, "msg": "x"}'))
+    # False positives -> must NOT flag
+    check("Precise: grep hit on 'error' NOT flagged",
+          not warned('$ grep error_message f.go\n661: "error_message": "",'))
+    check("Precise: '0 errors' NOT flagged",
+          not warned("Build succeeded with 0 errors, 0 warnings."))
+    check("Precise: mid-line 'Error' in code NOT flagged",
+          not warned("// Error handling\nfunction handleError(e){throw new Error('x')}"))
+    check("Precise: log mentioning 'error' NOT flagged",
+          not warned("request ok; no error detected downstream"))
+
+
 # ── Runner ─────────────────────────────────────────────────────────────────────
 
 TESTS = [
@@ -413,6 +444,7 @@ TESTS = [
     test_shell_result_false_positive,
     test_no_thinking_with_error_escalation,
     test_error_warnings_disabled_by_default,
+    test_precise_error_detection,
 ]
 results: list[bool] = []
 

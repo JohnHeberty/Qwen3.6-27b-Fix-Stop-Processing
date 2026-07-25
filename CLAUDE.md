@@ -100,10 +100,13 @@ path (`make start`) execs `llama-server` directly and does not go through `src/s
   The **pristine froggeric v21.3 base is kept untouched** at `custom/chat_template_v21.jinja` — edit
   `chat_template_local.jinja`, not the v21 file, if you need to change template behavior.
 - `ERROR_WARNINGS` — `false` by default. Gates the template's tool-error heuristic (injects a
-  `⚠️ SYSTEM WARNING` and force-disables thinking after 2 consecutive tool errors). Off because the
-  string match false-positives (a `grep` hit on "error", `git status`, a test printing "0 errors").
-  `true` forwards `--chat-template-kwargs '{"error_warnings":true}'`. Only `chat_template_local.jinja`
-  honors this flag; pristine v21 has the heuristic always-on.
+  `⚠️ SYSTEM WARNING` and force-disables thinking after 2 consecutive tool errors). `true` forwards
+  `--chat-template-kwargs '{"error_warnings":true}'`. Only `chat_template_local.jinja` honors this
+  flag **and uses precise detection** — it flags a tool response only if it *starts with* an explicit
+  error marker (`Error:`, `Traceback…`, `Fatal:`, `panic:`) or is a JSON declaring an error
+  (`"error"`, `"ok": false`, `"status": "error"`), so `grep` hits / "0 errors" / mid-line "error"
+  don't false-positive. Pristine `chat_template_v21.jinja` keeps froggeric's always-on loose string
+  match. Enabling is safe now; left off by default as the conservative choice.
 
 **GPU/VRAM sharing with Ollama:** both llama-server and Ollama want the same 24 GB card. `make start`
 force-unloads Ollama models before launching. `make configure-ollama` / `make ollama-unload` and the

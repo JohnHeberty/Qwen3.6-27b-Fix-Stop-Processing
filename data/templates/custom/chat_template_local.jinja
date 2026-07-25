@@ -290,9 +290,18 @@ Reminder:
         {%- endif %}
         {{- '<|im_end|>\n' }}
     {%- elif message.role == 'tool' %}
-        {%- set _content_lower = content | lower %}
-        {%- set _content_head = _content_lower[:80] %}
-        {%- if content | length < 500 and '$ ' not in content and 'took ' not in _content_lower and ('"error":' in _content_head or 'error:' in _content_head or 'err!' in _content_head or 'fatal:' in _content_head or 'exception:' in _content_head or 'traceback' in _content_head or 'command not found' in _content_head or 'invalid syntax' in _content_head or 'failed to' in _content_head) %}
+        {#- Deteccao PRECISA de erro (so quando error_warnings=true importa): exige um
+            marcador EXPLICITO no INICIO da resposta, ou um JSON que DECLARA erro. Assim
+            um grep que acha "error", um "0 errors" ou um log no meio NAO sao flagados. -#}
+        {%- set _c = content | trim %}
+        {%- set _cl = _c | lower %}
+        {%- set _is_error = false %}
+        {%- if _cl.startswith('error:') or _cl.startswith('error!') or _cl.startswith('err!') or _cl.startswith('[error]') or _cl.startswith('fatal:') or _cl.startswith('fatal error') or _cl.startswith('exception:') or _cl.startswith('traceback (most recent call last)') or _cl.startswith('uncaught ') or _cl.startswith('panic:') %}
+            {%- set _is_error = true %}
+        {%- elif _c.startswith('{') and ('"error":' in _cl or '"iserror": true' in _cl or '"iserror":true' in _cl or '"is_error": true' in _cl or '"is_error":true' in _cl or '"status": "error"' in _cl or '"status":"error"' in _cl or '"ok": false' in _cl or '"ok":false' in _cl) %}
+            {%- set _is_error = true %}
+        {%- endif %}
+        {%- if _is_error %}
             {%- set ns2.consecutive_failures = ns2.consecutive_failures + 1 %}
         {%- else %}
             {%- set ns2.consecutive_failures = 0 %}
