@@ -1,4 +1,4 @@
-# Documentation — Qwen3.6 27B Local Server
+# Documentation — Qwen3.6 (35B-A3B / 27B) Local Server
 
 Documentation organized following the **[Diátaxis](https://diataxis.fr)** framework: each section serves a different reader intent.
 

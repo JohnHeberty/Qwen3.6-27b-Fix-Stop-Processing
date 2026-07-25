@@ -1,7 +1,6 @@
 # Infrastructure Configuration
 
-This folder contains the configuration files for running Qwen3.6 27B in production,
-integrating with LiteLLM Gateway and OpenCode.
+This folder contains the configuration files for running Qwen3.6 (35B-A3B MoE default, 27B dense also supported) in production, integrating with LiteLLM Gateway and OpenCode.
 
 ---
 

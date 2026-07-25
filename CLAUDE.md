@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this project is
 
-A local inference server for **Qwen3.6 27B** (GGUF, via `llama-server` from llama.cpp) exposing an
-OpenAI-compatible API on `http://localhost:8000/v1`. It runs alongside Ollama on the same GPU
-(single RTX 3090, 24 GB VRAM) and is designed to be a zero-dependency, `make`-driven pipeline: clone,
-`cp .env.example .env`, `make setup`, `make start`.
+A local inference server for **Qwen3.6 35B-A3B** (MoE, GGUF via `llama-server` from llama.cpp, ~3B
+active params/token) exposing an OpenAI-compatible API on `http://localhost:8000/v1`. Runs alongside
+Ollama on the same GPU (single RTX 3090, 24 GB VRAM). Zero-dependency, `make`-driven pipeline:
+clone, `cp .env.example .env`, `make setup`, `make start`. The original 27B dense model remains fully
+supported (swap `MODEL_HF`/`MODEL_FILE` in `.env`).
 
 The project exists to work around two specific upstream bugs (see `docs/explanation/architecture.md`
 and `docs/explanation/template-v21.md`):

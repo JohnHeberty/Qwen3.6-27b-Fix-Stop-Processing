@@ -1,9 +1,11 @@
 [Unit]
-Description=llama-cpp-python — Qwen3.6 27B GGUF Server (porta 8000)
+Description=llama-server — Qwen3.6 GGUF (35B-A3B default) Server (porta 8000)
 Documentation=https://docs.vllm.ai
 After=network-online.target
 Wants=network-online.target
 # Nao depende do Ollama — os dois sao independentes
+# ATENCAO: Caminhos abaixo sao absolutos (/root/qwen3/). Se o projeto foi clonado
+# em outro diretorio, ajuste TODAS as linhas com /root/qwen3 para o caminho correto.
 
 [Service]
 Type=simple

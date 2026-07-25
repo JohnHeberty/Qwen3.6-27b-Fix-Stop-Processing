@@ -37,7 +37,7 @@ SENTINEL_MODEL       := $(MODEL_DIR)/$(MODEL_FILE)
 .PHONY: help setup \
         install-system-deps setup-cuda create-venv install-python-deps \
         build-llama-server rebuild-llama-server build-llama-cpp-python \
-        update-llama-server unpatch-glibc-cuda \
+        update-llama-server update-template unpatch-glibc-cuda \
         download-model \
         start start-bg stop restart status logs test \
         install-service enable-service disable-service start-service \
@@ -61,7 +61,9 @@ help:
 	@echo "  make install-python-deps  [4] Instala gguf, huggingface-hub, etc."
 	@echo "  make build-llama-server   [5] Compila llama-server com CUDA"
 	@echo "  make rebuild-llama-server  Recompila do zero (remove binário + build)"
-	@echo "  make update-llama-server   Atualiza llama.cpp + recompila"
+        @echo "  make update-llama-server   Atualiza llama.cpp + recompila"
+	@echo "  make update-template       Baixa template froggeric mais recente"
+	@echo "  make unpatch-glibc-cuda    Reverte patch glibc em /usr/include"
 	@echo "  make build-llama-cpp-python [6] Compila llama-cpp-python com CUDA"
 	@echo "  make download-model       [7] Baixa modelo GGUF do HuggingFace"
 	@echo ""
@@ -461,6 +463,40 @@ litellm-start:
 	@echo "  use model_name=qwen nos seus projetos"
 	@echo ""
 	$(VENV)/bin/litellm --config "$(PROJECT_ROOT)/infra/litellm/config.yaml" --port 4000
+
+##############################################################################
+# UPDATE CHAT TEMPLATE
+##############################################################################
+update-template:
+	@echo "Baixando template froggeric mais recente..."
+	@mkdir -p "$(PROJECT_ROOT)/data/templates/custom"
+	@TMPFILE=$$(mktemp); \
+	URL="https://huggingface.co/froggeric/Qwen-Fixed-Chat-Templates/resolve/main/chat_template.jinja"; \
+	if curl -sL --fail "$$URL" -o "$$TMPFILE" 2>/dev/null; then \
+		VERSION=$$(grep -oP 'template_version\s*=\s*"\K[^"]+' "$$TMPFILE" 2>/dev/null || echo "unknown"); \
+		echo "  Versao baixada: $$VERSION"; \
+		cp "$(PROJECT_ROOT)/data/templates/custom/chat_template_v21.jinja" \
+			"$(PROJECT_ROOT)/data/templates/custom/chat_template_v21.jinja.bak" 2>/dev/null || true; \
+		cp "$$TMPFILE" "$(PROJECT_ROOT)/data/templates/custom/chat_template_v21.jinja"; \
+		if [ -f "$(PROJECT_ROOT)/data/templates/chat_template.jinja" ]; then \
+			cp "$$TMPFILE" "$(PROJECT_ROOT)/data/templates/chat_template.jinja"; \
+		fi; \
+		echo "  ✓ Pristine salvo em custom/chat_template_v21.jinja"; \
+		if [ -f "$(PROJECT_ROOT)/data/templates/custom/chat_template_local.jinja" ]; then \
+			echo ""; \
+			echo "  ATENCAO: chat_template_local.jinja (ativo) NAO foi alterado."; \
+			echo "  Para ver diferencas com a nova versao:"; \
+			echo "    diff data/templates/custom/chat_template_v21.jinja \\"; \
+			echo "         data/templates/custom/chat_template_local.jinja"; \
+			echo "  E mescle as mudancas manualmente em chat_template_local.jinja."; \
+		fi; \
+	else \
+		echo "  ERRO: nao foi possivel baixar template de $$URL"; \
+		echo "  Verifique a URL em: https://huggingface.co/froggeric/Qwen-Fixed-Chat-Templates"; \
+		rm -f "$$TMPFILE"; \
+		exit 1; \
+	fi; \
+	rm -f "$$TMPFILE"
 
 ##############################################################################
 # BENCHMARK

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/setup.sh — Prepara o servidor llama-cpp-python para o Qwen3.6 27B GGUF
+# scripts/setup.sh — Prepara o servidor llama-server para o Qwen3.6 GGUF (35B-A3B default)
 # Executar UMA VEZ como usuario comum (nao root)
 
 set -euo pipefail
@@ -24,7 +24,7 @@ err()  { echo -e "${RED}[ERRO]${NC} $*"; exit 1; }
 
 echo ""
 echo "================================================"
-echo "  Setup: llama-cpp-python + Qwen3.6 27B GGUF"
+echo "  Setup: llama-server + Qwen3.6 GGUF (35B-A3B default)"
 echo "  Ollama nao e tocado — segue em :11434"
 echo "  llama-cpp-python servira em :8000"
 echo "================================================"
