@@ -41,7 +41,7 @@ cp .env.example .env
 | `REPEAT_PENALTY` | `1.0` | no | Penalize recently seen tokens. `1.0` = off (Qwen-recommended — penalties hurt legit code/JSON repetition) |
 | `REPEAT_LAST_N` | `64` | no | Number of recent tokens to consider for repeat penalty |
 | `FREQUENCY_PENALTY` | `0.0` | no | Penalize tokens proportional to their frequency. `0.0` = off (Qwen-recommended for coding) |
-| `PRESENCE_PENALTY` | `0.0` | no | Binary penalty for any token already used. `0.0` = off (Qwen-recommended for coding) |
+| `PRESENCE_PENALTY` | `0.1` | no | Binary penalty for any token already used. Qwen recommends `0.0`, but `0.0` let the model fall into repetition loops (generating to the token cap) in long agentic use — `0.1` curbs that with little quality impact. See `HIPOTESE-09`. |
 | `SEED` | `-1` | no | Random seed (-1 = random each call, any positive = reproducible) |
 | `N_PREDICT` | `8192` | no | Maximum tokens to generate per response. `-1` = unlimited (can cause infinite generation) |
 
@@ -98,7 +98,7 @@ MIN_P=0.0
 REPEAT_PENALTY=1.0
 REPEAT_LAST_N=64
 FREQUENCY_PENALTY=0.0
-PRESENCE_PENALTY=0.0
+PRESENCE_PENALTY=0.1
 SEED=-1
 N_PREDICT=8192
 ```
