@@ -46,14 +46,18 @@ correct path — the same kind of silent conversation mutation that motivated re
 > **Our default template fixes both problems.** We ship [chat_template_local.jinja](../../data/templates/custom/chat_template_local.jinja)
 > (= froggeric v21.3 + two changes) as the runtime default:
 >
-> 1. **Gated** — the heuristic is behind an `error_warnings` kwarg, default **`false`**.
-> 2. **Precise detection** — when enabled, a tool response is flagged only if it *starts with*
->    an explicit error marker (`Error:`, `Traceback (most recent call last)`, `Fatal:`, `panic:`,
->    …) **or** is a JSON object that declares an error (`"error": …`, `"ok": false`,
->    `"status": "error"`). A `grep` hit, a `"0 errors"` success line, mid-line "error" in code, or
->    a log mentioning "error" no longer trigger it.
+> 1. **Gated** — the heuristic is behind an `error_warnings` kwarg (default **`true`**; set `false`
+>    to disable). It exists to **break agent retry-loops**: after 2 consecutive tool failures it
+>    injects a `⚠️ SYSTEM WARNING` telling the model to change approach and forces thinking off.
+> 2. **Specialist detection** — a tool response is flagged as a failure when it *starts with* an
+>    explicit error marker (`Error:`, `Traceback…`, `Fatal:`, `panic:`) **or** is a JSON error
+>    (`"error"`, `"ok": false`, `"status": "error"`) **or** is a short shell/Python failure
+>    (`No such file or directory`, `command not found`, `Permission denied`, `fatal:`,
+>    `ModuleNotFoundError`, `segmentation fault`, …). It **excludes** successes (`0 failures`,
+>    `exit code 0`, `Build succeeded`), `grep` hits on "error", mid-line "error" in code, and long
+>    file/log dumps (shell substrings are only checked in responses under ~800 chars).
 >
-> Because detection is now precise, enabling it is safe:
+> Because detection is precise, enabling it is safe:
 > - per request: `chat_template_kwargs: {"error_warnings": true}`
 > - server-wide: `ERROR_WARNINGS=true` in `.env` (start-server.sh forwards it via `--chat-template-kwargs`).
 >

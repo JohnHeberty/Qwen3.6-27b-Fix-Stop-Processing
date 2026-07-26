@@ -290,16 +290,24 @@ Reminder:
         {%- endif %}
         {{- '<|im_end|>\n' }}
     {%- elif message.role == 'tool' %}
-        {#- Deteccao PRECISA de erro (so quando error_warnings=true importa): exige um
-            marcador EXPLICITO no INICIO da resposta, ou um JSON que DECLARA erro. Assim
-            um grep que acha "error", um "0 errors" ou um log no meio NAO sao flagados. -#}
+        {#- Detector ESPECIALISTA de falha de ferramenta (so importa com error_warnings=true).
+            Pega: (1) marcador explicito no inicio, (2) JSON de erro, (3) falha de shell/Python.
+            Blinda contra falso positivo: exclui mensagens de SUCESSO e so olha substrings de
+            shell em resposta CURTA (arquivo/log longo com "error" no meio nao conta). -#}
         {%- set _c = content | trim %}
         {%- set _cl = _c | lower %}
         {%- set _is_error = false %}
-        {%- if _cl.startswith('error:') or _cl.startswith('error!') or _cl.startswith('err!') or _cl.startswith('[error]') or _cl.startswith('fatal:') or _cl.startswith('fatal error') or _cl.startswith('exception:') or _cl.startswith('traceback (most recent call last)') or _cl.startswith('uncaught ') or _cl.startswith('panic:') %}
-            {%- set _is_error = true %}
-        {%- elif _c.startswith('{') and ('"error":' in _cl or '"iserror": true' in _cl or '"iserror":true' in _cl or '"is_error": true' in _cl or '"is_error":true' in _cl or '"status": "error"' in _cl or '"status":"error"' in _cl or '"ok": false' in _cl or '"ok":false' in _cl) %}
-            {%- set _is_error = true %}
+        {%- set _short = (_c | length) < 800 %}
+        {#- sucesso explicito -> nunca e erro (evita flag em "Build succeeded, 0 errors") #}
+        {%- set _success = ('build succeeded' in _cl) or ('tests passed' in _cl) or ('all passed' in _cl) or ('0 failures' in _cl) or ('no errors' in _cl) or ('without error' in _cl) or ('completed successfully' in _cl) or ('succeeded' in _cl[:60]) %}
+        {%- if not _success %}
+            {%- if _cl.startswith('error:') or _cl.startswith('error!') or _cl.startswith('err!') or _cl.startswith('[error]') or _cl.startswith('fatal:') or _cl.startswith('fatal error') or _cl.startswith('exception:') or _cl.startswith('traceback (most recent call last)') or _cl.startswith('uncaught ') or _cl.startswith('panic:') %}
+                {%- set _is_error = true %}
+            {%- elif _c.startswith('{') and ('"error":' in _cl or '"iserror": true' in _cl or '"iserror":true' in _cl or '"is_error": true' in _cl or '"is_error":true' in _cl or '"status": "error"' in _cl or '"status":"error"' in _cl or '"ok": false' in _cl or '"ok":false' in _cl) %}
+                {%- set _is_error = true %}
+            {%- elif _short and ('no such file or directory' in _cl or 'command not found' in _cl or 'permission denied' in _cl or 'not a directory' in _cl or 'is a directory' in _cl or "can't read" in _cl or 'cannot open' in _cl or 'cannot access' in _cl or 'cannot stat' in _cl or 'operation not permitted' in _cl or 'segmentation fault' in _cl or 'core dumped' in _cl or 'syntax error' in _cl or 'unrecognized option' in _cl or 'illegal option' in _cl or 'invalid option' in _cl or 'non-zero' in _cl or 'traceback' in _cl or 'modulenotfounderror' in _cl or 'importerror' in _cl or 'filenotfounderror' in _cl or 'no module named' in _cl or _cl.startswith('fatal: ') or _cl.startswith('usage:')) %}
+                {%- set _is_error = true %}
+            {%- endif %}
         {%- endif %}
         {%- if _is_error %}
             {%- set ns2.consecutive_failures = ns2.consecutive_failures + 1 %}

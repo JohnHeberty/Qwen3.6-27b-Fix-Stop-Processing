@@ -16,7 +16,7 @@ cp .env.example .env
 | `MODEL_HF` | `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` | no | HuggingFace repository of the GGUF model |
 | `MODEL_FILE` | `Qwen3.6-35B-A3B-UD-Q4_K_M.gguf` | no | GGUF file name to download and serve |
 | `TEMPLATE_FILE` | `data/templates/custom/chat_template_local.jinja` | no | Chat template loaded at runtime via `--chat-template-file`. Our default = froggeric v21.3 + `error_warnings` off. The pristine froggeric base is kept untouched at `custom/chat_template_v21.jinja` |
-| `ERROR_WARNINGS` | `false` | no | Enable the template's tool-error heuristic (`⚠️ SYSTEM WARNING` injection + force thinking off after 2 failures). In `chat_template_local.jinja` detection is **precise** (explicit `Error:`/`Traceback`/JSON-error only), so enabling is safe; off by default as the conservative choice. `true` forwards `--chat-template-kwargs '{"error_warnings":true}'`. See [template-v21.md](../explanation/template-v21.md#error-escalation-in-tool-chains) |
+| `ERROR_WARNINGS` | `true` | no | Enable the template's tool-error heuristic: after 2 consecutive tool failures it injects a `⚠️ SYSTEM WARNING` telling the model to change approach (+ force thinking off) — this breaks agent retry-loops. `chat_template_local.jinja` uses a **specialist detector**: explicit `Error:`/`Traceback`/JSON-error prefixes **and** short shell/Python failures (`No such file or directory`, `command not found`, `Permission denied`, `fatal:`, `ModuleNotFoundError`…), while excluding successes (`0 failures`, `exit code 0`, `Build succeeded`), grep hits, and long files. On by default. `false` disables. See [template-v21.md](../explanation/template-v21.md#error-escalation-in-tool-chains) |
 | `LLAMA_CPP_DIR` | `~/llama.cpp` | no | Directory where llama.cpp will be cloned and compiled |
 | `LLAMA_SERVER` | `~/llama.cpp/build/bin/llama-server` | no | Path to the compiled binary |
 | `CUDA_HOME` | `/usr/local/cuda` | no | CUDA toolkit root |
@@ -42,10 +42,10 @@ cp .env.example .env
 | `REPEAT_LAST_N` | `64` | no | Number of recent tokens to consider for repeat penalty |
 | `FREQUENCY_PENALTY` | `0.0` | no | Penalize tokens proportional to their frequency. `0.0` = off (Qwen-recommended for coding) |
 | `PRESENCE_PENALTY` | `0.1` | no | Binary penalty for any token already used. Qwen recommends `0.0`, but `0.0` let the model fall into repetition loops (generating to the token cap) in long agentic use — `0.1` curbs that with little quality impact. See `HIPOTESE-09`. |
-| `DRY_MULTIPLIER` | `0.8` | no | DRY sampler strength (`0` = off). **Primary anti-loop**: penalizes long verbatim repeated sequences (e.g. a reasoning block looping to the token cap) without hurting legitimate code repetition. See `HIPOTESE-09`. |
+| `DRY_MULTIPLIER` | `1.0` | no | DRY sampler strength (`0` = off). **Primary anti-loop**: penalizes long verbatim repeated sequences (e.g. a reasoning block looping to the token cap) without hurting legitimate code repetition. See `HIPOTESE-09`. |
 | `DRY_BASE` | `1.75` | no | DRY exponential base. |
 | `DRY_ALLOWED_LENGTH` | `4` | no | Repeats up to this length are allowed. `2` (DRY default) is too aggressive for a thinking model (it rambles); `4` catches paragraph loops without breaking normal reasoning. |
-| `DRY_PENALTY_LAST_N` | `1024` | no | Window DRY looks back over (`-1` = whole context — too broad here; a window targets recent loops). |
+| `DRY_PENALTY_LAST_N` | `2048` | no | Window DRY looks back over (`-1` = whole context — too broad here; a window targets recent loops). |
 | `SEED` | `-1` | no | Random seed (-1 = random each call, any positive = reproducible) |
 | `N_PREDICT` | `8192` | no | Maximum tokens to generate per response. `-1` = unlimited (can cause infinite generation) |
 
@@ -63,7 +63,7 @@ MODEL_FILE=Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
 
 # Template (froggeric v21.3 + error_warnings off; base pura em custom/chat_template_v21.jinja)
 TEMPLATE_FILE=data/templates/custom/chat_template_local.jinja
-ERROR_WARNINGS=false
+ERROR_WARNINGS=true
 
 # llama.cpp
 LLAMA_CPP_DIR=/root/llama.cpp
@@ -103,10 +103,10 @@ REPEAT_PENALTY=1.0
 REPEAT_LAST_N=64
 FREQUENCY_PENALTY=0.0
 PRESENCE_PENALTY=0.1
-DRY_MULTIPLIER=0.8
+DRY_MULTIPLIER=1.0
 DRY_BASE=1.75
 DRY_ALLOWED_LENGTH=4
-DRY_PENALTY_LAST_N=1024
+DRY_PENALTY_LAST_N=2048
 SEED=-1
 N_PREDICT=8192
 ```

@@ -150,7 +150,7 @@ fi
 
 # Heuristica de deteccao de erro do template (avisos ⚠️ + force-off do thinking).
 # Default off (evita falsos positivos). ERROR_WARNINGS=true reativa via kwargs do template.
-ERROR_WARNINGS="${ERROR_WARNINGS:-false}"
+ERROR_WARNINGS="${ERROR_WARNINGS:-true}"
 if [ "$ERROR_WARNINGS" = "true" ]; then
     EXTRA_FLAGS="$EXTRA_FLAGS --chat-template-kwargs {\"error_warnings\":true}"
 fi

@@ -419,6 +419,19 @@ def test_precise_error_detection(t: str):
           not warned("// Error handling\nfunction handleError(e){throw new Error('x')}"))
     check("Precise: log mentioning 'error' NOT flagged",
           not warned("request ok; no error detected downstream"))
+    # Especialista: falhas de shell/Python/git também flagam (o loop de agente vive disso)
+    check("Shell: 'No such file or directory' flags",
+          warned("/bin/bash: line 1: cd: /root/ia: No such file or directory"))
+    check("Shell: 'command not found' flags", warned("bash: frob: command not found"))
+    check("Shell: 'Permission denied' flags", warned("bash: /etc/shadow: Permission denied"))
+    check("Shell: python ModuleNotFoundError flags",
+          warned("Traceback (most recent call last):\nModuleNotFoundError: No module named 'x'"))
+    check("Shell: git 'fatal:' flags", warned("fatal: not a git repository"))
+    # E sucessos com números NÃO flagam
+    check("Shell: 'exit code 0' NOT flagged", not warned("process exited with exit code 0"))
+    check("Shell: 'tests passed / 0 failures' NOT flagged", not warned("5 passed, 0 failures in 2.3s"))
+    check("Shell: long file mentioning 'No such file' NOT flagged",
+          not warned("x" * 900 + " No such file or directory"))
 
 
 # ── Runner ─────────────────────────────────────────────────────────────────────
