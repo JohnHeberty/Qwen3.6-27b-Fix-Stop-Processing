@@ -24,6 +24,7 @@ For those who already have the server running and need to do something specific.
 | [Integrate with LiteLLM](how-to/litellm.md) | Proxy config, fix "context size exceeded" |
 | [Integrate with OpenCode](how-to/opencode.md) | Ready-to-use config for the terminal AI assistant |
 | [Production & operations](how-to/production.md) | systemd, Ollama coexistence, troubleshooting |
+| [Debugging (capture content)](how-to/debugging.md) | Capture prompts/responses to diagnose tool-calling, loops, overflow |
 
 ---
 

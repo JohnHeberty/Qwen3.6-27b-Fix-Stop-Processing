@@ -25,6 +25,7 @@ LLAMA_CPP_COMMIT ?= e8f19cc0ad70a243c8012bf17b4be601abfc8ea2
 # Serviço systemd (portável — instala/remove via make, caminho resolvido no install)
 SERVICE_NAME     ?= qwen-server
 SERVICE_DEST     ?= /etc/systemd/system/$(SERVICE_NAME).service
+LOGROTATE_DEST   ?= /etc/logrotate.d/qwen-logs
 # sudo só quando não-root (em container root, fica vazio)
 SUDO             := $(shell [ "$$(id -u)" = "0" ] && echo "" || echo sudo)
 CUDA_HOME        ?= /usr/local/cuda
@@ -51,6 +52,8 @@ SENTINEL_MODEL       := $(MODEL_DIR)/$(MODEL_FILE)
         configure-ollama ollama-unload \
         litellm-start \
         benchmark benchmark-sweep \
+        capture-on capture-off capture-report clean-capture _capture-restart \
+        install-logrotate uninstall-logrotate \
         clean clean-logs cron-clean-logs cron-remove-clean-logs
 
 ##############################################################################
@@ -95,6 +98,12 @@ help:
 	@echo "  make clean-logs         Remove logs com mais de N dias (LOG_RETENTION_DAYS no .env)"
 	@echo "  make cron-clean-logs    Instala cron diário de limpeza (usa LOG_RETENTION_DAYS)"
 	@echo "  make cron-remove-clean-logs  Remove o cron de limpeza"
+	@echo ""
+	@echo "  CAPTURA DE CONTEÚDO (debug de tool-calling / loop):"
+	@echo "  make capture-on         Liga o log de prompt+geração e reinicia"
+	@echo "  make capture-off        Desliga a captura e reinicia"
+	@echo "  make capture-report     Analisa a captura (flags: loop, turno-vazio, overflow)"
+	@echo "  make clean-capture      Remove data/logs/capture"
 	@echo ""
 	@echo "  CONFLITO OLLAMA/GPU (compartilham 24 GB VRAM):"
 	@echo "  make configure-ollama   Reduz OLLAMA_KEEP_ALIVE 30m → 5m"
@@ -445,6 +454,49 @@ service-status:
 
 service-logs:
 	@$(SUDO) journalctl -u $(SERVICE_NAME) -f --no-pager
+
+##############################################################################
+# CAPTURA DE CONTEÚDO (debug) — liga o log de prompt+geração e analisa
+##############################################################################
+# Reinicia via systemd se o serviço estiver ativo, senão via make restart.
+_capture-restart:
+	@if systemctl is-active --quiet $(SERVICE_NAME) 2>/dev/null; then \
+		echo "Reiniciando via systemd ($(SERVICE_NAME))..."; $(SUDO) systemctl restart $(SERVICE_NAME); \
+	else \
+		echo "Reiniciando via make restart..."; $(MAKE) restart; \
+	fi
+
+capture-on:
+	@grep -q '^CAPTURE_LOG=' "$(PROJECT_ROOT)/.env" 2>/dev/null \
+		&& sed -i 's/^CAPTURE_LOG=.*/CAPTURE_LOG=true/' "$(PROJECT_ROOT)/.env" \
+		|| echo 'CAPTURE_LOG=true' >> "$(PROJECT_ROOT)/.env"
+	@echo "✓ CAPTURE_LOG=true — reiniciando p/ ligar a captura..."
+	@$(MAKE) _capture-restart
+	@echo "  Reproduza o problema e rode:  make capture-report"
+
+capture-off:
+	@grep -q '^CAPTURE_LOG=' "$(PROJECT_ROOT)/.env" 2>/dev/null \
+		&& sed -i 's/^CAPTURE_LOG=.*/CAPTURE_LOG=false/' "$(PROJECT_ROOT)/.env" || true
+	@echo "✓ CAPTURE_LOG=false — reiniciando p/ desligar a captura..."
+	@$(MAKE) _capture-restart
+
+capture-report:
+	@$(PYTHON) "$(PROJECT_ROOT)/scripts/analyze-capture.py" $(ARGS)
+
+clean-capture:
+	@rm -rf "$(PROJECT_ROOT)/data/logs/capture"
+	@echo "✓ Captura limpa (data/logs/capture removido)."
+
+# Rotação de logs (server.log + captura) — portável, substitui o caminho no install.
+install-logrotate:
+	@sed "s|__PROJECT_ROOT__|$(PROJECT_ROOT)|g" \
+		"$(PROJECT_ROOT)/infra/logrotate/qwen-logs" \
+		| $(SUDO) tee "$(LOGROTATE_DEST)" > /dev/null
+	@$(SUDO) logrotate --debug "$(LOGROTATE_DEST)" >/dev/null 2>&1 && echo "✓ logrotate instalado e validado em $(LOGROTATE_DEST)." || echo "✓ logrotate instalado em $(LOGROTATE_DEST) (valide com: logrotate --debug $(LOGROTATE_DEST))."
+
+uninstall-logrotate:
+	@$(SUDO) rm -f "$(LOGROTATE_DEST)"
+	@echo "✓ logrotate removido ($(LOGROTATE_DEST))."
 
 ##############################################################################
 # GESTÃO DE CONFLITO OLLAMA/GPU

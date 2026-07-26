@@ -41,3 +41,11 @@ llama-server rejeita a requisição inteira; o cliente não recebe resposta e su
 - Poda/compactação de histórico no cliente (OpenCode `compaction.auto/prune`), truncar saídas de
   ferramenta gigantes, ou baixar o volume de tools por request. Eventualmente subir `N_CTX` (custa
   VRAM/velocidade — ver docs/infra).
+
+## Como coletar a evidência
+
+Ligue a captura de conteúdo e reproduza o problema, depois analise:
+```bash
+make capture-on && ...reproduza... && make capture-report && make capture-off
+```
+O relatório acende as flags relevantes desta hipótese. Detalhes: [docs/how-to/debugging.md](docs/how-to/debugging.md).

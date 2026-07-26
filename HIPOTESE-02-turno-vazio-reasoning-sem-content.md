@@ -41,3 +41,11 @@ vazio e **sem** `tool_calls`. O framework do agente (OpenClaw/MoltBot) interpret
 - Garantir orçamento de saída suficiente (ligado à 03); e/ou desabilitar thinking para chamadas de
   ferramenta (`enable_thinking=false` ou `auto_disable_thinking_with_tools=true` no template); e/ou
   ajustar o cliente para tratar turno só-raciocínio como válido (continuar em vez de abortar).
+
+## Como coletar a evidência
+
+Ligue a captura de conteúdo e reproduza o problema, depois analise:
+```bash
+make capture-on && ...reproduza... && make capture-report && make capture-off
+```
+O relatório acende as flags relevantes desta hipótese. Detalhes: [docs/how-to/debugging.md](docs/how-to/debugging.md).

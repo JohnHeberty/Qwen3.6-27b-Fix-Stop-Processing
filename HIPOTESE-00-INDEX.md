@@ -26,20 +26,22 @@ Chat Completions, **streaming ligado**, `tools:true`, `reasoning:true`,
    `data/temp/opencode_session_mtp_export.md`, que já diagnostica turnos com `reasoning_content`
    sem `content`/`tool_calls`.
 
-## Ranking (a confirmar com investigação)
+## Ranking + status (atualizado 2026-07-26)
 
-| # | Hipótese | Suspeita | Base |
-|---|---|---|---|
-| 10 | **Crash do servidor por OOM de RAM** (cache-ram 10G em host de 16G) | **ALTA** | Servidor caído; log corta em linha de memória |
-| 09 | **Geração desenfreada / loop de repetição** (bate teto 8192) | **ALTA** | 11 gerações no teto 8192; repeat_penalty=1.0 |
-| 01 | Estouro de janela de contexto | **ALTA** | Prompts até 104k/106k; 2 overflows |
-| 02 | Turno vazio: só `reasoning_content`, sem `content`/`tool_calls` | **ALTA** | Config + transcrição |
-| 03 | Thinking consome o orçamento antes do tool_call (finish=length) | **ALTA** | Template + `-n=8192` |
-| 04 | LiteLLM `:4000` fora do ar / caminho quebrado | **MÉDIA** | `ss` sem listener |
-| 05 | Mismatch de parsing do XML de tool-call (`<function=>`) | **MÉDIA** | Sem flag de parser |
-| 06 | Template `raise_exception` em content mal-formado | **MÉDIA/BAIXA** | 5 pontos de throw |
-| 07 | Retry/timeout do framework com `N_PARALLEL=1` | **MÉDIA** | "actions already executed" |
-| 08 | Gramática enorme do array de ~26 tools | **BAIXA** | Sem erro nos logs |
+Legenda: ✅ feito/mitigado · 🟡 parcial (falta validar) · ⬜ pendente · 🔎 precisa do log do cliente
+
+| # | Hipótese | Suspeita | Status | O que já foi feito | O que falta |
+|---|---|---|---|---|---|
+| 10 | **Crash por OOM de RAM** | ALTA | ✅ **Fechada** | Confirmada no `dmesg` (kill do llama-server, memcg /lxc/139). VM subida p/ 32 GB. Serviço systemd com `Restart=always` (auto-recupera). | Só observar que não recorre em uso pesado |
+| 09 | **Loop de repetição** (bate 8192) | ALTA | 🟡 **Mitigada** | `presence_penalty=0.1` aplicado e live (mantém repeat_penalty=1.0). | Validar em **uso real** que somem as gerações no teto 8192; senão subir p/ 0.2 ou repeat_penalty=1.05 |
+| 01 | Estouro de janela de contexto | ALTA | ⬜ Pendente | Medido: prompts a 104k/106k; ~49% reprocessam contexto quase-idêntico. | Config **do cliente**: `compaction.prune`/`max_input` do OpenCode p/ o subagente não crescer até o teto |
+| 03 | Thinking consome o orçamento (finish=length) | ALTA | ⬜ Pendente | Mecanismo mapeado (template abre `<think>` mesmo com tools; `-n=8192`). | Testar `max_tokens` maior e/ou `auto_disable_thinking_with_tools=true`; medir taxa de finish=length sem tool_call |
+| 02 | Turno vazio (só `reasoning_content`) | ALTA | 🔎 Pendente | Hipótese descrita; bate com a transcrição. | Confirmar no **log do cliente** que falhas têm content vazio + sem tool_calls |
+| 04 | LiteLLM `:4000` fora do ar | MÉDIA | ⬜ Pendente | Constatado: `:4000` não escutava. | Deixar o LiteLLM **supervisionado** (systemd) e healthcheck |
+| 05 | Parse do XML de tool-call | MÉDIA | 🔎 Pendente | Formato/risco mapeado; sem erro no server.log. | Capturar a **saída crua** do modelo num tool com args complexos |
+| 06 | Template `raise_exception` | MÉDIA/BAIXA | 🔎 Pendente | 5 pontos de throw listados. | Ver no log do cliente o **shape do `content`** enviado (mapping?) |
+| 07 | Retry/timeout com `N_PARALLEL=1` | MÉDIA | 🔎 Pendente | Serialização confirmada. | Medir latência do turno vs timeout do cliente |
+| 08 | Gramática de ~26 tools | BAIXA | ⬜ Pendente | Sem erro de grammar nos logs; patch já eleva limite. | Reproduzir com o array real de 26 tools e medir |
 
 ## Achados da investigação de logs (2026-07-26, `server.log` último run, ~3864 requests)
 
@@ -58,5 +60,21 @@ Cada arquivo tem: hipótese, o que explicaria, evidência a favor/contra, **como
 (passos concretos), **critério de confirmação/refutação**, e correção provável. Investigar em
 ordem de suspeita (01→08). Marcar o `Status` no topo de cada arquivo ao concluir.
 
-> Nada aqui foi confirmado ainda — são hipóteses para investigar com calma. Vários podem estar
-> ocorrendo juntos (ex.: 03 alimenta 02).
+## O que falta fazer (resumo)
+
+**Nosso lado (servidor) — praticamente fechado:**
+- ✅ H10 (OOM): confirmada + mitigada (32 GB + systemd `Restart=always`).
+- 🟡 H09 (loop): `presence_penalty=0.1` aplicado — falta só **ver em uso real** se resolveu.
+
+**Depende de você / do log do cliente (MoltBot/OpenCode) — não fecha só no servidor:**
+- ⬜ H01: ajustar compactação/`max_input` do cliente (contexto ia a 104k).
+- ⬜ H03: testar `max_tokens` maior ou desligar thinking em chamadas de tool.
+- ⬜ H04: deixar o LiteLLM supervisionado.
+- 🔎 H02, H05, H06, H07: precisam do **log do cliente** de um turno que falhou (o `server.log` não grava conteúdo).
+- ⬜ H08 (baixa): reproduzir com as 26 tools reais.
+
+**Próximo passo mais útil:** reproduzir o subagente com o servidor já ajustado e trazer o **log do
+cliente** — com ele dá pra confirmar H09 e fechar H02/H03/H05/H06/H07 de uma vez.
+
+> H10 confirmada e H09 mitigada; o resto são hipóteses abertas. Vários podem ocorrer juntos
+> (ex.: H03 alimenta H02; H01+H09 alimentam H10).

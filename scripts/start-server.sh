@@ -141,6 +141,21 @@ if [ "$ERROR_WARNINGS" = "true" ]; then
     EXTRA_FLAGS="$EXTRA_FLAGS --chat-template-kwargs {\"error_warnings\":true}"
 fi
 
+# ── Captura de conteudo para depuracao (CAPTURE_LOG) — DEFAULT OFF ───────────────
+# Liga o log do CONTEUDO real das requisicoes (o server.log normal so tem timings):
+#   --log-prompts-dir : grava o prompt renderizado (1 arquivo <ts>.txt por requisicao)
+#   --verbose         : loga cada token gerado ("next token: N 'txt'") -> reconstroi a saida
+#   --log-file        : roteia o verbose p/ arquivo SEPARADO (nao incha o server.log)
+# Use `make capture-on`/`capture-off`. Volumoso: ligue so numa janela de depuracao.
+CAPTURE_LOG="${CAPTURE_LOG:-false}"
+if [ "$CAPTURE_LOG" = "true" ]; then
+    CAPTURE_DIR="$PROJECT_ROOT/data/logs/capture"
+    CAPTURE_PROMPTS="$CAPTURE_DIR/prompts/$(date +%Y-%m-%d)"
+    mkdir -p "$CAPTURE_PROMPTS"
+    EXTRA_FLAGS="$EXTRA_FLAGS --log-prompts-dir $CAPTURE_PROMPTS --verbose --log-file $CAPTURE_DIR/llama-verbose.log"
+    echo "CAPTURA LIGADA: prompts em $CAPTURE_PROMPTS ; geracao em $CAPTURE_DIR/llama-verbose.log"
+fi
+
 # ── Speculative Decoding ────────────────────────────────────
 if [ "${DRAFT_ENABLED:-false}" = "true" ] && [ -n "$DRAFT_MODEL_FILE" ]; then
     DRAFT_PATH="$MODEL_DIR/$DRAFT_MODEL_FILE"

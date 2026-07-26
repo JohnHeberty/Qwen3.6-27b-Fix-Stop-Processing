@@ -41,3 +41,11 @@ antes do `<tool_call>`, valor multi-linha, aspas não escapadas), o parse falha 
 ## Correção provável (se confirmada)
 - Reforçar as instruções de formato no template; considerar `tool_call_format='json'` se o parser
   JSON for mais robusto; ou fixar um parser explícito do llama.cpp compatível com o dialeto.
+
+## Como coletar a evidência
+
+Ligue a captura de conteúdo e reproduza o problema, depois analise:
+```bash
+make capture-on && ...reproduza... && make capture-report && make capture-off
+```
+O relatório acende as flags relevantes desta hipótese. Detalhes: [docs/how-to/debugging.md](docs/how-to/debugging.md).

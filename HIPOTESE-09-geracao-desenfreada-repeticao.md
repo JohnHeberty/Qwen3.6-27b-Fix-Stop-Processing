@@ -42,3 +42,11 @@ Qwen), o que remove justamente a proteção contra repetição.
 - Reintroduzir penalidade leve: `REPEAT_PENALTY=1.05`–`1.1` **ou** `PRESENCE_PENALTY=0.1`
   (mantendo temp/top_k Qwen). Documentar como exceção consciente à recomendação Qwen para uso
   agêntico. Opcional: baixar `N_PREDICT` para conter o custo de um runaway.
+
+## Como coletar a evidência
+
+Ligue a captura de conteúdo e reproduza o problema, depois analise:
+```bash
+make capture-on && ...reproduza... && make capture-report && make capture-off
+```
+O relatório acende as flags relevantes desta hipótese. Detalhes: [docs/how-to/debugging.md](docs/how-to/debugging.md).

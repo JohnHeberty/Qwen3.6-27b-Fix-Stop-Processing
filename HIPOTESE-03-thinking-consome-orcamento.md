@@ -39,3 +39,11 @@ Resultado: resposta truncada, sem `tool_calls` → agente sem ação utilizável
 - Desligar thinking em chamadas de ferramenta: `auto_disable_thinking_with_tools=true` no template
   (via kwargs) **ou** `enable_thinking=false` no cliente para turnos de tool; e/ou subir o
   `max_tokens` do cliente. Avaliar `--reasoning-budget` do llama-server para limitar o raciocínio.
+
+## Como coletar a evidência
+
+Ligue a captura de conteúdo e reproduza o problema, depois analise:
+```bash
+make capture-on && ...reproduza... && make capture-report && make capture-off
+```
+O relatório acende as flags relevantes desta hipótese. Detalhes: [docs/how-to/debugging.md](docs/how-to/debugging.md).
