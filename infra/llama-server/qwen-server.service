@@ -1,36 +1,38 @@
 [Unit]
 Description=llama-server — Qwen3.6 GGUF (35B-A3B default) Server (porta 8000)
-Documentation=https://docs.vllm.ai
 After=network-online.target
 Wants=network-online.target
-# Nao depende do Ollama — os dois sao independentes
-# ATENCAO: Caminhos abaixo sao absolutos (/root/qwen3/). Se o projeto foi clonado
-# em outro diretorio, ajuste TODAS as linhas com /root/qwen3 para o caminho correto.
+# Independente do Ollama.
+#
+# Este arquivo e um TEMPLATE: os marcadores __PROJECT_ROOT__ sao substituidos pelo
+# caminho real do repo por `make install-service` (portavel entre VMs/diretorios).
+# Nao instale este arquivo direto — use `make install-service`.
 
 [Service]
 Type=simple
-
 User=root
 Group=root
 
-# Toda config vem do .env — edite la para mudar modelo, porta, contexto, etc.
-EnvironmentFile=/root/qwen3/.env
+# PATH precisa incluir venv e cuda para o systemd encontrar os binarios.
+Environment="PATH=__PROJECT_ROOT__/.venv/bin:/usr/local/cuda/bin:/usr/local/bin:/usr/bin:/bin"
 
-# PATH precisa incluir cuda e venv para o systemd encontrar os binarios
-Environment="PATH=/root/qwen3/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+# start-server.sh ja carrega o .env (source) — nao precisa EnvironmentFile.
+WorkingDirectory=__PROJECT_ROOT__
+ExecStart=/bin/bash __PROJECT_ROOT__/scripts/start-server.sh
 
-WorkingDirectory=/root/qwen3
-ExecStart=/root/qwen3/scripts/start-server.sh
+# Auto-recuperacao: reinicia SEMPRE (inclusive apos OOM-kill).
+# RestartSec=20 da tempo da VRAM da instancia anterior liberar antes de recarregar
+# o modelo (senao o restart pode falhar por falta de VRAM = crash-loop).
+Restart=always
+RestartSec=20
+# Nao derruba a unit por eventos de OOM do cgroup — deixa o Restart cuidar.
+OOMPolicy=continue
 
-# Reiniciar automaticamente se cair
-Restart=on-failure
-RestartSec=15
+# Logs persistentes (o diretorio e criado por make install-service).
+StandardOutput=append:__PROJECT_ROOT__/data/logs/server.log
+StandardError=append:__PROJECT_ROOT__/data/logs/server.log
 
-# Logs persistentes
-StandardOutput=append:/root/qwen3/data/logs/server.log
-StandardError=append:/root/qwen3/data/logs/server.log
-
-# Modelo GGUF leva ~60-90s para carregar
+# Modelo GGUF leva ~30-90s para carregar.
 TimeoutStartSec=300
 TimeoutStopSec=30
 

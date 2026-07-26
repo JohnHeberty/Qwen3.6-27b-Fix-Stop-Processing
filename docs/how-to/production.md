@@ -2,42 +2,50 @@
 
 ---
 
-## systemd service
+## systemd service (auto-recovery from crashes/OOM)
+
+The service runs with **`Restart=always`** (`RestartSec=20`), so if llama-server is OOM-killed or
+crashes, systemd brings it back automatically — no manual `make start-bg`. The unit is a
+**portable template**: `make install-service` resolves the repo path into it, so the same repo
+works on any VM without editing the unit.
 
 ### Install (without auto-start)
 
 ```bash
-make install-service
+make stop            # stop any manually started instance first (one server per GPU)
+make install-service # installs the unit with the repo path resolved
 ```
 
-Registers the `qwen-server` service in systemd. By default it does **not** enable auto-start on boot — use the targets below to control that.
+By default it does **not** enable auto-start on boot — use the targets below to control that.
 
 ### Auto-start on boot
 
 ```bash
-make enable-service    # enables auto-start + starts now
-make disable-service   # disables auto-start + stops the service
+make enable-service    # enables auto-start on boot + starts now (Restart=always)
+make disable-service   # disables auto-start + stops (unit stays installed)
 ```
 
-> **Warning:** auto-start on boot conflicts with Ollama if both use the GPU. See [Coexistence with Ollama](#coexistence-with-ollama) below.
+> **Warning:** only one llama-server fits in the 24 GB GPU. Enabling the service conflicts with a
+> manually started instance and with Ollama if both use the GPU. See
+> [Coexistence with Ollama](#coexistence-with-ollama).
 
-### Manage the service manually
+### Manage the service
 
 ```bash
-sudo systemctl status qwen-server       # current state
-sudo systemctl start qwen-server        # start
-sudo systemctl stop qwen-server         # stop
-sudo systemctl restart qwen-server      # restart
-sudo journalctl -u qwen-server -f       # live logs
+make service-status    # systemctl status qwen-server
+make service-logs      # journalctl -u qwen-server -f
+make start-service     # start now
+make stop-service      # stop now
 ```
 
-### Install manually (without Makefile)
+### Remove the service (e.g. before moving VMs)
 
 ```bash
-sudo cp infra/llama-server/qwen-server.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now qwen-server
+make uninstall-service # stop + disable + remove the unit (repo code untouched)
 ```
+
+The unit template lives at `infra/llama-server/qwen-server.service`; edit it there and re-run
+`make install-service` to change service behavior.
 
 ---
 

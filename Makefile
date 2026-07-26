@@ -21,6 +21,12 @@ LLAMA_SERVER     ?= $(LLAMA_CPP_DIR)/build/bin/llama-server
 #   LLAMA_CPP_COMMIT=<novo-sha> make update-llama-server   (e teste antes de commitar)
 # Deixe vazio (LLAMA_CPP_COMMIT= make ...) para seguir o tip de master (não recomendado).
 LLAMA_CPP_COMMIT ?= e8f19cc0ad70a243c8012bf17b4be601abfc8ea2
+
+# Serviço systemd (portável — instala/remove via make, caminho resolvido no install)
+SERVICE_NAME     ?= qwen-server
+SERVICE_DEST     ?= /etc/systemd/system/$(SERVICE_NAME).service
+# sudo só quando não-root (em container root, fica vazio)
+SUDO             := $(shell [ "$$(id -u)" = "0" ] && echo "" || echo sudo)
 CUDA_HOME        ?= /usr/local/cuda
 MODEL_DIR        ?= $(PROJECT_ROOT)/data/models
 MODEL_FILE       ?= Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
@@ -37,10 +43,11 @@ SENTINEL_MODEL       := $(MODEL_DIR)/$(MODEL_FILE)
 .PHONY: help setup \
         install-system-deps setup-cuda create-venv install-python-deps \
         build-llama-server rebuild-llama-server build-llama-cpp-python \
-        update-llama-server update-template unpatch-glibc-cuda \
+        update-llama-server unpatch-glibc-cuda \
         download-model \
         start start-bg stop restart status logs test \
-        install-service enable-service disable-service start-service \
+        install-service uninstall-service enable-service disable-service \
+        start-service stop-service service-status service-logs \
         configure-ollama ollama-unload \
         litellm-start \
         benchmark benchmark-sweep \
@@ -61,8 +68,7 @@ help:
 	@echo "  make install-python-deps  [4] Instala gguf, huggingface-hub, etc."
 	@echo "  make build-llama-server   [5] Compila llama-server com CUDA"
 	@echo "  make rebuild-llama-server  Recompila do zero (remove binário + build)"
-        @echo "  make update-llama-server   Atualiza llama.cpp + recompila"
-	@echo "  make update-template       Baixa template froggeric mais recente"
+	@echo "  make update-llama-server   Atualiza llama.cpp + recompila"
 	@echo "  make unpatch-glibc-cuda    Reverte patch glibc em /usr/include"
 	@echo "  make build-llama-cpp-python [6] Compila llama-cpp-python com CUDA"
 	@echo "  make download-model       [7] Baixa modelo GGUF do HuggingFace"
@@ -75,10 +81,14 @@ help:
 	@echo "  make status             Mostra estado e VRAM"
 	@echo "  make logs               Acompanha log em tempo real"
 	@echo "  make test               Roda suite de testes da API"
-	@echo "  make install-service    Registra o serviço systemd (sem auto-start)"
-	@echo "  make enable-service     Ativa auto-start no boot (CONFLITA com Ollama)"
-	@echo "  make disable-service    Desativa auto-start no boot"
-	@echo "  make start-service      Inicia via systemd sem habilitar no boot"
+	@echo ""
+	@echo "  SERVIÇO systemd (portável — instala/remove em qualquer VM):"
+	@echo "  make install-service    Instala o serviço (resolve o caminho do repo)"
+	@echo "  make enable-service     Habilita no boot + inicia (Restart=always)"
+	@echo "  make disable-service    Desabilita no boot (mantém instalado)"
+	@echo "  make start-service / stop-service   Inicia / para agora"
+	@echo "  make service-status / service-logs  Estado / logs (journalctl)"
+	@echo "  make uninstall-service  Remove o serviço (código do repo fica intacto)"
 	@echo ""
 	@echo "  LIMPEZA:"
 	@echo "  make clean              Remove modelo, logs e venv (mantém código)"
@@ -392,30 +402,49 @@ test:
 benchmark: _check-ready
 	@$(PYTHON) "$(PROJECT_ROOT)/tests/benchmark.py" $(ARGS)
 
+# Instala o serviço systemd a partir do template, substituindo __PROJECT_ROOT__ pelo
+# caminho real deste repo → portável (funciona em qualquer VM/diretório).
 install-service:
 	@chmod +x "$(PROJECT_ROOT)/scripts/start-server.sh" "$(PROJECT_ROOT)/scripts/setup.sh"
-	@sudo cp "$(PROJECT_ROOT)/infra/llama-server/qwen-server.service" /etc/systemd/system/
-	@sudo systemctl daemon-reload
-	@echo "Serviço registrado (NÃO habilitado no boot)."
-	@echo "  make enable-service   → ativa auto-start no boot"
-	@echo "  make start-service    → inicia agora sem auto-start"
-	@echo "  sudo systemctl status qwen-server"
+	@mkdir -p "$(PROJECT_ROOT)/data/logs"
+	@sed "s|__PROJECT_ROOT__|$(PROJECT_ROOT)|g" \
+		"$(PROJECT_ROOT)/infra/llama-server/qwen-server.service" \
+		| $(SUDO) tee "$(SERVICE_DEST)" > /dev/null
+	@$(SUDO) systemctl daemon-reload
+	@echo "✓ Serviço '$(SERVICE_NAME)' instalado em $(SERVICE_DEST) (PROJECT_ROOT=$(PROJECT_ROOT))."
+	@echo "  make enable-service    → auto-start no boot + Restart=always (recomendado)"
+	@echo "  make start-service     → inicia agora sem habilitar no boot"
+	@echo "  make uninstall-service → remove o serviço"
+
+# Remove completamente o serviço (para levar/limpar a VM).
+uninstall-service:
+	@$(SUDO) systemctl disable --now $(SERVICE_NAME) 2>/dev/null || true
+	@$(SUDO) rm -f "$(SERVICE_DEST)"
+	@$(SUDO) systemctl daemon-reload
+	@echo "✓ Serviço '$(SERVICE_NAME)' removido. O código do repo permanece intacto."
 
 enable-service:
-	@sudo systemctl enable qwen-server
-	@sudo systemctl start qwen-server
-	@echo "Serviço habilitado — inicia automaticamente no boot."
-	@echo "ATENÇÃO: conflita com Ollama na GPU (24 GB compartilhados)."
-	@echo "Para desabilitar: make disable-service"
+	@$(SUDO) systemctl enable --now $(SERVICE_NAME)
+	@echo "✓ Serviço habilitado (auto-start no boot + Restart=always) e iniciado."
+	@echo "  Estado: make service-status   Logs: make service-logs"
 
 disable-service:
-	@sudo systemctl disable qwen-server
-	@sudo systemctl stop qwen-server 2>/dev/null || true
-	@echo "Serviço desabilitado — não inicia mais no boot."
+	@$(SUDO) systemctl disable --now $(SERVICE_NAME) 2>/dev/null || true
+	@echo "✓ Serviço desabilitado — não inicia mais no boot (arquivo continua instalado)."
 
 start-service:
-	@sudo systemctl start qwen-server
-	@echo "Serviço iniciado (sem auto-start no boot)."
+	@$(SUDO) systemctl start $(SERVICE_NAME)
+	@echo "✓ Serviço iniciado."
+
+stop-service:
+	@$(SUDO) systemctl stop $(SERVICE_NAME) 2>/dev/null || true
+	@echo "✓ Serviço parado."
+
+service-status:
+	@$(SUDO) systemctl status $(SERVICE_NAME) --no-pager || true
+
+service-logs:
+	@$(SUDO) journalctl -u $(SERVICE_NAME) -f --no-pager
 
 ##############################################################################
 # GESTÃO DE CONFLITO OLLAMA/GPU

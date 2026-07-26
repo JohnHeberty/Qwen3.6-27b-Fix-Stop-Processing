@@ -37,14 +37,26 @@ Each step uses a **sentinel** — checks if it was already done before acting. R
 
 ---
 
-## systemd service
+## systemd service (portable — install/remove via make, works on any VM)
+
+The unit `infra/llama-server/qwen-server.service` is a **template**: `make install-service`
+substitutes `__PROJECT_ROOT__` with the repo's real path, so it works wherever the repo is
+cloned. The service runs with **`Restart=always`** (auto-recovers from crashes/OOM, `RestartSec=20`
+to let VRAM free between restarts) and starts on boot once enabled. `make` uses `sudo` only when
+not root.
 
 | Command | Description |
 |---|---|
-| `make install-service` | Registers `qwen-server.service` (no auto-start) |
-| `make enable-service` | Enables auto-start on boot + starts now |
-| `make disable-service` | Disables auto-start + stops the service |
-| `make start-service` | Starts via systemd without enabling on boot |
+| `make install-service` | Installs `qwen-server.service` with the resolved repo path (no auto-start yet) |
+| `make enable-service` | Enables auto-start on boot **and** starts now (`Restart=always`) |
+| `make disable-service` | Disables auto-start + stops (file stays installed) |
+| `make start-service` / `make stop-service` | Start / stop now |
+| `make service-status` | `systemctl status qwen-server` |
+| `make service-logs` | Follow logs (`journalctl -u qwen-server -f`) |
+| `make uninstall-service` | Stops, disables and **removes** the unit (repo code untouched) |
+
+> Only one llama-server fits in the 24 GB GPU. Before enabling the service, stop any manually
+> started instance (`make stop`) so the two don't contend for VRAM.
 
 ---
 
