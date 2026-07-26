@@ -61,20 +61,20 @@ make capture-report    # olhe as flags 'runaway' e 'loop_repeat'
   eles **sobrepõem** os do servidor — nesse caso o loop pode persistir mesmo com DRY aqui, e o ajuste
   precisa ser no cliente. O prompt capturado (`prompts/*.txt`) ajuda a confirmar o que chegou.
 
-## Compactação no cliente (OpenClaw / OpenCode) — reduzir a "zona de loop"
+## O loop de raciocínio — fix no servidor, contexto PRESERVADO
 
-Na captura, os prompts chegavam a **~72k tokens** e o modelo entrava em loop. Isso é a soma do
-lado servidor (DRY + `error_warnings`) **com** o lado cliente: se o agente deixa o contexto crescer
-até ~72k, o modelo degrada. Mantenha o contexto de operação **bem abaixo disso (~48–60k)**.
+Descoberta importante: **não** se resolve jogando fora contexto. Testamos reduzir o contexto do
+cliente e reverter — os clientes ficam com os **104k cheios** (`.opencode` e OpenClaw em 106496).
+O thought-loop (o modelo repetindo um parágrafo dentro do `<think>` até estourar) é cortado no
+servidor por **`REASONING_BUDGET`** (`--reasoning-budget`, default 2048): ao atingir o teto de
+tokens de pensamento, o llama.cpp fecha `</think>` e força a resposta/ação. Isso capa o raciocínio
+descontrolado **sem** encolher contexto nem quebrar tool-calling.
 
-**OpenCode** (`.opencode/opencode.json`): o modelo `qwen` usa `limit.context: 60000` (era 98304) +
-`compaction: { auto, prune }`. Contexto menor = sem zona de loop, mais rápido, menos risco de OOM.
+> ⚠️ **Não** use o DRY sampler em uso agêntico: ele trunca caminhos de arquivo repetidos (quebra
+> tool calls — ver `HIPOTESE-09`). Se um loop verbatim persistir, prefira `REPEAT_PENALTY=1.05` leve.
 
-**OpenClaw** (`/root/.openclaw/…`, na outra máquina): ver o arquivo
-[`openclaw-recommended-compaction.json`](../../openclaw-recommended-compaction.json) na raiz do repo
-— baixa `contextWindow/contextTokens` para `60000`, `reserveTokensFloor` 35000 → 12000, liga
-`midTurnPrecheck` (corta o crescimento dentro do turno) e aperta o pruning de tool results.
-Regra: `contextWindow − reserveTokensFloor` = teto do histórico; deixe isso ~48k, não ~72k.
+Camadas anti-loop (todas preservam contexto): `REASONING_BUDGET` (thought-loop) · `error_warnings`
+(loop de retry após 2 falhas de ferramenta) · `presence_penalty=0.1` (leve).
 
 ## Rotação de logs
 

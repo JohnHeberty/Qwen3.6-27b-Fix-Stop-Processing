@@ -50,6 +50,11 @@ PRESENCE_PENALTY="${PRESENCE_PENALTY:-0.1}"
 SEED="${SEED:--1}"
 N_PREDICT="${N_PREDICT:-8192}"
 
+# Reasoning budget — teto de tokens DE PENSAMENTO (o `<think>`). Ao atingir, o llama.cpp
+# fecha o </think> e força o modelo a responder/agir. Fix real do thought-loop do Qwen3.6
+# (repetir parágrafo até 8192) SEM reduzir contexto nem quebrar tool-calling. -1 = ilimitado.
+REASONING_BUDGET="${REASONING_BUDGET:-2048}"
+
 # DRY sampler — anti-loop de repetição verbatim (qualquer tamanho de bloco).
 # Necessário porque presence/repeat penalties leves NÃO quebram loop de parágrafo
 # (evidência: loop de raciocínio repetindo o mesmo bloco até estourar 8192 — HIPOTESE-09).
@@ -135,6 +140,9 @@ echo ""
 EXTRA_FLAGS=""
 [ "${NO_MMAP:-1}" = "1" ] && EXTRA_FLAGS="$EXTRA_FLAGS --no-mmap"
 [ "${CACHE_IDLE_SLOTS:-0}" = "0" ] && EXTRA_FLAGS="$EXTRA_FLAGS --no-cache-idle-slots"
+
+# Reasoning budget (teto de pensamento) — fix do thought-loop, preserva contexto e tools
+EXTRA_FLAGS="$EXTRA_FLAGS --reasoning-budget $REASONING_BUDGET"
 
 # DRY sampler (anti-loop) — só adiciona se ligado (multiplier != 0)
 if [ "$DRY_MULTIPLIER" != "0" ] && [ "$DRY_MULTIPLIER" != "0.0" ]; then

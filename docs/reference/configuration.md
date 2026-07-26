@@ -48,6 +48,7 @@ cp .env.example .env
 | `DRY_PENALTY_LAST_N` | `2048` | no | Window DRY looks back over (`-1` = whole context — too broad here; a window targets recent loops). |
 | `SEED` | `-1` | no | Random seed (-1 = random each call, any positive = reproducible) |
 | `N_PREDICT` | `8192` | no | Maximum tokens to generate per response. `-1` = unlimited (can cause infinite generation) |
+| `REASONING_BUDGET` | `2048` | no | Max **thinking** tokens (the `<think>` block). On reaching it, llama.cpp closes `</think>` and forces the model to answer/act. This is the real fix for the Qwen3.6 thought-loop (repeating a paragraph until the token cap) — it caps runaway *reasoning* **without touching context (still 104k) or tool-calls**. `-1` = unlimited. Purpose-built for exactly this (llama.cpp `--reasoning-budget`, added to stop Qwen3.6 low-temp thought-loops). |
 
 ---
 

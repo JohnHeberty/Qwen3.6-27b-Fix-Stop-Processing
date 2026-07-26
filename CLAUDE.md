@@ -108,6 +108,11 @@ path (`make start`) execs `llama-server` directly and does not go through `src/s
   (`"error"`, `"ok": false`, `"status": "error"`), so `grep` hits / "0 errors" / mid-line "error"
   don't false-positive. Pristine `chat_template_v21.jinja` keeps froggeric's always-on loose string
   match. Enabling is safe now; left off by default as the conservative choice.
+- `REASONING_BUDGET` — max thinking tokens (`--reasoning-budget`, default `2048`; `-1` = off). The
+  real fix for the Qwen3.6 thought-loop (it repeats a paragraph inside `<think>` until `N_PREDICT`):
+  on hitting the budget llama.cpp closes `</think>` and forces the answer/tool-call — capping runaway
+  *reasoning* **without** shrinking context (still 104k) or breaking tool-calls. Preferred over
+  penalties/DRY for this model. See `HIPOTESE-09`.
 - `DRY_MULTIPLIER` (+ `DRY_BASE`/`DRY_ALLOWED_LENGTH`/`DRY_PENALTY_LAST_N`) — DRY sampler,
   **OFF by default (`0`)**. We tried it against the verbatim reasoning-loop, but in agentic/coding use
   it **truncated repeated file paths** (the model kept emitting `src/…/file.py`; DRY penalized the

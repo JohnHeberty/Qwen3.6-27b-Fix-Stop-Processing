@@ -2,7 +2,16 @@
 
 **Status:** ✅ CONFIRMADA · ⚠️ FIX corrigido: **DRY foi REVERTIDO** (quebrava tool-calling) · **Suspeita:** CONFIRMADA
 
-## ⚠️ Correção do fix (2026-07-26): DRY desligado
+## ✅ FIX REAL (2026-07-26): `--reasoning-budget` (preserva contexto e tools)
+Depois de reverter o DRY, o fix correto (pesquisado — o `--reasoning-budget` do llama.cpp foi
+criado **justamente para conter os thought-loops do Qwen3.6 em temperatura baixa**): capar os
+tokens **de pensamento**. `REASONING_BUDGET=2048` → ao atingir 2048 tokens dentro do `<think>`, o
+llama.cpp fecha o `</think>` e **força a resposta/ação**. Isso mata o loop de raciocínio (que ia até
+8192) **sem** reduzir o contexto (segue 104k) e **sem** tocar no tool-calling. Verificado: raciocínio
+longo real convergiu em ~1650 tokens (abaixo do teto), `finish=stop`, resposta completa, sem hang;
+12/12 nos testes. Fontes: llama.cpp PR #25961 / discussão #21445.
+
+## ⚠️ Correção do fix anterior (2026-07-26): DRY desligado
 O DRY sampler (que tínhamos ligado) **truncava caminhos de arquivo repetidos**: a captura mostrou a
 saída do modelo cortada no meio (`<parameter=command>sed -n '780,850p' src/ia_investing/i` ←
 cortado), porque o path se repete no contexto e o DRY penaliza a repetição — sem distinguir "loop
