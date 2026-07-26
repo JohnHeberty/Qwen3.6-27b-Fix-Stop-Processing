@@ -12,7 +12,7 @@
         "qwen3": {
           "name": "Qwen3.6-35B-A3B-Fixed",
           "limit": {
-            "context": 98304,
+            "context": 60000,
             "output": 8192
           },
           "reasoning": true,

@@ -1,0 +1,56 @@
+{
+  "_README": [
+    "Ajustes recomendados para a config do OpenClaw (/root/.openclaw/… na OUTRA máquina)",
+    "para tirar o modelo da 'zona de loop' (~72k tokens) vista na captura.",
+    "Substitua APENAS estes blocos na sua config real (mantenha o resto, incl. seus segredos).",
+    "Motivo: contextWindow 106496 - reserveTokensFloor 35000 = ~71.5k = exatamente onde o modelo",
+    "loopava. Baixamos o contexto de operação p/ ~48k e ligamos o midTurnPrecheck.",
+    "NÃO commite seus tokens reais — aqui estão como placeholder."
+  ],
+
+  "agents.defaults.compaction": {
+    "reserveTokensFloor": 12000,
+    "reserveTokens": 8000,
+    "midTurnPrecheck": { "enabled": true },
+    "notifyUser": true,
+    "memoryFlush": { "softThresholdTokens": 8000 },
+    "mode": "safeguard",
+    "keepRecentTokens": 2000,
+    "truncateAfterCompaction": true
+  },
+
+  "agents.defaults.contextLimits": {
+    "toolResultMaxChars": 8000
+  },
+
+  "agents.defaults.contextPruning": {
+    "mode": "cache-ttl",
+    "ttl": "1m",
+    "keepLastAssistants": 2,
+    "softTrimRatio": 0.25,
+    "hardClearRatio": 0.45,
+    "minPrunableToolChars": 4000,
+    "softTrim": { "maxChars": 4000, "headChars": 2000, "tailChars": 2000 },
+    "hardClear": { "enabled": true, "placeholder": "[Old tool result removed to preserve context]" }
+  },
+
+  "models.providers.litellm.models[qwen]": {
+    "id": "qwen",
+    "name": "Qwen 3.6 35B-A3B",
+    "reasoning": true,
+    "input": ["text"],
+    "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+    "contextWindow": 60000,
+    "contextTokens": 60000,
+    "maxTokens": 8192,
+    "compat": {
+      "supportsReasoningEffort": false,
+      "supportsUsageInStreaming": true,
+      "supportsTools": true,
+      "supportsStrictMode": false,
+      "requiresStringContent": true,
+      "strictMessageKeys": false
+    },
+    "api": "openai-completions"
+  }
+}

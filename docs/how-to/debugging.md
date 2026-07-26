@@ -61,6 +61,21 @@ make capture-report    # olhe as flags 'runaway' e 'loop_repeat'
   eles **sobrepõem** os do servidor — nesse caso o loop pode persistir mesmo com DRY aqui, e o ajuste
   precisa ser no cliente. O prompt capturado (`prompts/*.txt`) ajuda a confirmar o que chegou.
 
+## Compactação no cliente (OpenClaw / OpenCode) — reduzir a "zona de loop"
+
+Na captura, os prompts chegavam a **~72k tokens** e o modelo entrava em loop. Isso é a soma do
+lado servidor (DRY + `error_warnings`) **com** o lado cliente: se o agente deixa o contexto crescer
+até ~72k, o modelo degrada. Mantenha o contexto de operação **bem abaixo disso (~48–60k)**.
+
+**OpenCode** (`.opencode/opencode.json`): o modelo `qwen` usa `limit.context: 60000` (era 98304) +
+`compaction: { auto, prune }`. Contexto menor = sem zona de loop, mais rápido, menos risco de OOM.
+
+**OpenClaw** (`/root/.openclaw/…`, na outra máquina): ver o arquivo
+[`openclaw-recommended-compaction.json`](../../openclaw-recommended-compaction.json) na raiz do repo
+— baixa `contextWindow/contextTokens` para `60000`, `reserveTokensFloor` 35000 → 12000, liga
+`midTurnPrecheck` (corta o crescimento dentro do turno) e aperta o pruning de tool results.
+Regra: `contextWindow − reserveTokensFloor` = teto do histórico; deixe isso ~48k, não ~72k.
+
 ## Rotação de logs
 
 `server.log` não rotaciona sozinho e cresce rápido (mais ainda com captura ligada). Instale a
