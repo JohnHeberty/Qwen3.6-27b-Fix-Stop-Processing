@@ -54,6 +54,23 @@ Legenda: ✅ feito/mitigado · 🟡 parcial (falta validar) · ⬜ pendente · �
 - **Limitação:** o `server.log` **não grava conteúdo** — o texto do loop precisa vir do log do
   cliente (MoltBot/OpenCode subagent), que é externo a este repo.
 
+## Atualização da captura real (2026-07-26, tráfego do OpenCode via LiteLLM remoto)
+
+Capturamos o tráfego REAL que bate no `:8000` (o LiteLLM remoto encaminha pra cá — nossos fixes
+se aplicam). Achados de um turno que loopou:
+- **H01 CONFIRMADA (agora forte):** os prompts têm **~290 KB (~72k tokens)** e crescem. O gatilho:
+  a conversa contém **`[Response interrupted: AI prompt limit exceeded (65000 tokens…)]` injetado
+  pelo cliente** (limite de 65k do OpenCode/MoltBot, NÃO nosso) e o modelo entra em loop tentando
+  "continuar". → correção é **do cliente** (compactação + limite de tokens).
+- **H09:** DRY já ajudou — o loop parou em **766 tokens / `finish=eos`** (não foi mais até 8192).
+  Mas ainda acende `loop_repeat` porque o texto **deriva** ("validate_supplied → _c → _ca…"), o que
+  escapa do DRY verbatim. Reforçamos `DRY_MULTIPLIER 0.8 → 1.0`, `penalty_last_n → 2048`.
+- **H02 refutada (neste caso):** `empty_turn = 0/5`. **H05 OK:** tool_calls emitidos corretos
+  (`has_tool_call 3/5`, XML válido) — parsing não é o problema.
+- **Conclusão:** o loop tem **duas pontas** — nosso lado (DRY, reforçado) e o **cliente** (contexto
+  de 72k + injeção de "prompt limit exceeded"). Sem consertar o lado do cliente (compactação /
+  limite), o DRY sozinho reduz mas não elimina.
+
 ## Método de investigação (para cada HIPOTESE-NN)
 
 Cada arquivo tem: hipótese, o que explicaria, evidência a favor/contra, **como investigar**

@@ -54,10 +54,10 @@ N_PREDICT="${N_PREDICT:-8192}"
 # Necessário porque presence/repeat penalties leves NÃO quebram loop de parágrafo
 # (evidência: loop de raciocínio repetindo o mesmo bloco até estourar 8192 — HIPOTESE-09).
 # DRY penaliza só sequências longas repetidas -> não atrapalha repetição legítima de código.
-DRY_MULTIPLIER="${DRY_MULTIPLIER:-0.8}"     # 0.0 = desligado
+DRY_MULTIPLIER="${DRY_MULTIPLIER:-1.0}"     # 0.0 = desligado
 DRY_BASE="${DRY_BASE:-1.75}"
 DRY_ALLOWED_LENGTH="${DRY_ALLOWED_LENGTH:-4}"   # 2 é agressivo p/ modelo thinking (rambleia)
-DRY_PENALTY_LAST_N="${DRY_PENALTY_LAST_N:-1024}"  # janela (não o contexto todo)
+DRY_PENALTY_LAST_N="${DRY_PENALTY_LAST_N:-2048}"  # janela (não o contexto todo)
 
 MODEL_PATH="$MODEL_DIR/$MODEL_FILE"
 
