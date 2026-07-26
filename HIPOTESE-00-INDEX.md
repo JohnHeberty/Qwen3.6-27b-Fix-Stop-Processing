@@ -33,7 +33,7 @@ Legenda: ✅ feito/mitigado · 🟡 parcial (falta validar) · ⬜ pendente · �
 | # | Hipótese | Suspeita | Status | O que já foi feito | O que falta |
 |---|---|---|---|---|---|
 | 10 | **Crash por OOM de RAM** | ALTA | ✅ **Fechada** | Confirmada no `dmesg` (kill do llama-server, memcg /lxc/139). VM subida p/ 32 GB. Serviço systemd com `Restart=always` (auto-recupera). | Só observar que não recorre em uso pesado |
-| 09 | **Loop de repetição** (bate 8192) | ALTA | 🟡 **Mitigada** | `presence_penalty=0.1` aplicado e live (mantém repeat_penalty=1.0). | Validar em **uso real** que somem as gerações no teto 8192; senão subir p/ 0.2 ou repeat_penalty=1.05 |
+| 09 | **Loop de repetição** (bate 8192) | ALTA | ✅ **Confirmada + fix** | Conteúdo do loop obtido (raciocínio repetindo bloco verbatim). presence_penalty=0.1 NÃO segurou → **DRY sampler** aplicado (`DRY_MULTIPLIER=0.8`, allowed_length=4, last_n=1024). 12/12 testes. | Validar em **uso real** via captura (flags `runaway`/`loop_repeat` = 0); cliente pode sobrepor sampling |
 | 01 | Estouro de janela de contexto | ALTA | ⬜ Pendente | Medido: prompts a 104k/106k; ~49% reprocessam contexto quase-idêntico. | Config **do cliente**: `compaction.prune`/`max_input` do OpenCode p/ o subagente não crescer até o teto |
 | 03 | Thinking consome o orçamento (finish=length) | ALTA | ⬜ Pendente | Mecanismo mapeado (template abre `<think>` mesmo com tools; `-n=8192`). | Testar `max_tokens` maior e/ou `auto_disable_thinking_with_tools=true`; medir taxa de finish=length sem tool_call |
 | 02 | Turno vazio (só `reasoning_content`) | ALTA | 🔎 Pendente | Hipótese descrita; bate com a transcrição. | Confirmar no **log do cliente** que falhas têm content vazio + sem tool_calls |

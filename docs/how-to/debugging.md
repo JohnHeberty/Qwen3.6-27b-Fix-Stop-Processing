@@ -42,6 +42,25 @@ Emite contadores + top ofensores, com **flags automáticas** que mapeiam nas hip
 Opções úteis: `make capture-report ARGS="--jsonl out.jsonl --top 20"` (grava 1 registro por geração
 em JSONL para análise posterior). O script é `scripts/analyze-capture.py`.
 
+## Validar o fix anti-loop (DRY) — H09
+
+O loop de repetição (o modelo repetindo o mesmo bloco de raciocínio até estourar os 8192 tokens)
+foi corrigido com o **DRY sampler** (`DRY_MULTIPLIER=0.8`, ver `.env` / `docs/reference/configuration.md`).
+Para **confirmar em uso real** que sumiu:
+
+```bash
+make capture-on        # captura + DRY ficam ativos
+#   ... reproduza o subagente/tarefa que loopava ...
+make capture-report    # olhe as flags 'runaway' e 'loop_repeat'
+```
+
+- Se `runaway` e `loop_repeat` vierem **0/N**, o DRY resolveu.
+- Se ainda acenderem, aumente `DRY_MULTIPLIER` (0.8 → 1.0) ou reduza `DRY_ALLOWED_LENGTH` (4 → 3),
+  `make capture-off && make capture-on`, e reproduza de novo.
+- **Atenção:** se o cliente (OpenCode/MoltBot) enviar parâmetros de sampling próprios na requisição,
+  eles **sobrepõem** os do servidor — nesse caso o loop pode persistir mesmo com DRY aqui, e o ajuste
+  precisa ser no cliente. O prompt capturado (`prompts/*.txt`) ajuda a confirmar o que chegou.
+
 ## Rotação de logs
 
 `server.log` não rotaciona sozinho e cresce rápido (mais ainda com captura ligada). Instale a
