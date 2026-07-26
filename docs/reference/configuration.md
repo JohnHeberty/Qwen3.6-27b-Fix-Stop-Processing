@@ -42,7 +42,7 @@ cp .env.example .env
 | `REPEAT_LAST_N` | `64` | no | Number of recent tokens to consider for repeat penalty |
 | `FREQUENCY_PENALTY` | `0.0` | no | Penalize tokens proportional to their frequency. `0.0` = off (Qwen-recommended for coding) |
 | `PRESENCE_PENALTY` | `0.1` | no | Binary penalty for any token already used. Qwen recommends `0.0`, but `0.0` let the model fall into repetition loops (generating to the token cap) in long agentic use — `0.1` curbs that with little quality impact. See `HIPOTESE-09`. |
-| `DRY_MULTIPLIER` | `1.0` | no | DRY sampler strength (`0` = off). **Primary anti-loop**: penalizes long verbatim repeated sequences (e.g. a reasoning block looping to the token cap) without hurting legitimate code repetition. See `HIPOTESE-09`. |
+| `DRY_MULTIPLIER` | `0` (off) | no | DRY sampler strength (`0` = off). **Off by default: in agentic/coding use it truncated repeated file paths** (the model kept emitting `src/…/file.py`, DRY penalized the repeat and cut the path mid-token → broken tool calls, see `HIPOTESE-09`). Only enable for pure prose where verbatim-repetition loops are the main risk. |
 | `DRY_BASE` | `1.75` | no | DRY exponential base. |
 | `DRY_ALLOWED_LENGTH` | `4` | no | Repeats up to this length are allowed. `2` (DRY default) is too aggressive for a thinking model (it rambles); `4` catches paragraph loops without breaking normal reasoning. |
 | `DRY_PENALTY_LAST_N` | `2048` | no | Window DRY looks back over (`-1` = whole context — too broad here; a window targets recent loops). |
@@ -103,7 +103,7 @@ REPEAT_PENALTY=1.0
 REPEAT_LAST_N=64
 FREQUENCY_PENALTY=0.0
 PRESENCE_PENALTY=0.1
-DRY_MULTIPLIER=1.0
+DRY_MULTIPLIER=0
 DRY_BASE=1.75
 DRY_ALLOWED_LENGTH=4
 DRY_PENALTY_LAST_N=2048

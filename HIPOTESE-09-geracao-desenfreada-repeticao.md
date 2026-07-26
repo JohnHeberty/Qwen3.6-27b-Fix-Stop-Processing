@@ -1,6 +1,18 @@
 # HIPÓTESE 09 — Geração desenfreada / loop de repetição (bate o teto `n_predict`)
 
-**Status:** ✅ CONFIRMADA (conteúdo do loop obtido) + FIX aplicado (DRY sampler) · **Suspeita:** CONFIRMADA
+**Status:** ✅ CONFIRMADA · ⚠️ FIX corrigido: **DRY foi REVERTIDO** (quebrava tool-calling) · **Suspeita:** CONFIRMADA
+
+## ⚠️ Correção do fix (2026-07-26): DRY desligado
+O DRY sampler (que tínhamos ligado) **truncava caminhos de arquivo repetidos**: a captura mostrou a
+saída do modelo cortada no meio (`<parameter=command>sed -n '780,850p' src/ia_investing/i` ←
+cortado), porque o path se repete no contexto e o DRY penaliza a repetição — sem distinguir "loop
+ruim" de "path que o agente precisa repetir". Resultado: comandos/paths cortados → tool calls falham
+→ loop de retry (42 prompts quase-idênticos na captura). **DRY_MULTIPLIER=0 agora.**
+
+**Defesa anti-loop atual (sem DRY):** (1) contexto do cliente reduzido p/ ~60k (tira da zona de
+loop), (2) `error_warnings` especialista quebra loop de retry após 2 falhas, (3) `presence_penalty=0.1`
+leve. Se o loop de raciocínio verbatim voltar, usar `REPEAT_PENALTY=1.05` (linear, bem menos
+destrutivo p/ paths que o DRY exponencial) — NÃO reativar o DRY em uso agêntico.
 
 ## Confirmação (conteúdo real do loop, 2026-07-26)
 O usuário colou o raciocínio de um turno que "estourou limite": o modelo repetiu **o mesmo

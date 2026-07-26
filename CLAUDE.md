@@ -108,13 +108,13 @@ path (`make start`) execs `llama-server` directly and does not go through `src/s
   (`"error"`, `"ok": false`, `"status": "error"`), so `grep` hits / "0 errors" / mid-line "error"
   don't false-positive. Pristine `chat_template_v21.jinja` keeps froggeric's always-on loose string
   match. Enabling is safe now; left off by default as the conservative choice.
-- `DRY_MULTIPLIER` (+ `DRY_BASE`/`DRY_ALLOWED_LENGTH`/`DRY_PENALTY_LAST_N`) — DRY sampler, the
-  **primary anti-loop**. The thinking model can fall into a verbatim reasoning loop that repeats a
-  block until it hits `N_PREDICT` (8192) — `presence_penalty`/`repeat_penalty` with small
-  `repeat_last_n` don't catch block-level loops. DRY penalizes long verbatim repeats without hurting
-  legit code repetition. Default `0.8`; `allowed_length=4`/`penalty_last_n=1024` (NOT the aggressive
-  DRY default `2`/whole-context, which makes a thinking model ramble to the cap). See `HIPOTESE-09`.
-  Note: a client that sends its own sampling params overrides these server-side defaults.
+- `DRY_MULTIPLIER` (+ `DRY_BASE`/`DRY_ALLOWED_LENGTH`/`DRY_PENALTY_LAST_N`) — DRY sampler,
+  **OFF by default (`0`)**. We tried it against the verbatim reasoning-loop, but in agentic/coding use
+  it **truncated repeated file paths** (the model kept emitting `src/…/file.py`; DRY penalized the
+  repeat and cut the path mid-token → broken tool calls; confirmed in capture, see `HIPOTESE-09`).
+  Do not enable for coding. Anti-loop is instead handled by: small client context (~60k),
+  `error_warnings`, and `presence_penalty=0.1`; if a verbatim loop returns, prefer a mild
+  `REPEAT_PENALTY=1.05` (linear) over DRY (exponential, path-destroying).
 - `CAPTURE_LOG` — `false` by default. `true` (or `make capture-on`) logs real request/response
   **content** (`--log-prompts-dir` + `--verbose` to `data/logs/capture/`) so `scripts/analyze-capture.py`
   (`make capture-report`) can flag loops/empty-turns/overflow. Opt-in and voluminous; see
