@@ -50,6 +50,15 @@ PRESENCE_PENALTY="${PRESENCE_PENALTY:-0.1}"
 SEED="${SEED:--1}"
 N_PREDICT="${N_PREDICT:-8192}"
 
+# DRY sampler — anti-loop de repetição verbatim (qualquer tamanho de bloco).
+# Necessário porque presence/repeat penalties leves NÃO quebram loop de parágrafo
+# (evidência: loop de raciocínio repetindo o mesmo bloco até estourar 8192 — HIPOTESE-09).
+# DRY penaliza só sequências longas repetidas -> não atrapalha repetição legítima de código.
+DRY_MULTIPLIER="${DRY_MULTIPLIER:-0.8}"     # 0.0 = desligado
+DRY_BASE="${DRY_BASE:-1.75}"
+DRY_ALLOWED_LENGTH="${DRY_ALLOWED_LENGTH:-4}"   # 2 é agressivo p/ modelo thinking (rambleia)
+DRY_PENALTY_LAST_N="${DRY_PENALTY_LAST_N:-1024}"  # janela (não o contexto todo)
+
 MODEL_PATH="$MODEL_DIR/$MODEL_FILE"
 
 # ── Validacoes ─────────────────────────────────────────────────────────────────
@@ -126,6 +135,11 @@ echo ""
 EXTRA_FLAGS=""
 [ "${NO_MMAP:-1}" = "1" ] && EXTRA_FLAGS="$EXTRA_FLAGS --no-mmap"
 [ "${CACHE_IDLE_SLOTS:-0}" = "0" ] && EXTRA_FLAGS="$EXTRA_FLAGS --no-cache-idle-slots"
+
+# DRY sampler (anti-loop) — só adiciona se ligado (multiplier != 0)
+if [ "$DRY_MULTIPLIER" != "0" ] && [ "$DRY_MULTIPLIER" != "0.0" ]; then
+    EXTRA_FLAGS="$EXTRA_FLAGS --dry-multiplier $DRY_MULTIPLIER --dry-base $DRY_BASE --dry-allowed-length $DRY_ALLOWED_LENGTH --dry-penalty-last-n $DRY_PENALTY_LAST_N"
+fi
 
 # ── Custom chat template ────────────────────────────────────────────
 TEMPLATE_FILE="${TEMPLATE_FILE:-data/templates/custom/chat_template_local.jinja}"

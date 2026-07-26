@@ -1,6 +1,28 @@
 # HIPÓTESE 09 — Geração desenfreada / loop de repetição (bate o teto `n_predict`)
 
-**Status:** MITIGAÇÃO APLICADA (`PRESENCE_PENALTY=0.1` desde 2026-07-26; monitorar se some o "bate 8192") · confirmação de conteúdo pendente (log do cliente) · **Suspeita:** ALTA
+**Status:** ✅ CONFIRMADA (conteúdo do loop obtido) + FIX aplicado (DRY sampler) · **Suspeita:** CONFIRMADA
+
+## Confirmação (conteúdo real do loop, 2026-07-26)
+O usuário colou o raciocínio de um turno que "estourou limite": o modelo repetiu **o mesmo
+parágrafo de ~6 blocos, palavra por palavra, dezenas de vezes** ("Wait, I think I see the issue
+now… / OK I'm going in circles. Let me just add some debug logging"), até bater o teto de 8192
+tokens. É um **loop de repetição no bloco de raciocínio** (`<think>`), não em tool-call.
+
+## Por que as mitigações leves não seguraram
+- `presence_penalty=0.1` é binário e satura (todos os tokens comuns já "presentes") — não quebra
+  um atrator de loop forte.
+- `repeat_last_n=64` é **pequeno demais**: o bloco repetido é maior que 64 tokens, então quando
+  reaparece a ocorrência anterior já saiu da janela → penalidade zero.
+
+## Fix aplicado — DRY sampler (afinado)
+`DRY_MULTIPLIER=0.8 DRY_BASE=1.75 DRY_ALLOWED_LENGTH=4 DRY_PENALTY_LAST_N=1024`. DRY penaliza a
+repetição de **sequências longas verbatim** (o loop), sem punir repetição legítima de código.
+**Lição de afinação:** com `allowed_length=2` + contexto inteiro, o DRY ficou agressivo demais e o
+modelo *thinking* passou a rambleiar até o limite mesmo numa conta trivial (7×8) — subir para
+`allowed_length=4` e janela `1024` resolveu (12/12 nos testes, sem rambling). `multiplier=0` desliga.
+
+> Falta: validar em **uso real** (reproduzir o subagente) que o loop de raciocínio some. Nota: se o
+> cliente enviar seus próprios parâmetros de sampling, eles podem sobrepor os do servidor.
 
 ## Hipótese
 O modelo entra em **loop de repetição** dentro de um único turno e gera texto até bater o teto
