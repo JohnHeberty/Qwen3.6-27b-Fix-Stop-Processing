@@ -216,4 +216,5 @@ exec "$LLAMA_SERVER" \
     --cache-ram        "$CACHE_RAM"         \
     --cache-type-k     "$CACHE_TYPE_K"      \
     --cache-type-v     "$CACHE_TYPE_V"      \
+    --reasoning-budget-message "I need to provide my answer now." \
     $EXTRA_FLAGS

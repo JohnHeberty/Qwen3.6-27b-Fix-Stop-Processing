@@ -6,11 +6,16 @@
         "primary": "litellm/qwen"
       },
       "models": {
-        "litellm/qwen": {}
+        "litellm/qwen": {
+          "params": {
+            "chat_template_kwargs": {
+              "auto_disable_thinking_with_tools": true
+            }
+          }
+        }
       },
-      "thinkingDefault": "low",
       "compaction": {
-        "reserveTokensFloor": 35000,
+        "reserveTokensFloor": 35001,
         "reserveTokens": 10000,
         "midTurnPrecheck": {
           "enabled": true
@@ -25,7 +30,7 @@
         "truncateAfterCompaction": true
       },
       "memorySearch": {
-        "enabled": false,
+        "enabled": true,
         "sync": {
           "embeddingBatchTimeoutSeconds": 600
         },
@@ -57,7 +62,7 @@
       },
       "timeoutSeconds": 1800,
       "runRetries": {
-        "max": 5
+        "max": 10
       }
     }
   },
