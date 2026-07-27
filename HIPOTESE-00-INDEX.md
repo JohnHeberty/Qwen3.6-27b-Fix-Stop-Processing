@@ -33,11 +33,11 @@ Legenda: ✅ feito/mitigado · 🟡 parcial (falta validar) · ⬜ pendente · �
 | # | Hipótese | Suspeita | Status | O que já foi feito | O que falta |
 |---|---|---|---|---|---|
 | 10 | **Crash por OOM de RAM** | ALTA | ✅ **Fechada** | Confirmada no `dmesg` (kill do llama-server, memcg /lxc/139). VM subida p/ 32 GB. Serviço systemd com `Restart=always` (auto-recupera). | Só observar que não recorre em uso pesado |
-| 09 | **Loop de repetição** (bate 8192) | ALTA | ✅ **Confirmada + fix** | Conteúdo do loop obtido (raciocínio repetindo bloco verbatim). presence_penalty=0.1 NÃO segurou → **DRY sampler** aplicado (`DRY_MULTIPLIER=0.8`, allowed_length=4, last_n=1024). 12/12 testes. | Validar em **uso real** via captura (flags `runaway`/`loop_repeat` = 0); cliente pode sobrepor sampling |
-| 01 | Estouro de janela de contexto | ALTA | ⬜ Pendente | Medido: prompts a 104k/106k; ~49% reprocessam contexto quase-idêntico. | Config **do cliente**: `compaction.prune`/`max_input` do OpenCode p/ o subagente não crescer até o teto |
-| 03 | Thinking consome o orçamento (finish=length) | ALTA | ⬜ Pendente | Mecanismo mapeado (template abre `<think>` mesmo com tools; `-n=8192`). | Testar `max_tokens` maior e/ou `auto_disable_thinking_with_tools=true`; medir taxa de finish=length sem tool_call |
+| 09 | **Loop de repetição** (bate 8192) | ALTA | 🟡 **Mitigado (6 camadas)** | DRY revertido (quebrava paths). **Defesa atual:** (1) `REASONING_BUDGET=2048` (limita thinking), (2) `REPEAT_PENALTY=1.05` (linear leve), (3) `FREQUENCY_PENALTY=0.1`, (4) `PRESENCE_PENALTY=0.1`, (5) OpenClaw `runRetries.max=5`, (6) OpenClaw `tools.loopDetection.enabled=true`. | Validar em **uso real**; se loop voltar, atualizar OpenClaw (v2026.7.1-2 não tem thinking-repetition-detection) |
+| 01 | Estouro de janela de contexto | ALTA | 🟡 **Mitigado** | OpenClaw config corrigida: `reserveTokensFloor=35000`, `timeoutSeconds=600`, `midTurnPrecheck=true`, contextPruning limpo. | Validar em uso real; H01 depende do **cliente** (compactação/pruning) |
+| 03 | Thinking consome o orçamento (finish=length) | ALTA | 🟡 **Mitigado** | `thinkingDefault: "low"` (OpenClaw), `REASONING_BUDGET=2048` (llama-server). Nota: `thinkingLevel` na compaction não existe no v2026.7.1-2 (removido). | Validar que thinking não consome budget em tool calls |
 | 02 | Turno vazio (só `reasoning_content`) | ALTA | 🔎 Pendente | Hipótese descrita; bate com a transcrição. | Confirmar no **log do cliente** que falhas têm content vazio + sem tool_calls |
-| 04 | LiteLLM `:4000` fora do ar | MÉDIA | ⬜ Pendente | Constatado: `:4000` não escutava. | Deixar o LiteLLM **supervisionado** (systemd) e healthcheck |
+| 04 | LiteLLM `:4000` fora do ar | MÉDIA | ⬜ Pendente | LiteLLM configurado no OpenClaw (`timeoutSeconds=1200`). | Deixar o LiteLLM **supervisionado** (systemd) e healthcheck |
 | 05 | Parse do XML de tool-call | MÉDIA | 🔎 Pendente | Formato/risco mapeado; sem erro no server.log. | Capturar a **saída crua** do modelo num tool com args complexos |
 | 06 | Template `raise_exception` | MÉDIA/BAIXA | 🔎 Pendente | 5 pontos de throw listados. | Ver no log do cliente o **shape do `content`** enviado (mapping?) |
 | 07 | Retry/timeout com `N_PARALLEL=1` | MÉDIA | 🔎 Pendente | Serialização confirmada. | Medir latência do turno vs timeout do cliente |
@@ -71,6 +71,15 @@ se aplicam). Achados de um turno que loopou:
   de 72k + injeção de "prompt limit exceeded"). Sem consertar o lado do cliente (compactação /
   limite), o DRY sozinho reduz mas não elimina.
 
+## Atualização da captura real (2026-07-26 21:52 — loop observado no MoltBot)
+
+Novo padrão de loop observado: **8x "Entendi perfeitamente!" em 2 min** — texto puro sem tool calls.
+OpenClaw retentava porque o modelo gerava acknowledgment sem ação. Defesa aplicada:
+- `runRetries.max=5` no OpenClaw (era 160) → limita retentativas
+- `REPEAT_PENALTY=1.05` + `FREQUENCY_PENALTY=0.1` → penaliza repetição na geração
+- `tools.loopDetection.enabled=true` → quebra loop de tool calls
+- `thinkingDefault: "low"` → reduz tokens de raciocínio
+
 ## Método de investigação (para cada HIPOTESE-NN)
 
 Cada arquivo tem: hipótese, o que explicaria, evidência a favor/contra, **como investigar**
@@ -81,13 +90,14 @@ ordem de suspeita (01→08). Marcar o `Status` no topo de cada arquivo ao conclu
 
 **Nosso lado (servidor) — praticamente fechado:**
 - ✅ H10 (OOM): confirmada + mitigada (32 GB + systemd `Restart=always`).
-- 🟡 H09 (loop): `presence_penalty=0.1` aplicado — falta só **ver em uso real** se resolveu.
+- 🟡 H09 (loop): 6 camadas de defesa ativas — `REASONING_BUDGET=2048`, `REPEAT_PENALTY=1.05`, `FREQUENCY_PENALTY=0.1`, `PRESENCE_PENALTY=0.1`, OpenClaw `runRetries.max=5` + `tools.loopDetection`. Falta validar em uso real.
 
-**Depende de você / do log do cliente (MoltBot/OpenCode) — não fecha só no servidor:**
-- ⬜ H01: ajustar compactação/`max_input` do cliente (contexto ia a 104k).
-- ⬜ H03: testar `max_tokens` maior ou desligar thinking em chamadas de tool.
-- ⬜ H04: deixar o LiteLLM supervisionado.
-- 🔎 H02, H05, H06, H07: precisam do **log do cliente** de um turno que falhou (o `server.log` não grava conteúdo).
+**Lado cliente (OpenClaw) — config aplicada:**
+- 🟡 H01/H03: `openclaw.json` corrigido (compaction, thinkingDefault=low, loopDetection). Falta aplicar na máquina OpenClaw e validar.
+- ⬜ H04: LiteLLM precisa de systemd supervision.
+
+**Depende do log do cliente — não fecha só no servidor:**
+- 🔎 H02, H05, H06, H07: precisam do **log do cliente** de um turno que falhou.
 - ⬜ H08 (baixa): reproduzir com as 26 tools reais.
 
 **Próximo passo mais útil:** reproduzir o subagente com o servidor já ajustado e trazer o **log do

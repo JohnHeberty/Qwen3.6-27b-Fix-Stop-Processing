@@ -28,6 +28,8 @@ SERVICE_DEST     ?= /etc/systemd/system/$(SERVICE_NAME).service
 LOGROTATE_DEST   ?= /etc/logrotate.d/qwen-logs
 # sudo só quando não-root (em container root, fica vazio)
 SUDO             := $(shell [ "$$(id -u)" = "0" ] && echo "" || echo sudo)
+# Limite de captura (MB) — monitor em background remove pastas antigas
+CAPTURE_MAX_MB   ?= 500
 CUDA_HOME        ?= /usr/local/cuda
 MODEL_DIR        ?= $(PROJECT_ROOT)/data/models
 MODEL_FILE       ?= Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
@@ -100,8 +102,8 @@ help:
 	@echo "  make cron-remove-clean-logs  Remove o cron de limpeza"
 	@echo ""
 	@echo "  CAPTURA DE CONTEÚDO (debug de tool-calling / loop):"
-	@echo "  make capture-on         Liga o log de prompt+geração e reinicia"
-	@echo "  make capture-off        Desliga a captura e reinicia"
+	@echo "  make capture-on         Liga log + monitor de tamanho (CAPTURE_MAX_MB, default 500MB)"
+	@echo "  make capture-off        Desliga captura e mata o monitor"
 	@echo "  make capture-report     Analisa a captura (flags: loop, turno-vazio, overflow)"
 	@echo "  make clean-capture      Remove data/logs/capture"
 	@echo ""
@@ -472,9 +474,25 @@ capture-on:
 		|| echo 'CAPTURE_LOG=true' >> "$(PROJECT_ROOT)/.env"
 	@echo "✓ CAPTURE_LOG=true — reiniciando p/ ligar a captura..."
 	@$(MAKE) _capture-restart
+	@# Inicia monitor de tamanho em background
+	@mkdir -p "$(PROJECT_ROOT)/data/logs/capture"
+	@if [ -f "$(PROJECT_ROOT)/data/logs/capture/monitor.pid" ] && kill -0 $$(cat "$(PROJECT_ROOT)/data/logs/capture/monitor.pid") 2>/dev/null; then \
+		echo "  Monitor de tamanho ja rodando (PID $$(cat "$(PROJECT_ROOT)/data/logs/capture/monitor.pid"))."; \
+	else \
+		nohup "$(PROJECT_ROOT)/scripts/capture-size-monitor.sh" >/dev/null 2>&1 & \
+		echo "  Monitor de tamanho iniciado (limite: $${CAPTURE_MAX_MB:-500}MB, intervalo: 30min)."; \
+	fi
 	@echo "  Reproduza o problema e rode:  make capture-report"
 
 capture-off:
+	@# Mata monitor de tamanho se estiver rodando
+	@if [ -f "$(PROJECT_ROOT)/data/logs/capture/monitor.pid" ]; then \
+		PID=$$(cat "$(PROJECT_ROOT)/data/logs/capture/monitor.pid"); \
+		if kill -0 "$$PID" 2>/dev/null; then \
+			kill -9 "$$PID" 2>/dev/null && echo "✓ Monitor de tamanho parado (PID $$PID)."; \
+		fi; \
+		rm -f "$(PROJECT_ROOT)/data/logs/capture/monitor.pid"; \
+	fi
 	@grep -q '^CAPTURE_LOG=' "$(PROJECT_ROOT)/.env" 2>/dev/null \
 		&& sed -i 's/^CAPTURE_LOG=.*/CAPTURE_LOG=false/' "$(PROJECT_ROOT)/.env" || true
 	@echo "✓ CAPTURE_LOG=false — reiniciando p/ desligar a captura..."
