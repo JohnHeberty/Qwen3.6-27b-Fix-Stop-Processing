@@ -1,6 +1,6 @@
 # HIPÓTESE 01 — Estouro da janela de contexto
 
-**Status:** NÃO INVESTIGADO · **Suspeita:** ALTA (evidenciada no server.log)
+**Status:** ✅ **CONFIRMADO + SEGURO** · **Suspeita:** RESOLVIDA
 
 ## Hipótese
 O agente acumula histórico (saídas de ferramentas, arquivos grandes como o `TOOLS.md`, o schema
@@ -49,3 +49,8 @@ Ligue a captura de conteúdo e reproduza o problema, depois analise:
 make capture-on && ...reproduza... && make capture-report && make capture-off
 ```
 O relatório acende as flags relevantes desta hipótese. Detalhes: [docs/how-to/debugging.md](docs/how-to/debugging.md).
+
+## Resultado do teste automatizado (2026-07-26)
+Prompt de ~480k tokens enviado ao servidor → **erro 400 corretamente**: `request (480009 tokens) exceeds the available context size (106496 tokens)`. O servidor rejeita overflow como esperado. O problema de overflow **não é do servidor** — é do **cliente** (OpenClaw/OpenCode) que envia prompts acima do limite sem compactar.
+
+**Conclusão:** H01 é real (overflow acontece), mas a defesa do servidor funciona. A correção depende do cliente: `compaction`, `max_input_tokens`, `contextPruning` no OpenClaw.

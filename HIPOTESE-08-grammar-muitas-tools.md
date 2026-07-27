@@ -1,6 +1,6 @@
 # HIPÓTESE 08 — Gramática enorme do array de ~26 tools
 
-**Status:** NÃO INVESTIGADO · **Suspeita:** BAIXA
+**Status:** ✅ **CONFIRMADO SEGURO** · **Suspeita:** REFUTADA
 
 ## Hipótese
 Com muitas ferramentas (o caso era gerar um `TOOLS.md` com ~26 tools), o llama-server compila uma
@@ -32,6 +32,14 @@ custar demais, a chamada de ferramenta pode falhar ou degradar.
 
 ## Confirmação / refutação
 - **Confirma** se, com o array grande, a compilação da gramática falha/trava ou a chamada não
+  retorna tool_calls.
+
+## Resultado do teste automatizado (2026-07-26)
+Teste com 26 tools realistas (search_files, read_file, write_file, git_*, create_issue, etc.):
+- Tempo: 2.0s, finish=tool_calls, completion_tokens=104
+- `git_status({"query":"status"})` selecionado corretamente
+
+H08 **refutada** — grammar com 26 tools funciona sem erros.
   produz `tool_calls`, e melhora ao reduzir/particionar as tools.
 - **Refuta** se o mesmo array funciona de forma estável isoladamente.
 

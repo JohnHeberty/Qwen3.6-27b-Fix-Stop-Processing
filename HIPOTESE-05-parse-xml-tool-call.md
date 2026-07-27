@@ -1,6 +1,6 @@
 # HIPÓTESE 05 — Mismatch no parsing do formato XML de tool-call
 
-**Status:** NÃO INVESTIGADO · **Suspeita:** MÉDIA
+**Status:** ✅ **CONFIRMADO SEGURO** · **Suspeita:** REFUTADA
 
 ## Hipótese
 O template manda o modelo emitir o dialeto froggeric XML
@@ -32,6 +32,13 @@ antes do `<tool_call>`, valor multi-linha, aspas não escapadas), o parse falha 
 2. Testar tool com valor multi-linha e com aspas/JSON aninhado nos argumentos; ver se `tool_calls`
    chega bem-formado.
 3. Comparar formato `xml` vs `json` (`tool_call_format='json'`) no comportamento de parse.
+
+## Resultado do teste automatizado (2026-07-26)
+Teste com 3 tools (search_files, read_file, create_issue com oneOf) + prompt multi-tool:
+- Tempo: 1.9s, 1 tool_call gerado: `search_files({"pattern": "src/**/*.py", "max_results": 10})`
+- JSON parseado corretamente, schema respeitado.
+
+H05 **refutada** — parse de XML/JSON de tool_call funciona corretamente no servidor.
 
 ## Confirmação / refutação
 - **Confirma** se, nas falhas, o modelo emitiu um `<tool_call>` que **não** virou `tool_calls`

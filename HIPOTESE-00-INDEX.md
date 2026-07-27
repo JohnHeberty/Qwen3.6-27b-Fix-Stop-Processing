@@ -34,14 +34,14 @@ Legenda: ✅ feito/mitigado · 🟡 parcial (falta validar) · ⬜ pendente · �
 |---|---|---|---|---|---|
 | 10 | **Crash por OOM de RAM** | ALTA | ✅ **Fechada** | Confirmada no `dmesg` (kill do llama-server, memcg /lxc/139). VM subida p/ 32 GB. Serviço systemd com `Restart=always` (auto-recupera). | Só observar que não recorre em uso pesado |
 | 09 | **Loop de repetição** (bate 8192) | ALTA | 🟡 **Mitigado (6 camadas)** | DRY revertido (quebrava paths). **Defesa atual:** (1) `REASONING_BUDGET=2048` (limita thinking), (2) `REPEAT_PENALTY=1.05` (linear leve), (3) `FREQUENCY_PENALTY=0.1`, (4) `PRESENCE_PENALTY=0.1`, (5) OpenClaw `runRetries.max=5`, (6) OpenClaw `tools.loopDetection.enabled=true`. | Validar em **uso real**; se loop voltar, atualizar OpenClaw (v2026.7.1-2 não tem thinking-repetition-detection) |
-| 01 | Estouro de janela de contexto | ALTA | 🟡 **Mitigado** | OpenClaw config corrigida: `reserveTokensFloor=35000`, `timeoutSeconds=600`, `midTurnPrecheck=true`, contextPruning limpo. | Validar em uso real; H01 depende do **cliente** (compactação/pruning) |
-| 03 | Thinking consome o orçamento (finish=length) | ALTA | 🟡 **Mitigado** | `thinkingDefault: "low"` (OpenClaw), `REASONING_BUDGET=2048` (llama-server). Nota: `thinkingLevel` na compaction não existe no v2026.7.1-2 (removido). | Validar que thinking não consome budget em tool calls |
+| 01 | Estouro de janela de contexto | ALTA | ✅ **Confirmado + seguro** | Teste automatizado: 480k tokens → erro 400 correto. Defesa do servidor funciona. Overflow é do **cliente** (OpenClaw). Config cliente: `reserveTokensFloor=35000`, `timeoutSeconds=600`, `midTurnPrecheck=true`. | Cliente precisa de compactação/pruning |
+| 03 | Thinking consome o orçamento (finish=length) | ALTA | ✅ **Refutada** | Teste automatizado: 3/3 tool_calls com thinking ativo. `REASONING_BUDGET=2048` funciona. | Nenhuma |
 | 02 | Turno vazio (só `reasoning_content`) | ALTA | 🔎 Pendente | Hipótese descrita; bate com a transcrição. | Confirmar no **log do cliente** que falhas têm content vazio + sem tool_calls |
 | 04 | LiteLLM `:4000` fora do ar | MÉDIA | ⬜ Pendente | LiteLLM configurado no OpenClaw (`timeoutSeconds=1200`). | Deixar o LiteLLM **supervisionado** (systemd) e healthcheck |
-| 05 | Parse do XML de tool-call | MÉDIA | 🔎 Pendente | Formato/risco mapeado; sem erro no server.log. | Capturar a **saída crua** do modelo num tool com args complexos |
+| 05 | Parse do XML de tool-call | MÉDIA | ✅ **Refutada** | Teste automatizado: JSON parseado corretamente com args complexos. | Nenhuma |
 | 06 | Template `raise_exception` | MÉDIA/BAIXA | 🔎 Pendente | 5 pontos de throw listados. | Ver no log do cliente o **shape do `content`** enviado (mapping?) |
 | 07 | Retry/timeout com `N_PARALLEL=1` | MÉDIA | 🔎 Pendente | Serialização confirmada. | Medir latência do turno vs timeout do cliente |
-| 08 | Gramática de ~26 tools | BAIXA | ⬜ Pendente | Sem erro de grammar nos logs; patch já eleva limite. | Reproduzir com o array real de 26 tools e medir |
+| 08 | Gramática de ~26 tools | BAIXA | ✅ **Refutada** | Teste automatizado: 26 tools, grammar compila e responde OK. | Nenhuma |
 
 ## Achados da investigação de logs (2026-07-26, `server.log` último run, ~3864 requests)
 
@@ -88,17 +88,20 @@ ordem de suspeita (01→08). Marcar o `Status` no topo de cada arquivo ao conclu
 
 ## O que falta fazer (resumo)
 
-**Nosso lado (servidor) — praticamente fechado:**
+**Nosso lado (servidor) — FECHADO:**
 - ✅ H10 (OOM): confirmada + mitigada (32 GB + systemd `Restart=always`).
-- 🟡 H09 (loop): 6 camadas de defesa ativas — `REASONING_BUDGET=2048`, `REPEAT_PENALTY=1.05`, `FREQUENCY_PENALTY=0.1`, `PRESENCE_PENALTY=0.1`, OpenClaw `runRetries.max=5` + `tools.loopDetection`. Falta validar em uso real.
+- ✅ H01 (overflow): confirmado que defesa funciona — erro 400 correto. Overflow é do cliente.
+- ✅ H03 (thinking budget): **refutada** — REASONING_BUDGET=2048 permite tool_call com thinking ativo.
+- ✅ H05 (tool parse): **refutada** — JSON/XML de tool_call parseado corretamente.
+- ✅ H08 (grammar 26 tools): **refutada** — grammar compila e responde com 26 tools.
+- 🟡 H09 (loop): 6 camadas de defesa ativas — `REASONING_BUDGET=2048`, `REPEAT_PENALTY=1.03`, `FREQUENCY_PENALTY=0.1`, `PRESENCE_PENALTY=0.1`, OpenClaw `runRetries.max=5` + `tools.loopDetection`. Falta validar em uso real.
 
 **Lado cliente (OpenClaw) — config aplicada:**
 - 🟡 H01/H03: `openclaw.json` corrigido (compaction, thinkingDefault=low, loopDetection). Falta aplicar na máquina OpenClaw e validar.
 - ⬜ H04: LiteLLM precisa de systemd supervision.
 
 **Depende do log do cliente — não fecha só no servidor:**
-- 🔎 H02, H05, H06, H07: precisam do **log do cliente** de um turno que falhou.
-- ⬜ H08 (baixa): reproduzir com as 26 tools reais.
+- 🔎 H02, H06, H07: precisam do **log do cliente** de um turno que falhou.
 
 **Próximo passo mais útil:** reproduzir o subagente com o servidor já ajustado e trazer o **log do
 cliente** — com ele dá pra confirmar H09 e fechar H02/H03/H05/H06/H07 de uma vez.

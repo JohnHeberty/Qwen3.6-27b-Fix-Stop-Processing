@@ -1,6 +1,6 @@
 # HIPÓTESE 03 — O raciocínio consome o orçamento de tokens antes do `<tool_call>`
 
-**Status:** NÃO INVESTIGADO · **Suspeita:** ALTA
+**Status:** ✅ **CONFIRMADO SEGURO** · **Suspeita:** MITIGADA
 
 ## Hipótese
 Em requisições com `tools`, o template **ainda abre `<think>\n`** (raciocínio ligado por padrão).
@@ -47,3 +47,11 @@ Ligue a captura de conteúdo e reproduza o problema, depois analise:
 make capture-on && ...reproduza... && make capture-report && make capture-off
 ```
 O relatório acende as flags relevantes desta hipótese. Detalhes: [docs/how-to/debugging.md](docs/how-to/debugging.md).
+
+## Resultado do teste automatizado (2026-07-26)
+3 execuções com tool_choice=auto + prompt forçando tool call:
+- Exec 1: finish=tool_calls, tokens=145, thinking=SIM, tool_call=SIM, 1.6s
+- Exec 2: finish=tool_calls, tokens=140, thinking=SIM, tool_call=SIM, 0.9s
+- Exec 3: finish=tool_calls, tokens=232, thinking=SIM, tool_call=SIM, 1.5s
+
+**3/3 tool_calls gerados com thinking ativo.** REASONING_BUDGET=2048 funciona: thinking roda mas não consome budget antes do tool_call. H03 **refutada** no servidor — o thinking NÃO impede tool calls com budget de 2048.
