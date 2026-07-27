@@ -15,18 +15,18 @@
         }
       },
       "compaction": {
-        "reserveTokensFloor": 35001,
-        "reserveTokens": 10000,
+        "reserveTokensFloor": 50000,
+        "reserveTokens": 20000,
         "midTurnPrecheck": {
           "enabled": true
         },
-        "timeoutSeconds": 600,
+        "timeoutSeconds": 1200,
         "notifyUser": true,
         "memoryFlush": {
           "softThresholdTokens": 8000
         },
         "mode": "safeguard",
-        "keepRecentTokens": 3000,
+        "keepRecentTokens": 5000,
         "truncateAfterCompaction": true
       },
       "memorySearch": {
