@@ -60,9 +60,11 @@
 
 ## Entrega de arquivos
 
-1. Gere o arquivo.
-2. Copie para `/tmp/openclaw/`.
-3. Envie com a diretiva `MEDIA:` (ou a ferramenta `message`).
+1. Gere o arquivo **direto em `/tmp/openclaw/`**.
+2. Envie de lá com a ferramenta `message` (ou a diretiva `MEDIA:`).
 
-Se um `.html` for aceito mas não chegar, converta para PDF e reenvie — houve um bug conhecido do
-OpenClaw em que anexos HTML eram descartados em silêncio na etapa de staging.
+HTML funciona normalmente a partir desse diretório — verificado em 28/07 na 2026.7.1-2.
+
+⚠️ **Não copie o arquivo para outro lugar antes de enviar.** Fora de `/tmp/openclaw/` o anexo é
+descartado **em silêncio**: o envio reporta sucesso e nada chega. Se um anexo não aparecer,
+confira o caminho com `ls -la /tmp/openclaw/` — não reenvie às cegas.

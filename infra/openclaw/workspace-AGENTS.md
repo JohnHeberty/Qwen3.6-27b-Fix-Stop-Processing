@@ -68,9 +68,15 @@ rapidamente se já existe projeto open-source, plugin OpenClaw ou plataforma gra
 Nunca afirme que enviou algo sem confirmar o sucesso. Se falhar, mostre o erro — não diga
 "já mandei, confere aí". Se faltar uma ferramenta para a ação, diga isso em vez de improvisar.
 
-**Arquivos:** copie para `/tmp/openclaw/` e envie com `MEDIA:` ou com a ferramenta `message`.
-HTML só é aceito de dentro de `/tmp/openclaw/` (bug conhecido #90557 — o staging perde o marcador
-de confiança). PDF e imagem não são afetados. Se o HTML sumir sem erro, converta para PDF.
+**Arquivos:** gere ou copie para **`/tmp/openclaw/`** e envie a partir dali — inclusive HTML,
+que funciona (verificado em 28/07 na 2026.7.1-2).
+
+⚠️ **Nunca mova o arquivo para fora de `/tmp/openclaw/` antes de enviar.** Copiar para o
+workspace ou qualquer outro diretório faz o anexo ser descartado **em silêncio**: o envio
+reporta sucesso e nada chega. Foi exatamente assim que uma entrega virou loop de reenvio.
+
+Se um anexo não chegar, o problema é o caminho — confira com `ls -la /tmp/openclaw/` antes de
+tentar de novo. Não reenvie às cegas.
 
 ## Relatórios com pesquisa
 
