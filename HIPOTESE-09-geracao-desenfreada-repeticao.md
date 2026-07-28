@@ -28,6 +28,42 @@ ruim" de "path que o agente precisa repetir". Resultado: comandos/paths cortados
 
 NÃO reativar o DRY em uso agêntico em nenhuma dessas etapas.
 
+### ⚠️ CAUSA REAL da "repetição" em produção: compactação destrutiva do cliente (2026-07-28)
+
+**Não era sampling.** As mensagens repetidas no Telegram eram **gerações SEPARADAS** — 7 mensagens
+distintas, cada uma com redação diferente. A diversidade entre elas *prova* que o sampling estava
+saudável. Nenhum `presence_penalty` conserta isso.
+
+Evidência no `data/logs/server.log` (13:42):
+
+```
+task 1821 -> prompt 52894 tokens     <- conversa cheia
+task 2019 -> prompt  2132 tokens     <- COLAPSO (-96%)
+task 2147 -> prompt  2055 tokens
+task 2239 -> prompt  1982 tokens
+task 2393 -> prompt  2135 tokens     <- 6 tasks ~5s de intervalo =
+task 2549 -> prompt  2143 tokens        as 6 mensagens repetidas
+task 2651 -> prompt  2022 tokens
+```
+
+A compactação do OpenClaw disparou aos ~53k e deixou ~2k. O modelo perdeu a memória de que já tinha
+respondido → re-anuncia "vou entregar agora" → o cliente re-invoca → repete. É um **loop de nível de
+agente**, não de geração.
+
+Config culpada (`agents.defaults.compaction`), com `contextWindow: 106496`:
+
+| Campo | Era | Efeito | Agora |
+|---|---|---|---|
+| `reserveTokensFloor` | 50000 | compacta com só ~56k usados (metade da janela desperdiçada) | 12288 |
+| `reserveTokens` | 20000 | reserva 20k p/ uma saída de no máx. 8192 | 12288 |
+| `keepRecentTokens` | **5000** | **após compactar, joga fora todo o resto → o colapso** | 32000 |
+
+`keepRecentTokens` é o principal: mesmo com o floor já corrigido para 20000, manter 5000 aqui
+reproduz o loop na próxima compactação.
+
+**Lição:** antes de culpar sampling, confira o *tamanho do prompt* por task no `server.log`. Uma
+queda brusca = o cliente destruiu o contexto; nenhum parâmetro do servidor resolve isso.
+
 ### Experimento que separou os dois modos de falha (2026-07-28)
 Baixamos `PRESENCE_PENALTY` de 1.5 → 0.0 (seguindo a recomendação *base* do Qwen, que é para
 modelos não-quantizados). Resultado observado em produção (OpenClaw/Telegram):

@@ -10,8 +10,8 @@
       },
       "thinkingDefault": "medium",
       "compaction": {
-        "reserveTokensFloor": 50000,
-        "reserveTokens": 20000,
+        "reserveTokensFloor": 12288,
+        "reserveTokens": 12288,
         "midTurnPrecheck": {
           "enabled": true
         },
@@ -21,28 +21,18 @@
           "softThresholdTokens": 8000
         },
         "mode": "safeguard",
-        "keepRecentTokens": 5000,
+        "keepRecentTokens": 32000,
         "truncateAfterCompaction": true
       },
       "memorySearch": {
         "enabled": true,
-        "sync": {
-          "embeddingBatchTimeoutSeconds": 600
-        },
-        "query": {
-          "hybrid": {
-            "enabled": true,
-            "vectorWeight": 0.7,
-            "textWeight": 0.3
-          }
-        },
-        "experimental": {
-          "sessionMemory": true
-        },
-        "sources": [
-          "memory",
-          "sessions"
-        ]
+        "provider": "openai-compatible",
+        "model": "qwen3-embedding:0.6b-cpu-smart",
+        "fallback": "none",
+        "remote": {
+          "baseUrl": "http://100.91.54.69:4000/v1/",
+          "apiKey": "${LITELLM_API_KEY}"
+        }
       },
       "contextLimits": {
         "toolResultMaxChars": 16000
