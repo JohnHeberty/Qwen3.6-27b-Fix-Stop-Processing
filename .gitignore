@@ -1,6 +1,9 @@
 # Credenciais — nunca versionar
 .env
 
+# Configs de cliente com valores REAIS (as versionadas usam placeholders ${VAR})
+infra/openclaw/*.local.json
+
 # Modelo HF (~16 GB) — nunca versionar
 data/models/
 
