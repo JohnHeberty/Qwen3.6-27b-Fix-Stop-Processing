@@ -6,13 +6,7 @@
         "primary": "litellm/qwen"
       },
       "models": {
-        "litellm/qwen": {
-          "params": {
-            "chat_template_kwargs": {
-              "auto_disable_thinking_with_tools": true
-            }
-          }
-        }
+        "litellm/qwen": {}
       },
       "compaction": {
         "reserveTokensFloor": 50000,
