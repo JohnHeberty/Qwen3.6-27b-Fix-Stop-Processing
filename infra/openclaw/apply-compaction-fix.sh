@@ -30,12 +30,18 @@ echo "════════════════════════�
 set_cfg agents.defaults.compaction.keepRecentTokens 32000 \
     "CRITICO: era 5000 -> apos compactar jogava fora quase todo o contexto."
 
-# ── Recupera contexto util (janela e 106496, saida maxima e 8192) ────────────
-set_cfg agents.defaults.compaction.reserveTokensFloor 12288 \
-    "Era 20000. Piso de reserva; 12288 = 8192 de saida + folga p/ o resumo."
+# ── Teto de saida: 8192 nao cabia um HTML inteiro ────────────────────────────
+# Sintoma: stopReason=length -> "Agent couldn't generate a response" no Telegram.
+# Precisa bater com N_PREDICT=16384 no .env do llama-server.
+set_cfg models.providers.litellm.models[0].maxTokens 16384 \
+    "Era 8192 — o modelo era cortado no meio da escrita do arquivo."
 
-set_cfg agents.defaults.compaction.reserveTokens 12288 \
-    "Era 20000 — reservava 20k para uma saida que nunca passa de 8192."
+# ── Reserva de saida (janela 106496; entrada util = 106496 - 20480 = 86016) ──
+set_cfg agents.defaults.compaction.reserveTokensFloor 20480 \
+    "Piso de reserva: 16384 de saida + folga para o resumo da compactacao."
+
+set_cfg agents.defaults.compaction.reserveTokens 20480 \
+    "Tem de ser >= maxTokens, senao a saida nao cabe na reserva."
 
 # ── Opcional (cosmetico neste backend) ───────────────────────────────────────
 # O llama.cpp so honra reasoning_effort='none'; low/medium/high nao mudam a
