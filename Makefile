@@ -368,7 +368,7 @@ $(SENTINEL_MODEL): $(SENTINEL_VENV) install-python-deps
 	@mkdir -p "$(MODEL_DIR)"
 	@if [ -z "$(HF_TOKEN)" ]; then \
 		echo "  AVISO: HUGGINGFACE_TOKEN não definido em .env"; \
-		echo "  Copie .env.example para .env e preencha o token."; \
+		echo "  Copie env-examples/<modelo>/.env.example para .env e preencha o token."; \
 	fi
 	@MODEL_HF_RESOLVED="$${MODEL_HF:-unsloth/Qwen3.6-35B-A3B-MTP-GGUF}"; \
 	echo "      Repositório: $$MODEL_HF_RESOLVED"; \

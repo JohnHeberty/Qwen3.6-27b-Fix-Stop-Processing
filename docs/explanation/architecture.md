@@ -78,7 +78,7 @@ The build applies a few local patches (see `Makefile` and `llama-cpp-grammar-pat
 ```
 qwen3/
 ├── .env                    local configuration (not versioned)
-├── .env.example            configuration template (versioned)
+├── env-examples/           configuration templates, one folder per model (versioned)
 ├── Makefile                full setup and operations pipeline
 ├── requirements.txt        Python dependencies
 │

@@ -1,9 +1,9 @@
 # Reference — Configuration (`.env`)
 
-Copy `.env.example` to `.env` and edit as needed.
+Copy the `.env.example` of the model you will run (see [`env-examples/`](../../env-examples/README.md)) to `.env` and edit as needed.
 
 ```bash
-cp .env.example .env
+cp env-examples/qwen3.6-35b-a3b/.env.example .env   # ou qwen3.6-27b-dense/
 ```
 
 ---
@@ -137,4 +137,4 @@ ENABLE_MTP=false make start # disable MTP
 
 ## Security
 
-The `.env` file contains `HUGGINGFACE_TOKEN` and is listed in `.gitignore` — it is never committed. The `.env.example` has a placeholder token (`hf_XXXXX`) and is the only versioned configuration file.
+The `.env` file contains `HUGGINGFACE_TOKEN` and is listed in `.gitignore` — it is never committed. The templates under [`env-examples/`](../../env-examples/README.md) carry a placeholder token (`hf_XXXXX`) and are the only versioned configuration files.

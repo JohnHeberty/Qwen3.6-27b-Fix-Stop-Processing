@@ -48,7 +48,7 @@ cd qwen3
 ## Step 2 — Configure `.env`
 
 ```bash
-cp .env.example .env
+cp env-examples/qwen3.6-35b-a3b/.env.example .env   # ou qwen3.6-27b-dense/
 ```
 
 Edit `.env` and fill in the required token:

@@ -13,7 +13,7 @@
 
 ```bash
 git clone https://github.com/JohnHeberty/Qwen3.6-27b-Fix-Stop-Processing.git qwen3
-cd qwen3 && cp .env.example .env
+cd qwen3 && cp env-examples/qwen3.6-35b-a3b/.env.example .env
 # Edit .env → set HUGGINGFACE_TOKEN
 make setup    # install everything (20-40 min)
 make start    # wait for "llama server listening"
