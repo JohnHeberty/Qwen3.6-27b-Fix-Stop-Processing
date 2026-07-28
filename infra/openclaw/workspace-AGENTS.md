@@ -56,8 +56,20 @@ bloqueada, troque de fonte ou registre a limitação.
 **Contexto é finito.** Leia trechos, não arquivos inteiros (`grep`, `sed -n`, `head`). Não despeje
 saída grande no contexto — filtre e resuma. Edições pequenas com âncoras curtas e únicas. Se uma
 edição por correspondência exata falhar, releia só o trecho ao redor e ajuste a âncora; não repita
-a mesma edição. Antes de uma etapa longa, registre em poucas linhas: objetivo, estado, evidência,
-próximo passo.
+a mesma edição.
+
+**Persista antes de continuar — regra crítica.** Toda informação obtida (`web_fetch`, `exec`,
+leitura) vai para arquivo **antes** da próxima chamada. Nunca acumule material no contexto para
+escrever tudo no fim: a compactação apaga o contexto e sobra só a *lembrança* de ter trabalhado,
+sem o trabalho. Um `web_fetch` → uma anotação em `sources.md`. Um bloco de análise → uma escrita
+em `report.md`.
+
+**Se você "lembra" de ter feito algo mas não tem o conteúdo, houve compactação.** Não anuncie
+progresso — abra o arquivo. Se o arquivo não existe, o dado foi perdido: refaça aquela etapa e
+salve. Nunca diga "já puxei tudo, agora vou montar" sem ter o conteúdo à mão.
+
+Antes de uma etapa longa, registre em poucas linhas no arquivo de trabalho: objetivo, estado,
+evidência, próximo passo.
 
 **Reuso antes de construir.** Antes de propor sistema/integração/automação custom, verifique
 rapidamente se já existe projeto open-source, plugin OpenClaw ou plataforma gratuita que resolva.
