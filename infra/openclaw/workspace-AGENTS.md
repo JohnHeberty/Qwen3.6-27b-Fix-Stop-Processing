@@ -68,26 +68,66 @@ rapidamente se já existe projeto open-source, plugin OpenClaw ou plataforma gra
 Nunca afirme que enviou algo sem confirmar o sucesso. Se falhar, mostre o erro — não diga
 "já mandei, confere aí". Se faltar uma ferramenta para a ação, diga isso em vez de improvisar.
 
-**Arquivos:** gere ou copie para **`/tmp/openclaw/`** e envie a partir dali — inclusive HTML,
-que funciona (verificado em 28/07 na 2026.7.1-2).
+**Arquivos.** O original **fica no acervo**; `/tmp/openclaw/` é só a rampa de saída. **Copie,
+nunca mova** — mover tira o arquivo de `reports/` e o próximo "atualiza aquele relatório" não
+acha mais nada.
 
-⚠️ **Nunca mova o arquivo para fora de `/tmp/openclaw/` antes de enviar.** Copiar para o
-workspace ou qualquer outro diretório faz o anexo ser descartado **em silêncio**: o envio
-reporta sucesso e nada chega. Foi exatamente assim que uma entrega virou loop de reenvio.
+```bash
+cp reports/<slug>/report.html /tmp/openclaw/<slug>-AAAA-MM-DD.html
+# e envie a partir de /tmp/openclaw/
+```
+
+⚠️ **Só se envia de dentro de `/tmp/openclaw/`.** Anexo em qualquer outro diretório é descartado
+**em silêncio**: o envio reporta sucesso e nada chega. Foi exatamente assim que uma entrega virou
+loop de reenvio. HTML funciona normalmente de lá (verificado em 28/07 na 2026.7.1-2).
 
 Se um anexo não chegar, o problema é o caminho — confira com `ls -la /tmp/openclaw/` antes de
 tentar de novo. Não reenvie às cegas.
 
+## Acervo — onde tudo é guardado
+
+Todo entregável tem **casa fixa** no workspace. Nada de arquivo solto na raiz nem só em `/tmp`.
+
+```
+reports/
+  INDEX.md              ← uma linha por relatório (slug · título · data · 1 frase)
+  <slug>/
+    report.md           ← FONTE DA VERDADE: dados + análise
+    report.html         ← render gerado do .md
+    sources.md          ← URL, data de acesso, o que veio de cada fonte
+    CHANGELOG.md        ← uma linha por revisão (data + o que mudou)
+temp/                   ← rascunho descartável, pode apagar a qualquer momento
+```
+
+O `slug` é **estável e sem data** (ex.: `rtx3090-modelos-llm`, `qwen36-27b-vs-35b`). A data vive
+no `CHANGELOG.md` e no nome do arquivo entregue. Nada em `reports/` entra no prompt — pode
+crescer à vontade.
+
+## Antes de produzir qualquer coisa: procure o que já existe
+
+**Obrigatório, sempre.** Nunca recomece do zero um trabalho que já foi feito.
+
+```
+grep -i "<tema>" reports/INDEX.md
+```
+
+- **Achou** → leia o `report.md`, **atualize** o que mudou, acrescente linha no `CHANGELOG.md`,
+  regenere o HTML. Na resposta, diga o que mudou desde a versão anterior.
+- **Não achou** → crie `reports/<slug>/` e acrescente a linha no `INDEX.md`.
+
+Refazer do zero algo que já está no acervo é desperdício e perde o histórico.
+
 ## Relatórios com pesquisa
 
-1. **Escopo** — tema, período, critérios, formato final.
-2. **Pesquisar** — `web_fetch` nas fontes oficiais (o `web_search` com DuckDuckGo devolve portais
-   genéricos; para notícias use o RSS do Google News). Registre URL, data e evidência.
-3. **Nota bruta** em `temp/` — dados coletados com fonte, comparação lado a lado, análise crítica
-   separada dos dados, limitações e nível de confiança.
-4. **Validar** — números, links, duplicações; toda afirmação importante com fonte.
-5. **HTML com a skill `frontend-design`** — nunca escreva HTML na mão.
-6. **Entregar** conforme a seção acima.
+1. **Escopo** — tema, período, critérios, formato final. Defina o `slug`.
+2. **Verificar acervo** — o passo acima. Atualizar > recriar.
+3. **Pesquisar** — `web_fetch` nas fontes oficiais (o `web_search` com DuckDuckGo devolve portais
+   genéricos; para notícias use o RSS do Google News). Anote em `sources.md`: URL, data, o que veio.
+4. **Escrever o `report.md`** — dados brutos separados da análise; limitações e nível de confiança.
+5. **Validar** — números, links, duplicações; toda afirmação importante com fonte.
+6. **Gerar o `report.html`** com a skill `frontend-design` — nunca escreva HTML na mão.
+7. **Registrar** no `CHANGELOG.md` e no `INDEX.md`.
+8. **Entregar** — veja abaixo.
 
 ## Telegram
 
