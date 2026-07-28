@@ -47,12 +47,12 @@ make stop / restart / status / logs
 
 **Tests / benchmarks** (require the server to be running on :8000):
 ```bash
-make test                                   # tests/test_api.py — 12 integration tests (health, models, chat, thinking mode, streaming, system prompt, + 6 tool-calling: simple call, tool_choice=required, oneOf schema, correction-after-error, parallel, long multi-tool convo)
+make test                                   # tests/test_api.py — 13 integration tests (health, models, chat, thinking mode, streaming, system prompt, + 6 tool-calling: simple call, tool_choice=required, oneOf schema, correction-after-error, parallel, long multi-tool convo, + reasoning contract: finish=stop with non-empty content)
 python3 tests/test_api.py                   # same, run directly
 make benchmark ARGS="--start 16384 --step 16384"   # tests/benchmark.py — context-size sweep, restarts server between runs
 python3 tests/sweep_mtp.py --max-n 8         # sweep MTP_TOKENS (draft count) at fixed context
 ```
-There is no unit-test framework/single-test-by-name mechanism — `test_api.py` runs all 12 checks in
+There is no unit-test framework/single-test-by-name mechanism — `test_api.py` runs all 13 checks in
 one process each time (each has real asserts and fails on wrong content; `BASE_URL`/`TEST_MODEL` are
 overridable via env). The template itself has a separate render-level suite:
 `python3 data/templates/scripts/test_template.py` (42 checks, incl. the `error_warnings` default-off). `benchmark.py`/`sweep_mtp.py` write CSVs to `data/temp/` and support
@@ -113,13 +113,25 @@ path (`make start`) execs `llama-server` directly and does not go through `src/s
   on hitting the budget llama.cpp closes `</think>` and forces the answer/tool-call — capping runaway
   *reasoning* **without** shrinking context (still 104k) or breaking tool-calls. Preferred over
   penalties/DRY for this model. See `HIPOTESE-09`.
+- `REASONING_MODE` / `REASONING_FORMAT` — `on` / `deepseek`, passed **explicitly** (llama.cpp's
+  default is `auto` = detect from the chat template). Without them, a template change could silently
+  stop populating `message.reasoning_content`, which is what OpenClaw/OpenCode display. Don't set
+  these back to `auto` "because it works" — the point is that the contract stops depending on the
+  template. `REASONING_BUDGET_MESSAGE` is empty by default (flag omitted = llama.cpp's natural cut);
+  it was previously hardcoded in the exec line and is now a variable.
+- **Client-side `reasoning_effort` does nothing here.** In llama.cpp only `none` (disable) is
+  honored; `low`/`medium`/`high` do not change thinking depth. Depth is controlled *only* by
+  `REASONING_BUDGET` on the server. Don't chase `/think high` in OpenClaw expecting an effect.
 - `DRY_MULTIPLIER` (+ `DRY_BASE`/`DRY_ALLOWED_LENGTH`/`DRY_PENALTY_LAST_N`) — DRY sampler,
   **OFF by default (`0`)**. We tried it against the verbatim reasoning-loop, but in agentic/coding use
   it **truncated repeated file paths** (the model kept emitting `src/…/file.py`; DRY penalized the
   repeat and cut the path mid-token → broken tool calls; confirmed in capture, see `HIPOTESE-09`).
-  Do not enable for coding. Anti-loop is instead handled by: small client context (~60k),
-  `error_warnings`, and `presence_penalty=0.1`; if a verbatim loop returns, prefer a mild
-  `REPEAT_PENALTY=1.05` (linear) over DRY (exponential, path-destroying).
+  Do not enable for coding. Anti-loop is instead handled by `REASONING_BUDGET` (cuts the thought-loop
+  at the root) plus `error_warnings` (breaks tool-retry loops) — **with full 104k client context, not
+  a reduced one**. `PRESENCE_PENALTY` is `0.0` (Qwen base recommendation); note the Qwen3 model card
+  suggests `1.5` for *quantized* models in thinking mode, which does apply to our Q4_K_M — that is the
+  documented fallback if repetition returns (after first lowering `REASONING_BUDGET` to 1024). Never
+  re-enable DRY.
 - `CAPTURE_LOG` — `false` by default. `true` (or `make capture-on`) logs real request/response
   **content** (`--log-prompts-dir` + `--verbose` to `data/logs/capture/`) so `scripts/analyze-capture.py`
   (`make capture-report`) can flag loops/empty-turns/overflow. Opt-in and voluminous; see

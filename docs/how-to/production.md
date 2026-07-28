@@ -120,6 +120,47 @@ N_CTX=106496           # 104k — do not raise without re-benchmarking, see note
 
 ---
 
+## Client configs & secrets
+
+The client configs under `infra/openclaw/` are versioned as **examples** and use placeholders:
+
+| Placeholder | What goes there |
+|---|---|
+| `${OPENCLAW_BOT_TOKEN}` | Telegram bot token (from @BotFather) |
+| `${OPENCLAW_GATEWAY_TOKEN}` | OpenClaw gateway auth token |
+| `${LITELLM_API_KEY}` | Must match `LITELLM_MASTER_KEY` in `infra/litellm/.env` |
+
+Never commit real values. Keep the filled-in copy as `infra/openclaw/*.local.json` (gitignored), or
+inject the values through the environment on the OpenClaw host.
+
+> These three were previously committed in plaintext and pushed to the public remote. The history was
+> purged with `git filter-repo` and force-pushed, **but a purge is not a rotation** — anything already
+> cloned or cached keeps the old values. If a secret ever lands in a commit, rotate it first, then
+> clean the history.
+
+Also note `LITELLM_MASTER_KEY` defaults to `sk-litellm-master` throughout the docs. That is a weak,
+publicly documented default — change it to a real random key before exposing LiteLLM beyond localhost.
+
+## Thinking / reasoning depth
+
+The server sets the reasoning contract explicitly (`REASONING_MODE=on`, `REASONING_FORMAT=deepseek`,
+`REASONING_BUDGET=2048` — see [configuration.md](../reference/configuration.md)).
+
+**Client-side `reasoning_effort` has almost no effect against this backend.** llama.cpp honors only
+`none` (turns reasoning off); `low`, `medium` and `high` do *not* change how deeply the model thinks.
+Practical consequences for OpenClaw:
+
+- `/think off` genuinely disables reasoning.
+- `/think medium` keeps it on.
+- `/think high` gives you nothing beyond `medium` — don't expect better answers from it.
+- The only real depth knob is `REASONING_BUDGET` **on this server**: raise it (3072–4096) if answers
+  are shallow on hard problems, lower it (1024) if you see repetitive thinking.
+
+`agents.defaults.thinkingDefault` is set to `medium` in `infra/openclaw/openclaw.json` so the global
+default is explicit; a session-level `/think` override still wins over it.
+
+---
+
 ## Troubleshooting
 
 ### Server won't start — "model not found"

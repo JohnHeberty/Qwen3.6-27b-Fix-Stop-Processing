@@ -18,10 +18,21 @@ cortado), porque o path se repete no contexto e o DRY penaliza a repetição —
 ruim" de "path que o agente precisa repetir". Resultado: comandos/paths cortados → tool calls falham
 → loop de retry (42 prompts quase-idênticos na captura). **DRY_MULTIPLIER=0 agora.**
 
-**Defesa anti-loop atual (sem DRY):** (1) contexto do cliente reduzido p/ ~60k (tira da zona de
-loop), (2) `error_warnings` especialista quebra loop de retry após 2 falhas, (3) `presence_penalty=0.1`
-leve. Se o loop de raciocínio verbatim voltar, usar `REPEAT_PENALTY=1.05` (linear, bem menos
-destrutivo p/ paths que o DRY exponencial) — NÃO reativar o DRY em uso agêntico.
+**Defesa anti-loop atual (2026-07-28, sem DRY e sem reduzir contexto):**
+1. `REASONING_BUDGET=2048` — corta o thought-loop na RAIZ (é o fix principal).
+2. `error_warnings` especialista — quebra o loop de *retry* após 2 falhas de ferramenta.
+3. Contexto do cliente **cheio, 104k** (106496). A redução para ~60k que constava aqui foi
+   **revertida**: jogar fora contexto era contornar o sintoma, não corrigir o loop.
+4. `PRESENCE_PENALTY=0.0` — a penalidade leve (0.1) e depois 1.5 foram removidas por serem
+   redundantes com o (1). **Ordem de escalada se o loop voltar:** baixar `REASONING_BUDGET`
+   (2048→1024) → só então voltar `PRESENCE_PENALTY=1.5` (valor que o model card do Qwen3
+   recomenda para modelos *quantizados* em thinking mode, e nós rodamos Q4_K_M).
+
+NÃO reativar o DRY em uso agêntico em nenhuma dessas etapas.
+
+**Regressão automatizada:** `tests/test_api.py` agora tem o teste "Contrato de reasoning" — afirma
+`finish_reason == "stop"` com `reasoning_content` E `content` não-vazios. Se alguém puser um
+`REASONING_BUDGET` ruim, o teste pega (13/13 hoje).
 
 ## Confirmação (conteúdo real do loop, 2026-07-26)
 O usuário colou o raciocínio de um turno que "estourou limite": o modelo repetiu **o mesmo

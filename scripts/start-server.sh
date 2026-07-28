@@ -43,10 +43,10 @@ TEMPERATURE="${TEMPERATURE:-0.6}"
 TOP_K="${TOP_K:-20}"
 TOP_P="${TOP_P:-0.95}"
 MIN_P="${MIN_P:-0.0}"
-REPEAT_PENALTY="${REPEAT_PENALTY:-1.03}"
+REPEAT_PENALTY="${REPEAT_PENALTY:-1.0}"
 REPEAT_LAST_N="${REPEAT_LAST_N:-64}"
 FREQUENCY_PENALTY="${FREQUENCY_PENALTY:-0.0}"
-PRESENCE_PENALTY="${PRESENCE_PENALTY:-0.1}"
+PRESENCE_PENALTY="${PRESENCE_PENALTY:-0.0}"
 SEED="${SEED:--1}"
 N_PREDICT="${N_PREDICT:-8192}"
 
@@ -54,6 +54,19 @@ N_PREDICT="${N_PREDICT:-8192}"
 # fecha o </think> e força o modelo a responder/agir. Fix real do thought-loop do Qwen3.6
 # (repetir parágrafo até 8192) SEM reduzir contexto nem quebrar tool-calling. -1 = ilimitado.
 REASONING_BUDGET="${REASONING_BUDGET:-2048}"
+
+# Contrato de reasoning — EXPLICITO de proposito. Os defaults do llama.cpp sao 'auto'
+# (detecta do template): se o template mudar, o reasoning_content que o OpenClaw consome
+# some sem aviso. Fixamos aqui para o contrato nao depender do template.
+#   REASONING_MODE   on|off|auto  — 'on' mantem o thinking ligado
+#   REASONING_FORMAT deepseek     — poe o raciocinio em message.reasoning_content
+#                                   (none = deixa cru no content; deepseek-legacy = <think> no content)
+REASONING_MODE="${REASONING_MODE:-on}"
+REASONING_FORMAT="${REASONING_FORMAT:-deepseek}"
+
+# Mensagem injetada antes do fecha-</think> quando o budget estoura. Vazio = flag omitida
+# (o corte natural do llama.cpp). Preencha so se o modelo ficar mudo apos o corte.
+REASONING_BUDGET_MESSAGE="${REASONING_BUDGET_MESSAGE:-}"
 
 # DRY sampler — anti-loop de repetição verbatim (qualquer tamanho de bloco).
 # Necessário porque presence/repeat penalties leves NÃO quebram loop de parágrafo
@@ -107,6 +120,7 @@ echo "Decode    : MTP=$ENABLE_MTP(tokens=$MTP_TOKENS) Draft=$DRAFT_ENABLED(n_max
 echo "Sampling  : temp=$TEMPERATURE top_k=$TOP_K top_p=$TOP_P min_p=$MIN_P"
 echo "            repeat=$REPEAT_PENALTY(last $REPEAT_LAST_N) freq=$FREQUENCY_PENALTY pres=$PRESENCE_PENALTY"
 echo "            seed=$SEED n_predict=$N_PREDICT"
+echo "Reasoning : mode=$REASONING_MODE format=$REASONING_FORMAT budget=$REASONING_BUDGET"
 echo ""
 
 # ── Liberar VRAM do Ollama antes de iniciar ────────────────────────────────────
@@ -141,8 +155,15 @@ EXTRA_FLAGS=""
 [ "${NO_MMAP:-1}" = "1" ] && EXTRA_FLAGS="$EXTRA_FLAGS --no-mmap"
 [ "${CACHE_IDLE_SLOTS:-0}" = "0" ] && EXTRA_FLAGS="$EXTRA_FLAGS --no-cache-idle-slots"
 
-# Reasoning budget (teto de pensamento) — fix do thought-loop, preserva contexto e tools
+# Reasoning: modo + formato + teto de pensamento (fix do thought-loop, preserva contexto e tools)
+EXTRA_FLAGS="$EXTRA_FLAGS --reasoning $REASONING_MODE"
+EXTRA_FLAGS="$EXTRA_FLAGS --reasoning-format $REASONING_FORMAT"
 EXTRA_FLAGS="$EXTRA_FLAGS --reasoning-budget $REASONING_BUDGET"
+# A mensagem tem espacos — nao pode entrar no $EXTRA_FLAGS (que sofre word-splitting).
+REASONING_MSG_ARGS=()
+if [ -n "$REASONING_BUDGET_MESSAGE" ]; then
+    REASONING_MSG_ARGS=(--reasoning-budget-message "$REASONING_BUDGET_MESSAGE")
+fi
 
 # DRY sampler (anti-loop) — só adiciona se ligado (multiplier != 0)
 if [ "$DRY_MULTIPLIER" != "0" ] && [ "$DRY_MULTIPLIER" != "0.0" ]; then
@@ -216,5 +237,5 @@ exec "$LLAMA_SERVER" \
     --cache-ram        "$CACHE_RAM"         \
     --cache-type-k     "$CACHE_TYPE_K"      \
     --cache-type-v     "$CACHE_TYPE_V"      \
-    --reasoning-budget-message "I need to provide my answer now." \
+    "${REASONING_MSG_ARGS[@]}" \
     $EXTRA_FLAGS

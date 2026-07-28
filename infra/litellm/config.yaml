@@ -7,10 +7,19 @@ model_list:
       max_tokens: 8192
       streaming: true
     model_info:
+      # Context Window Math (ver infra/README.md): a janela TOTAL do llama-server e
+      # N_CTX=106496. Dela reservamos 8192 para a geracao, sobrando 98304 de entrada.
+      # context_window precisa existir explicitamente, senao fica ambiguo se a janela
+      # total e 98304 ou 98304+8192 — e o cliente calcula a compactacao errado.
+      context_window: 106496
       max_input_tokens: 98304
       max_output_tokens: 8192
       input_cost_per_token: 0.0000000336
       output_cost_per_token: 0.0000000336
 
 litellm_settings:
-  drop_params: true
+  # false nos dois de proposito: queremos que um parametro nao suportado pelo backend
+  # vire ERRO visivel, em vez de ser descartado/reescrito em silencio. Silencio aqui foi
+  # o que dificultou depurar o thinking (nao dava para saber o que chegava no llama-server).
+  drop_params: false
+  modify_params: false

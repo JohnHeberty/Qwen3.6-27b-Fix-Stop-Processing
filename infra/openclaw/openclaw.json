@@ -8,6 +8,7 @@
       "models": {
         "litellm/qwen": {}
       },
+      "thinkingDefault": "medium",
       "compaction": {
         "reserveTokensFloor": 50000,
         "reserveTokens": 20000,

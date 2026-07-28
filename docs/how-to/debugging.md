@@ -42,24 +42,29 @@ Emite contadores + top ofensores, com **flags automáticas** que mapeiam nas hip
 Opções úteis: `make capture-report ARGS="--jsonl out.jsonl --top 20"` (grava 1 registro por geração
 em JSONL para análise posterior). O script é `scripts/analyze-capture.py`.
 
-## Validar o fix anti-loop (DRY) — H09
+## Validar o fix anti-loop — H09
 
-O loop de repetição (o modelo repetindo o mesmo bloco de raciocínio até estourar os 8192 tokens)
-foi corrigido com o **DRY sampler** (`DRY_MULTIPLIER=0.8`, ver `.env` / `docs/reference/configuration.md`).
-Para **confirmar em uso real** que sumiu:
+O loop de repetição (o modelo repetindo o mesmo bloco de raciocínio até estourar os 8192 tokens) é
+cortado por **`REASONING_BUDGET=2048`** — não por DRY (que foi revertido: quebrava tool-calling) e
+não por reduzir contexto. Para **confirmar em uso real** que sumiu:
 
 ```bash
-make capture-on        # captura + DRY ficam ativos
+make capture-on        # liga a captura
 #   ... reproduza o subagente/tarefa que loopava ...
 make capture-report    # olhe as flags 'runaway' e 'loop_repeat'
 ```
 
-- Se `runaway` e `loop_repeat` vierem **0/N**, o DRY resolveu.
-- Se ainda acenderem, aumente `DRY_MULTIPLIER` (0.8 → 1.0) ou reduza `DRY_ALLOWED_LENGTH` (4 → 3),
-  `make capture-off && make capture-on`, e reproduza de novo.
+- Se `runaway` e `loop_repeat` vierem **0/N**, está resolvido.
+- Se ainda acenderem, escale **nesta ordem**:
+  1. `REASONING_BUDGET` 2048 → 1024 (corta o raciocínio mais cedo)
+  2. só então `PRESENCE_PENALTY` 0.0 → 1.5 (valor do model card do Qwen3 para modelos
+     *quantizados* em thinking mode — se aplica ao nosso Q4_K_M)
+  3. **nunca** reativar `DRY_MULTIPLIER` em uso agêntico (trunca caminhos de arquivo)
 - **Atenção:** se o cliente (OpenCode/MoltBot) enviar parâmetros de sampling próprios na requisição,
-  eles **sobrepõem** os do servidor — nesse caso o loop pode persistir mesmo com DRY aqui, e o ajuste
-  precisa ser no cliente. O prompt capturado (`prompts/*.txt`) ajuda a confirmar o que chegou.
+  eles **sobrepõem** os do servidor — nesse caso o ajuste precisa ser no cliente. O prompt capturado
+  (`prompts/*.txt`) ajuda a confirmar o que chegou.
+- Um teste rápido sem reproduzir nada: `make test` inclui o "Contrato de reasoning", que falha se a
+  geração terminar em `finish_reason=length` ou com `content` vazio.
 
 ## O loop de raciocínio — fix no servidor, contexto PRESERVADO
 

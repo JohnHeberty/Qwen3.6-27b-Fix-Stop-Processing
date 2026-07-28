@@ -52,10 +52,16 @@ model_list:
       output_cost_per_token: 0
 
 litellm_settings:
-  drop_params: true
+  drop_params: false     # unsupported params must ERROR, not vanish silently
+  modify_params: false
 ```
 
 > Update the IP if needed. The file is at `infra/litellm/config.yaml`.
+
+`drop_params`/`modify_params` are `false` on purpose: with them on, a parameter the backend does not
+support is silently dropped or rewritten, so you cannot tell what actually reached `llama-server`.
+That silence is what made the thinking/reasoning bugs hard to diagnose. The tradeoff is that a client
+sending an unsupported parameter now gets a visible error instead of being quietly ignored.
 
 ---
 

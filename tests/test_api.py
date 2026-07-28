@@ -457,6 +457,55 @@ def teste_conversa_longa_multi_tool():
         return False
 
 
+def teste_contrato_reasoning():
+    """Regressao do bug que motivou o REASONING_BUDGET: o modelo gastava TODA a saida
+    em reasoning_content e terminava com finish_reason='length', sem resposta visivel.
+    O contrato que precisa valer: raciocinio > 0, resposta > 0, finish_reason == 'stop'."""
+    separador("Teste 13: Contrato de reasoning (budget nao engole a resposta)")
+    try:
+        resp = _client().chat.completions.create(
+            model=MODEL,
+            messages=[{
+                "role": "user",
+                "content": (
+                    "Analise cuidadosamente: se todos os A sao B e nenhum B e C, "
+                    "algum A pode ser C? Explique o raciocinio."
+                ),
+            }],
+            max_tokens=8192,
+            temperature=0.6,
+            top_p=0.95,
+        )
+        choice = resp.choices[0]
+        raciocinio = _reasoning(choice.message)
+        conteudo = (choice.message.content or "").strip()
+        finish = choice.finish_reason
+        print(f"       finish_reason={finish} | raciocinio={len(raciocinio)} chars "
+              f"| resposta={len(conteudo)} chars")
+
+        if finish == "length":
+            print(f"{FAIL} finish_reason='length': a geracao estourou o teto sem concluir. "
+                  f"Baixe REASONING_BUDGET (2048 -> 1024) no .env")
+            return False
+        if not raciocinio:
+            print(f"{FAIL} Sem reasoning_content — confira REASONING_MODE=on e "
+                  f"REASONING_FORMAT=deepseek no .env")
+            return False
+        if not conteudo:
+            print(f"{FAIL} Raciocinio presente mas resposta VAZIA — o budget engoliu a resposta")
+            return False
+        # Resposta logicamente correta: nenhum A pode ser C.
+        if "nenhum" not in conteudo.lower() and "não" not in conteudo.lower() and "nao" not in conteudo.lower():
+            print(f"{FAIL} Resposta nao nega a possibilidade (esperado: nenhum A pode ser C). "
+                  f"Content: {conteudo[:200]}")
+            return False
+        print(f"{PASS} finish=stop, raciocinio e resposta presentes, conclusao correta")
+        return True
+    except Exception as e:
+        print(f"{FAIL} Erro: {e}")
+        return False
+
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -476,6 +525,7 @@ if __name__ == "__main__":
         "Correcao apos erro":      teste_tool_correcao_apos_erro(),
         "Chamadas paralelas":      teste_tool_paralelo(),
         "Conversa multi-tool":     teste_conversa_longa_multi_tool(),
+        "Contrato de reasoning":   teste_contrato_reasoning(),
     }
 
     separador("Resultado Final")

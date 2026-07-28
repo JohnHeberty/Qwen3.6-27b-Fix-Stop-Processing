@@ -1,0 +1,50 @@
+{
+  "output": {
+    "style": "xml",
+    "removeComments": true,
+    "removeEmptyLines": true,
+    "showLineNumbers": false,
+    "truncateBase64": true,
+    "topFilesLength": 10
+  },
+  "ignore": {
+    "customPatterns": [
+      "node_modules/**",
+      "vendor/**",
+      "dist/**",
+      "build/**",
+      ".git/**",
+      ".next/**",
+      ".nuxt/**",
+      "coverage/**",
+      "logs/**",
+      "*.log",
+      "*.lock",
+      "*.min.js",
+      "*.map",
+      "*.png",
+      "*.jpg",
+      "*.jpeg",
+      "*.webp",
+      "*.gif",
+      "*.ico",
+      "*.pdf",
+      "*.zip",
+      "*.rar",
+      "*.7z",
+      "*.exe",
+      "*.dll",
+      "data/bronze/**",
+      "data/silver/**",
+      "data/gold/**",
+      "models/**",
+      "*.parquet",
+      "*.pkl",
+      "*.csv",
+      ".opencode/node_modules/**"
+    ]
+  },
+  "security": {
+    "enableSecurityCheck": true
+  }
+}

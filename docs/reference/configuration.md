@@ -41,13 +41,16 @@ cp .env.example .env
 | `REPEAT_PENALTY` | `1.03` | no | Penalize recently seen tokens. `1.0` = off, `1.03` = leve anti-loop sem quebrar tool-calling |
 | `REPEAT_LAST_N` | `64` | no | Number of recent tokens to consider for repeat penalty |
 | `FREQUENCY_PENALTY` | `0.0` | no | Penalize tokens proportional to their frequency. `0.0` = off (Qwen-recommended for coding) |
-| `PRESENCE_PENALTY` | `0.1` | no | Binary penalty for any token already used. Qwen recommends `0.0`, but `0.0` let the model fall into repetition loops (generating to the token cap) in long agentic use — `0.1` curbs that with little quality impact. See `HIPOTESE-09`. |
+| `PRESENCE_PENALTY` | `0.0` | no | Binary penalty for any token already used. `0.0` = off (Qwen base recommendation for coding/tool-calling). Note the Qwen3 model card suggests `1.5` for **quantized** models in thinking mode to suppress repetitive output — which applies to us (Q4_K_M). We run `0.0` on the bet that `REASONING_BUDGET` kills the thought-loop at the root, making the penalty redundant. **If a repetition loop returns:** first lower `REASONING_BUDGET` (2048→1024); only then raise this back to `1.5`. Never re-enable DRY. See `HIPOTESE-09`. |
 | `DRY_MULTIPLIER` | `0` (off) | no | DRY sampler strength (`0` = off). **Off by default: in agentic/coding use it truncated repeated file paths** (the model kept emitting `src/…/file.py`, DRY penalized the repeat and cut the path mid-token → broken tool calls, see `HIPOTESE-09`). Only enable for pure prose where verbatim-repetition loops are the main risk. |
 | `DRY_BASE` | `1.75` | no | DRY exponential base. |
 | `DRY_ALLOWED_LENGTH` | `4` | no | Repeats up to this length are allowed. `2` (DRY default) is too aggressive for a thinking model (it rambles); `4` catches paragraph loops without breaking normal reasoning. |
 | `DRY_PENALTY_LAST_N` | `2048` | no | Window DRY looks back over (`-1` = whole context — too broad here; a window targets recent loops). |
 | `SEED` | `-1` | no | Random seed (-1 = random each call, any positive = reproducible) |
 | `N_PREDICT` | `8192` | no | Maximum tokens to generate per response. `-1` = unlimited (can cause infinite generation) |
+| `REASONING_MODE` | `on` | no | `--reasoning`: `on`/`off`/`auto`. Set **explicitly** so the thinking contract does not silently depend on the chat template (llama.cpp's default is `auto` = detect from template). |
+| `REASONING_FORMAT` | `deepseek` | no | `--reasoning-format`: where the thinking goes. `deepseek` = `message.reasoning_content` (what OpenClaw/OpenCode read); `none` = left raw inside `message.content`; `deepseek-legacy` = keeps `<think>` tags in `content`. |
+| `REASONING_BUDGET_MESSAGE` | *(empty)* | no | `--reasoning-budget-message`: text injected right before the forced `</think>` when the budget runs out. Empty = flag omitted (llama.cpp's natural cut) — validate the natural cut first. Fill it only if the model goes silent after being cut. |
 | `REASONING_BUDGET` | `2048` | no | Max **thinking** tokens (the `<think>` block). On reaching it, llama.cpp closes `</think>` and forces the model to answer/act. This is the real fix for the Qwen3.6 thought-loop (repeating a paragraph until the token cap) — it caps runaway *reasoning* **without touching context (still 104k) or tool-calls**. `-1` = unlimited. Purpose-built for exactly this (llama.cpp `--reasoning-budget`, added to stop Qwen3.6 low-temp thought-loops). |
 
 ---
@@ -103,13 +106,19 @@ MIN_P=0.0
 REPEAT_PENALTY=1.0
 REPEAT_LAST_N=64
 FREQUENCY_PENALTY=0.0
-PRESENCE_PENALTY=0.1
+PRESENCE_PENALTY=0.0
 DRY_MULTIPLIER=0
 DRY_BASE=1.75
 DRY_ALLOWED_LENGTH=4
 DRY_PENALTY_LAST_N=2048
 SEED=-1
 N_PREDICT=8192
+
+# Reasoning (thinking) contract — set explicitly, not left to template auto-detect
+REASONING_MODE=on
+REASONING_FORMAT=deepseek
+REASONING_BUDGET=2048
+REASONING_BUDGET_MESSAGE=
 ```
 
 ---

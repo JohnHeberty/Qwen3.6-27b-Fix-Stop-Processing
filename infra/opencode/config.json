@@ -24,7 +24,10 @@
   "plugin": [
     "opencode-pty",
     "@tarquinen/opencode-dcp",
-    "opencode-websearch-cited@1.2.0"
+    "opencode-websearch-cited",
+    "opencode-mem",
+    "@ramtinj95/opencode-tokenscope",
+    "opencode-reflection"
   ],
   "compaction": {
     "auto": true,
@@ -58,6 +61,39 @@
       "*.7z"
     ]
   },
+  "mcp": {
+    "repomix": {
+      "type": "local",
+      "command": [
+        "docker",
+        "run",
+        "-i",
+        "--rm",
+        "-v",
+        "/opt/jupyter:/workspace",
+        "ghcr.io/yamadashy/repomix",
+        "--mcp",
+        "--config",
+        "/workspace/.opencode/repomix.config.json"
+      ],
+      "enabled": true,
+      "timeout": 60000
+    },
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "enabled": true,
+      "timeout": 30000
+    }
+  },
+  "skills": {
+    "paths": [
+      ".opencode/skills"
+    ]
+  },
+  "instructions": [
+    "AGENTS.md"
+  ],
   "permission": {
     "read": "allow",
     "edit": "allow",

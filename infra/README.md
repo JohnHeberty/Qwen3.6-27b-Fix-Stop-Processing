@@ -221,7 +221,8 @@ router_settings:
   enable_pre_call_checks: true   # validates token count BEFORE sending the request
 
 litellm_settings:
-  drop_params: true
+  drop_params: false     # unsupported params must ERROR, not vanish silently
+  modify_params: false
   context_window_fallbacks:
     - qwen:
         - <fallback-model-name>  # replace with another model if available

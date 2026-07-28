@@ -61,7 +61,7 @@ make start    # wait for "llama server listening"
 | `make start-bg` | Background mode (`make logs` to follow) |
 | `make restart` | Stop and restart |
 | `make status` | State + VRAM usage |
-| `make test` | 12 integration tests (incl. tool calling) |
+| `make test` | 13 integration tests (incl. tool calling + reasoning contract) |
 | `make litellm-start` | LiteLLM proxy on port 4000 |
 
 ---
