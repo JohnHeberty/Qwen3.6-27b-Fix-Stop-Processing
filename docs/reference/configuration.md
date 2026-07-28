@@ -38,10 +38,10 @@ cp .env.example .env
 | `TOP_K` | `20` | no | Limit sampling to K most probable tokens. 20 = focused (Qwen-recommended for coding), 40 = balanced |
 | `TOP_P` | `0.95` | no | Nucleus sampling threshold |
 | `MIN_P` | `0.0` | no | Minimum probability threshold relative to top token. `0.0` = off (Qwen-recommended) |
-| `REPEAT_PENALTY` | `1.03` | no | Penalize recently seen tokens. `1.0` = off, `1.03` = leve anti-loop sem quebrar tool-calling |
+| `REPEAT_PENALTY` | `1.0` | no | Penalize recently seen tokens. `1.0` = off (Qwen recommendation — repetition of code/JSON/paths is legitimate). Anti-loop is handled by `PRESENCE_PENALTY` + `REASONING_BUDGET`, not here. A mild `1.03`–`1.05` is the fallback if those two are not enough. |
 | `REPEAT_LAST_N` | `64` | no | Number of recent tokens to consider for repeat penalty |
 | `FREQUENCY_PENALTY` | `0.0` | no | Penalize tokens proportional to their frequency. `0.0` = off (Qwen-recommended for coding) |
-| `PRESENCE_PENALTY` | `0.0` | no | Binary penalty for any token already used. `0.0` = off (Qwen base recommendation for coding/tool-calling). Note the Qwen3 model card suggests `1.5` for **quantized** models in thinking mode to suppress repetitive output — which applies to us (Q4_K_M). We run `0.0` on the bet that `REASONING_BUDGET` kills the thought-loop at the root, making the penalty redundant. **If a repetition loop returns:** first lower `REASONING_BUDGET` (2048→1024); only then raise this back to `1.5`. Never re-enable DRY. See `HIPOTESE-09`. |
+| `PRESENCE_PENALTY` | `1.5` | no | Binary penalty for any token already used. `1.5` is what the Qwen3 model card recommends for **quantized** models in thinking mode ("to suppress repetitive outputs; tune between 0 and 2") — we run Q4_K_M, so it applies. **Empirically confirmed (2026-07-28):** dropping to `0.0` (the Qwen *base* recommendation) brought back short-output repetition — the model paraphrased the same confirmation 4x in a row. That is not a thought-loop, so `REASONING_BUDGET` does not catch it. Keep both: `REASONING_BUDGET` stops runaway *reasoning* (the hang), `PRESENCE_PENALTY` stops repetition in the *final output*. Never re-enable DRY. See `HIPOTESE-09`. |
 | `DRY_MULTIPLIER` | `0` (off) | no | DRY sampler strength (`0` = off). **Off by default: in agentic/coding use it truncated repeated file paths** (the model kept emitting `src/…/file.py`, DRY penalized the repeat and cut the path mid-token → broken tool calls, see `HIPOTESE-09`). Only enable for pure prose where verbatim-repetition loops are the main risk. |
 | `DRY_BASE` | `1.75` | no | DRY exponential base. |
 | `DRY_ALLOWED_LENGTH` | `4` | no | Repeats up to this length are allowed. `2` (DRY default) is too aggressive for a thinking model (it rambles); `4` catches paragraph loops without breaking normal reasoning. |
@@ -106,7 +106,7 @@ MIN_P=0.0
 REPEAT_PENALTY=1.0
 REPEAT_LAST_N=64
 FREQUENCY_PENALTY=0.0
-PRESENCE_PENALTY=0.0
+PRESENCE_PENALTY=1.5
 DRY_MULTIPLIER=0
 DRY_BASE=1.75
 DRY_ALLOWED_LENGTH=4

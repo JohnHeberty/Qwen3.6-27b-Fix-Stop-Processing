@@ -55,11 +55,13 @@ make capture-report    # olhe as flags 'runaway' e 'loop_repeat'
 ```
 
 - Se `runaway` e `loop_repeat` vierem **0/N**, está resolvido.
-- Se ainda acenderem, escale **nesta ordem**:
-  1. `REASONING_BUDGET` 2048 → 1024 (corta o raciocínio mais cedo)
-  2. só então `PRESENCE_PENALTY` 0.0 → 1.5 (valor do model card do Qwen3 para modelos
-     *quantizados* em thinking mode — se aplica ao nosso Q4_K_M)
-  3. **nunca** reativar `DRY_MULTIPLIER` em uso agêntico (trunca caminhos de arquivo)
+- Se ainda acenderem, **diagnostique qual dos dois problemas é** antes de mexer:
+  - **Trava / `finish=length` / raciocínio longo repetitivo** → é o thought-loop:
+    baixe `REASONING_BUDGET` (2048 → 1024).
+  - **Saída curta repetindo/parafraseando a mesma frase** → NÃO é thought-loop, o
+    `REASONING_BUDGET` não pega isso: suba `PRESENCE_PENALTY` (padrão já é 1.5; o model card
+    do Qwen3 permite até 2.0 para modelos quantizados em thinking mode).
+  - **nunca** reativar `DRY_MULTIPLIER` em uso agêntico (trunca caminhos de arquivo).
 - **Atenção:** se o cliente (OpenCode/MoltBot) enviar parâmetros de sampling próprios na requisição,
   eles **sobrepõem** os do servidor — nesse caso o ajuste precisa ser no cliente. O prompt capturado
   (`prompts/*.txt`) ajuda a confirmar o que chegou.

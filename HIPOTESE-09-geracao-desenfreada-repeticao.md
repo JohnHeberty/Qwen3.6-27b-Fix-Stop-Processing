@@ -23,12 +23,27 @@ ruim" de "path que o agente precisa repetir". Resultado: comandos/paths cortados
 2. `error_warnings` especialista — quebra o loop de *retry* após 2 falhas de ferramenta.
 3. Contexto do cliente **cheio, 104k** (106496). A redução para ~60k que constava aqui foi
    **revertida**: jogar fora contexto era contornar o sintoma, não corrigir o loop.
-4. `PRESENCE_PENALTY=0.0` — a penalidade leve (0.1) e depois 1.5 foram removidas por serem
-   redundantes com o (1). **Ordem de escalada se o loop voltar:** baixar `REASONING_BUDGET`
-   (2048→1024) → só então voltar `PRESENCE_PENALTY=1.5` (valor que o model card do Qwen3
-   recomenda para modelos *quantizados* em thinking mode, e nós rodamos Q4_K_M).
+4. `PRESENCE_PENALTY=1.5` — valor do model card do Qwen3 para modelos *quantizados* em thinking
+   mode (rodamos Q4_K_M).
 
 NÃO reativar o DRY em uso agêntico em nenhuma dessas etapas.
+
+### Experimento que separou os dois modos de falha (2026-07-28)
+Baixamos `PRESENCE_PENALTY` de 1.5 → 0.0 (seguindo a recomendação *base* do Qwen, que é para
+modelos não-quantizados). Resultado observado em produção (OpenClaw/Telegram):
+
+- ✅ **O travamento NÃO voltou** — o `REASONING_BUDGET` sozinho resolve o hang.
+- ❌ **A repetição VOLTOU** — o modelo parafraseou a mesma confirmação curta 4x seguidas
+  ("Combinado, John. Vou salvar isso no AGENTS.md…"). Saída **curta**, não raciocínio longo.
+
+Conclusão: são **dois problemas distintos**, e cada defesa cobre um.
+
+| Falha | Sintoma | Defesa |
+|---|---|---|
+| Raciocínio descontrolado | trava / `finish=length` sem resposta | `REASONING_BUDGET=2048` |
+| Repetição na saída final | repete/parafraseia a mesma frase | `PRESENCE_PENALTY=1.5` |
+
+`PRESENCE_PENALTY` revertido para 1.5. 13/13 nos testes com o valor alto — não quebra tool-calling.
 
 **Regressão automatizada:** `tests/test_api.py` agora tem o teste "Contrato de reasoning" — afirma
 `finish_reason == "stop"` com `reasoning_content` E `content` não-vazios. Se alguém puser um

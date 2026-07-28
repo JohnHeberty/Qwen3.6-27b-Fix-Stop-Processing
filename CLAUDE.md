@@ -128,9 +128,12 @@ path (`make start`) execs `llama-server` directly and does not go through `src/s
   repeat and cut the path mid-token → broken tool calls; confirmed in capture, see `HIPOTESE-09`).
   Do not enable for coding. Anti-loop is instead handled by `REASONING_BUDGET` (cuts the thought-loop
   at the root) plus `error_warnings` (breaks tool-retry loops) — **with full 104k client context, not
-  a reduced one**. `PRESENCE_PENALTY` is `0.0` (Qwen base recommendation); note the Qwen3 model card
-  suggests `1.5` for *quantized* models in thinking mode, which does apply to our Q4_K_M — that is the
-  documented fallback if repetition returns (after first lowering `REASONING_BUDGET` to 1024). Never
+  a reduced one**. The two defenses handle *different* failures and both are needed:
+  `REASONING_BUDGET` stops runaway *reasoning* (the hang/freeze), `PRESENCE_PENALTY=1.5` stops
+  repetition in the *final output* (the "it keeps rephrasing the same sentence"). `1.5` is the Qwen3
+  model-card value for **quantized** models in thinking mode — applies to our Q4_K_M. Dropping it to
+  `0.0` (the Qwen *base* recommendation) was tried on 2026-07-28 and brought the output repetition
+  straight back, with the hang still fixed — which is what isolated the two failure modes. Never
   re-enable DRY.
 - `CAPTURE_LOG` — `false` by default. `true` (or `make capture-on`) logs real request/response
   **content** (`--log-prompts-dir` + `--verbose` to `data/logs/capture/`) so `scripts/analyze-capture.py`
