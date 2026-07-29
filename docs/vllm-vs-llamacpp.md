@@ -3,21 +3,34 @@
 Medido em **2026-07-29** com a mesma ferramenta (`tests/bench_decode.py`), mesmo prompt, mesma
 definição de tok/s (`usage.completion_tokens`, nonce por execução para invalidar prefix cache).
 
-## Resultado
+## Resultado — varredura completa de KV cache
 
-| | llama.cpp Q5_K_M | vLLM INT4 · KV fp16 | **vLLM INT4 · KV fp8_e5m2** |
+Todos os `--kv-cache-dtype` que o vLLM 0.26 aceita, medidos com prompt de ~23,2k:
+
+| Config | Contexto máx | decode tok/s @24k | TTFT |
 |---|---|---|---|
-| decode tok/s @8k | 58,27 | 69,49 | **84,61** |
-| decode tok/s @24k | 55,95 | 46,52 | **82,44** |
-| TTFT @24k | 22,14 s | 23,48 s | **20,04 s** |
-| Contexto máximo | **106.496** | 28.315 | 56.631 |
-| Suíte de 13 testes | 13/13 | — | **13/13** |
+| **llama.cpp** Q5_K_M + KV `q4_0` | **106.496** | 55,95 | 22,1 s |
+| vLLM KV `auto` (fp16) | 28.315 | 46,52 | 23,5 s |
+| **vLLM KV `fp8_e5m2`** | 56.631 | **82,44** | **20,0 s** |
+| vLLM KV `int4_per_token_head` | **112.885** | 36,54 | 28,4 s |
+| vLLM KV `int4` @ 65k | 93.875 | 35,21 | 28,4 s |
+| vLLM KV `turboquant_*` (4 presets) | — | não inicializa | — |
 
-**+47% de decode a 24k** e **+45% a 8k** contra o llama.cpp, ao custo de **metade do contexto**.
+A 8k: llama.cpp 58,27 · vLLM fp8 **84,61**. Suíte de 13 testes: 13/13 em ambas as engines.
 
-Note o salto entre as duas colunas de vLLM: fp16 é *mais lento* que o llama.cpp a 24k (46,52),
-porque o KV fica a 85% da capacidade e sufoca o scheduler. Só com fp8 o vLLM ganha de verdade.
-Ou seja: **KV comprimido não é otimização opcional aqui, é o que faz a migração valer.**
+**A conclusão é que não existe configuração que entregue as duas coisas.**
+
+- Para **velocidade**: `fp8_e5m2` dá +47%, mas o contexto cai para 56.631.
+- Para **contexto**: `int4_per_token_head` entrega 112.885 — mas a 36,5 tok/s, **35% mais lento que
+  o llama.cpp** no mesmo contexto.
+
+O custo do int4 é **intrínseco ao dtype**, não pressão de escalonamento: medido a 65k (folga de KV
+de 1,43x) dá 35,21, praticamente igual aos 36,54 medidos a 104k (folga 1,06x). Não adianta procurar
+um ponto ótimo intermediário.
+
+Note também que fp16 é *mais lento* que o llama.cpp (46,52), porque a 24k o KV fica a 85% da
+capacidade e sufoca o scheduler. Só com fp8 o vLLM ganha — **KV comprimido não é otimização
+opcional aqui, é o que faz a migração valer.**
 
 ## A configuração que funciona
 
@@ -85,12 +98,35 @@ KV; a conversão é feita em software.
 
 ## A decisão que sobra
 
-Não é "vLLM é melhor". É um troco explícito:
+Não é "vLLM é melhor". São dois pontos de operação, e o meio-termo não existe:
 
-| | Fica com |
-|---|---|
-| **llama.cpp** | 106.496 de contexto, 56 tok/s, contrato `reasoning_content` intacto |
-| **vLLM** | 56.631 de contexto, 82 tok/s (+47%), clientes precisam de ajuste |
+| | Contexto | tok/s @24k | Observação |
+|---|---|---|---|
+| **llama.cpp** | 106.496 | 55,95 | contrato `reasoning_content` intacto |
+| **vLLM fp8** | 56.631 | 82,44 (+47%) | clientes precisam de ajuste |
+| vLLM int4 | 112.885 | 36,54 (−35%) | mesmo contexto do llama.cpp, mas mais lento |
 
-Se o uso agêntico rotineiramente passa de 56k, o llama.cpp continua sendo a escolha certa apesar de
-mais lento — velocidade não compensa o turno que morre por falta de contexto.
+**No contexto que este projeto exige (104k), o llama.cpp é 53% mais rápido que o vLLM.**
+O vLLM só ganha aceitando metade do contexto.
+
+### Quanto contexto as sessões realmente usam
+
+Medido nos logs de produção de 2026-07-28 (prompts que chegaram ao servidor e estimativas do
+OpenClaw nos erros de overflow):
+
+```
+69.835 · 70.462 · 70.974 · 72.039 · 75.780      (recebidos pelo llama-server)
+74.829 · 82.043 · 86.277 · 89.560 · 101.426     (estimados pelo OpenClaw)
+```
+
+Todos **acima de 56.631**. O teto do vLLM fp8 ficaria abaixo do piso de uso real — a compactação
+destrutiva passaria a disparar em quase toda tarefa de pesquisa, que é justamente o que produzia o
+loop de re-anúncio. 47% mais rápido em turnos que não terminam não é ganho.
+
+### Quando reconsiderar
+
+- **Segunda RTX 3090** (TP=2): os pesos se dividem, sobram ~14 GB para KV, e aí dá para ter os
+  256k nativos *com* a velocidade do vLLM. Resolve os dois lados.
+- **TurboQuant estabilizar para modelos híbridos** — acompanhar os 4 issues citados acima.
+- **Modelo menor** (14B INT4, ~9 GB) deixaria ~12 GB de KV: contexto folgado e ainda mais rápido,
+  trocando qualidade por espaço.
