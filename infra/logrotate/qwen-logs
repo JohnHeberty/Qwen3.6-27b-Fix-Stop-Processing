@@ -1,0 +1,15 @@
+# logrotate para os logs do vLLM + captura de debug.
+# TEMPLATE: __PROJECT_ROOT__ é substituído por `make install-logrotate`.
+# Instala em /etc/logrotate.d/qwen-logs.
+__PROJECT_ROOT__/data/logs/vllm.log
+__PROJECT_ROOT__/data/logs/capture/*.log
+{
+    daily
+    rotate 7
+    maxsize 200M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+}

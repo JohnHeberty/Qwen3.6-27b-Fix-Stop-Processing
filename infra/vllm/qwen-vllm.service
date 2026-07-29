@@ -1,0 +1,37 @@
+[Unit]
+Description=vLLM — Qwen3.6-27B INT4 AutoRound (porta 8000)
+After=network-online.target
+Wants=network-online.target
+# Template: __PROJECT_ROOT__ é substituído por `make install-service`.
+# Não instale direto — use `make install-service`.
+
+[Service]
+Type=simple
+User=root
+Group=root
+
+# PATH precisa incluir venv-vllm e cuda para o systemd encontrar os binários.
+Environment="PATH=__PROJECT_ROOT__/.venv-vllm/bin:/usr/local/cuda/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="CUDA_HOME=/usr/local/cuda"
+Environment="VLLM_USE_FLASHINFER_SAMPLER=0"
+
+WorkingDirectory=__PROJECT_ROOT__
+ExecStart=/bin/bash __PROJECT_ROOT__/scripts/start-vllm.sh --language-model-only
+
+# Auto-recuperacao: reinicia SEMPRE (inclusive apos OOM-kill).
+# RestartSec=30 dá tempo da VRAM liberar antes de recarregar o modelo.
+Restart=always
+RestartSec=30
+# vLLM pré-aloca VRAM — OOM-kill é o modo de falha mais comum.
+OOMPolicy=continue
+
+# Logs persistentes.
+StandardOutput=append:__PROJECT_ROOT__/data/logs/vllm.log
+StandardError=append:__PROJECT_ROOT__/data/logs/vllm.log
+
+# vLLM demora ~200s para carregar o modelo na GPU.
+TimeoutStartSec=300
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
