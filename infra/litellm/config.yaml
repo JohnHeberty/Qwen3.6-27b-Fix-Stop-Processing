@@ -1,0 +1,41 @@
+model_list:
+  - model_name: qwen
+    litellm_params:
+      model: openai/qwen3
+      api_base: http://localhost:8000/v1
+      api_key: "nao-precisa"
+      max_tokens: 8192
+      streaming: true
+    model_info:
+      # ── Context Window Math (engine: vLLM) ───────────────────────────────────
+      # A janela TOTAL e MAX_MODEL_LEN=49152 no .env. Dela reservamos 8192 para a
+      # geracao, sobrando 40960 de entrada.
+      #
+      # 49152 nao e escolha arbitraria: com KV fp8_e5m2 o vLLM aloca 56.631 tokens
+      # de cache nesta 3090, e 49152 e o valor medido a 82,44 tok/s (ver
+      # docs/vllm-vs-llamacpp.md). Subir ate ~56k e possivel, mas nao foi medido.
+      #
+      # ⚠️ MUDANCA vs llama.cpp: a janela caiu de 106.496 para 49.152. A saida
+      # tambem caiu de 16384 para 8192 — com 49k de janela, reservar 16k para
+      # saida deixaria pouco para entrada. Escrever um HTML inteiro numa tacada
+      # volta a nao caber; o agente precisa gerar arquivo em partes.
+      context_window: 49152
+      max_input_tokens: 40960
+      max_output_tokens: 8192
+      input_cost_per_token: 0.0000000336
+      output_cost_per_token: 0.0000000336
+
+litellm_settings:
+  # false nos dois de proposito: queremos que um parametro nao suportado pelo backend
+  # vire ERRO visivel, em vez de ser descartado/reescrito em silencio. Silencio aqui foi
+  # o que dificultou depurar o thinking (nao dava para saber o que chegava no servidor).
+  drop_params: false
+  modify_params: false
+
+  # ⚠️ VERIFICAR: o vLLM 0.26 devolve o raciocinio no campo `reasoning`; o llama.cpp
+  # devolvia em `reasoning_content`, e nao existe flag de compatibilidade no vLLM.
+  # Se o LiteLLM nao normalizar esse nome, OpenCode e OpenClaw param de exibir o
+  # raciocinio. Testar com:
+  #   curl -s localhost:4000/v1/chat/completions -H 'Authorization: Bearer <key>' \
+  #     -d '{"model":"qwen","messages":[{"role":"user","content":"oi"}],"max_tokens":300}' \
+  #     | python3 -c 'import sys,json; print(json.load(sys.stdin)["choices"][0]["message"].keys())'

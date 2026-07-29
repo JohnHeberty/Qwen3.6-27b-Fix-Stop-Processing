@@ -149,4 +149,8 @@ exec vllm serve "$MODEL_PATH" \
     --enable-auto-tool-choice \
     --enable-chunked-prefill \
     --enable-prefix-caching \
-    "${EXTRA[@]}"
+    "${EXTRA[@]}" \
+    "$@"
+# "$@" repassa qualquer argumento extra direto para o `vllm serve`, para dar para
+# testar flags sem editar este arquivo. Ex.:
+#   ./scripts/start-vllm.sh --limit-mm-per-prompt '{"image":0,"video":0}'

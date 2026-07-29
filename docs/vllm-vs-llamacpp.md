@@ -32,6 +32,68 @@ Note também que fp16 é *mais lento* que o llama.cpp (46,52), porque a 24k o KV
 capacidade e sufoca o scheduler. Só com fp8 o vLLM ganha — **KV comprimido não é otimização
 opcional aqui, é o que faz a migração valer.**
 
+## Não existe KV de 6 bits — e por que isso importa menos do que parece
+
+Os `--kv-cache-dtype` restantes (`fp8`, `fp8_e4m3`, `fp8_per_token_head`, `int8_per_token_head`)
+são todos **8 bits por valor**, iguais ao `fp8_e5m2`. Capacidade de KV é
+`bytes_livres ÷ bits_por_token`, então qualquer variante de 8 bits para nos mesmos ~56k — o
+`fp8_per_token_head` daria até um pouco menos, por guardar escalas extras por cabeça. Os degraus
+reais são só três: **16 bits → 28k · 8 bits → 56k · 4 bits → 112k**.
+
+(`fp8_ds_mla` é específico do MLA da DeepSeek e `fp8_inc` é do Intel Neural Compressor/Gaudi —
+nenhum se aplica. O `fp8_e4m3` provavelmente falha: é o `fp8e4nv` que a
+[issue #26431](https://github.com/vllm-project/vllm/issues/26431) reporta como não suportado em
+Ampere.)
+
+Comprimir mais o KV está esgotado. **Liberar VRAM não está.**
+
+### A torre de visão custa ~0,93 GB e não é usada
+
+Este modelo é `Qwen3_5ForConditionalGeneration` — carrega um encoder de imagem. E ele **não é
+quantizado**: o `block_name_to_quantize` cobre só `model.language_model.layers` e `mtp.layers`,
+então a torre fica em BF16 enquanto o resto está em INT4.
+
+Cálculo a partir do `vision_config` (depth 27 · hidden 1152 · intermediate 4304 · merger para 5120):
+
+| Componente | Parâmetros |
+|---|---|
+| 27 camadas × (atenção 4×1152² + MLP 2×1152×4304) | ~411 M |
+| Patch + position embeddings | ~3,6 M |
+| Merger (4608×5120 + 5120×5120) | ~50 M |
+| **Total em BF16** | **~464 M ≈ 0,93 GB** |
+
+Confere com o "+0,86 GB" medido pela receita de referência. E nenhum cliente aqui usa visão — a
+config do OpenClaw declara `"input": ["text"]`.
+
+**Quanto vale em contexto:** do teste fp16 sabemos que 32.768 tokens pediam 2,91 GiB, ou seja
+**93,2 KB/token**; em fp8 são **46,6 KB/token**. Então `0,93 GB ÷ 46,6 KB ≈ 20.000 tokens`:
+
+```
+56.631 + ~20.000 = ~76.600 tokens, mantendo os 82 tok/s
+```
+
+Somando `GPU_MEM_UTIL` 0,97→0,98 (~5k) e menos `cudagraph_capture_sizes` (~4k), a estimativa
+chega perto de **80k**. Contra 106k a 56 tok/s do llama.cpp, a decisão deixa de ser óbvia.
+
+### Status: os 20k não foram obtidos — duas tentativas, duas falhas
+
+A aritmética acima está certa, mas **não existe forma suportada de desligar a torre no vLLM 0.26**:
+
+| Tentativa | Resultado |
+|---|---|
+| `language_model_only: true` no `config.json` do modelo | **Ignorado.** O log segue mostrando `Using backend FLASH_ATTN for vit attention` e `MMEncoderAttention`. `Model loading took 17.99 GiB` |
+| `--limit-mm-per-prompt '{"image":0,"video":0}'` | **Crash:** `AttributeError: 'NoneType' object has no attribute 'size'` — o vLLM tenta perfilar o encoder com 0 itens e quebra |
+
+Sobra um caminho, não tentado: **remover os tensores de visão do checkpoint**. São ~464 M parâmetros
+identificáveis por prefixo no `model.safetensors.index.json`; um script reescreveria os shards sem
+eles. Mais invasivo, mas é o único que dá os 0,93 GB **mantendo o MTP**.
+
+> ⚠️ **Não vale trocar de modelo para resolver isso.** Um modelo text-only de porte parecido
+> provavelmente não tem camadas MTP treinadas (este tem, `mtp_num_hidden_layers: 1`), e é o MTP que
+> entrega os 47% de ganho. Perder o MTP para ganhar 20k de contexto seria trocar caro por barato.
+
+Também descartado: `MAX_MODEL_LEN=73728` não inicializa — confirma o teto de ~56k em fp8.
+
 ## A configuração que funciona
 
 ```
