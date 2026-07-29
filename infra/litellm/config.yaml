@@ -15,12 +15,11 @@ model_list:
       # de cache nesta 3090, e 49152 e o valor medido a 82,44 tok/s (ver
       # docs/vllm-vs-llamacpp.md). Subir ate ~56k e possivel, mas nao foi medido.
       #
-      # ⚠️ MUDANCA vs llama.cpp: a janela caiu de 106.496 para 49.152. A saida
-      # tambem caiu de 16384 para 8192 — com 49k de janela, reservar 16k para
-      # saida deixaria pouco para entrada. Escrever um HTML inteiro numa tacada
-      # volta a nao caber; o agente precisa gerar arquivo em partes.
-      context_window: 49152
-      max_input_tokens: 40960
+      # ⚠️ MUDANCA vs llama.cpp: a janela subiu de 49.152 para 57.344 com
+      # --language-model-only (text-only). O input sobe de 40.960 para 49.152.
+      # A saida continua em 8.192.
+      context_window: 57344
+      max_input_tokens: 49152
       max_output_tokens: 8192
       input_cost_per_token: 0.0000000336
       output_cost_per_token: 0.0000000336

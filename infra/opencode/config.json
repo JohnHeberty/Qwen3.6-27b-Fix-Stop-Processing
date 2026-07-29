@@ -12,7 +12,7 @@
         "qwen3": {
           "name": "Qwen3.6-27B-INT4 (vLLM)",
           "limit": {
-            "context": 40960,
+            "context": 57344,
             "output": 8192
           },
           "reasoning": true,

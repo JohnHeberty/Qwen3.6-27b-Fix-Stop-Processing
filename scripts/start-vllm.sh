@@ -33,7 +33,7 @@ SERVED_NAME="${SERVED_NAME:-qwen3}"
 PORT="${PORT:-8000}"
 
 # Contexto. O teto real depende do KV cache escolhido — ver docs/.
-MAX_MODEL_LEN="${MAX_MODEL_LEN:-32768}"
+MAX_MODEL_LEN="${MAX_MODEL_LEN:-57344}"
 
 # KV cache: 'auto' (fp16) = qualidade cheia, contexto menor.
 #           'turboquant_3bit_nc' = 4.9x de compressão, mas a doc do vLLM mede

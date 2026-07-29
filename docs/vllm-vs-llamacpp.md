@@ -14,7 +14,7 @@ Todos os `--kv-cache-dtype` que o vLLM 0.26 aceita, medidos com prompt de ~23,2k
 | **vLLM KV `fp8_e5m2`** | 56.631 | **82,44** | **20,0 s** |
 | vLLM KV `int4_per_token_head` | **112.885** | 36,54 | 28,4 s |
 | vLLM KV `int4` @ 65k | 93.875 | 35,21 | 28,4 s |
-| vLLM KV `turboquant_*` (4 presets) | — | não inicializa | — |
+| vLLM KV `turboquant_3bit_nc` | — | EngineCore crash (zombie) | — |
 
 A 8k: llama.cpp 58,27 · vLLM fp8 **84,61**. Suíte de 13 testes: 13/13 em ambas as engines.
 
@@ -93,6 +93,7 @@ eles. Mais invasivo, mas é o único que dá os 0,93 GB **mantendo o MTP**.
 > entrega os 47% de ganho. Perder o MTP para ganhar 20k de contexto seria trocar caro por barato.
 
 Também descartado: `MAX_MODEL_LEN=73728` não inicializa — confirma o teto de ~56k em fp8.
+Com `--language-model-only`, o teto sobe para ~59.837 tokens (usamos 57.344 com margem).
 
 ## A configuração que funciona
 
@@ -104,6 +105,8 @@ MTP      n=3
 Parsers  --reasoning-parser qwen3  --tool-call-parser qwen3_xml
 CUDA     CUDA_HOME=/usr/local/cuda (12.8 do sistema)
 Extra    flashinfer-python==0.6.13 + flashinfer-cubin==0.6.13
+Flags    --language-model-only  (desativa vision tower, libera ~0.93 GB)
+Contexto 57344 tokens (56k, com text-only; GPU KV capacity: 59837)
 ```
 
 ## Três armadilhas que custaram caro
@@ -155,6 +158,12 @@ os dois clientes param de mostrar raciocínio até serem reconfigurados.
 O último importa em especial: TurboQuant + MTP reproduziria o loop de repetição que este projeto
 passou dias diagnosticando.
 
+**Teste executado em 29/07 19:40:** `--kv-cache-dtype turboquant_3bit_nc --max-model-len 104857 --language-model-only`
+- vLLM detectou a arquitetura híbrida: `TQ hybrid: full-attention layers [3, 7, 11, 15, 19, 23, 27, 31, 35, 39, 43, 47, 51, 55, 59, 63]`
+- Warning: `TurboQuant is not yet compatible with FlashAttention >= 3`
+- **EngineCore virou zombie (defunct)** — crash na inicialização, GPU ficou com 4 MiB livres
+- Confirmado: TurboQuant é incompatível com modelos híbridos (Qwen3.5/Qwen3.6) em Ampere
+
 **FP8 de compute** também não existe em Ampere. O `fp8_e5m2` aqui é só formato de armazenamento do
 KV; a conversão é feita em software.
 
@@ -165,7 +174,7 @@ Não é "vLLM é melhor". São dois pontos de operação, e o meio-termo não ex
 | | Contexto | tok/s @24k | Observação |
 |---|---|---|---|
 | **llama.cpp** | 106.496 | 55,95 | contrato `reasoning_content` intacto |
-| **vLLM fp8** | 56.631 | 82,44 (+47%) | clientes precisam de ajuste |
+| **vLLM fp8 text-only** | 57.344 | 82,44 (+47%) | --language-model-only, vision tower desativada |
 | vLLM int4 | 112.885 | 36,54 (−35%) | mesmo contexto do llama.cpp, mas mais lento |
 
 **No contexto que este projeto exige (104k), o llama.cpp é 53% mais rápido que o vLLM.**
@@ -190,5 +199,6 @@ loop de re-anúncio. 47% mais rápido em turnos que não terminam não é ganho.
 - **Segunda RTX 3090** (TP=2): os pesos se dividem, sobram ~14 GB para KV, e aí dá para ter os
   256k nativos *com* a velocidade do vLLM. Resolve os dois lados.
 - **TurboQuant estabilizar para modelos híbridos** — acompanhar os 4 issues citados acima.
+  Testado `turboquant_3bit_nc` em 29/07: continuou quebrado (EngineCore zombie).
 - **Modelo menor** (14B INT4, ~9 GB) deixaria ~12 GB de KV: contexto folgado e ainda mais rápido,
   trocando qualidade por espaço.
