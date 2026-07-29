@@ -45,21 +45,11 @@ def _client():
 
 
 def _reasoning(msg):
-    """Extrai o raciocinio, seja qual for o nome do campo na engine.
-
-    O nome MUDA por servidor e nao ha flag de compatibilidade:
-      llama.cpp  --reasoning-format deepseek  -> `reasoning_content`
-      vLLM 0.26  --reasoning-parser qwen3     -> `reasoning`
-    Alguns modelos ainda embutem <think>...</think> dentro do proprio content.
-    """
-    for campo in ("reasoning_content", "reasoning"):
-        rc = getattr(msg, campo, None)
-        if rc:
-            return rc
-        # cliente OpenAI joga campos desconhecidos em model_extra
-        extra = getattr(msg, "model_extra", None) or {}
-        if extra.get(campo):
-            return extra[campo]
+    """Extrai o raciocinio esteja ele em reasoning_content (--reasoning-format
+    deepseek separa o bloco) ou embutido como <think>...</think> no content."""
+    rc = getattr(msg, "reasoning_content", None)
+    if rc:
+        return rc
     conteudo = msg.content or ""
     if "<think>" in conteudo:
         return conteudo.split("<think>", 1)[-1].split("</think>", 1)[0]
@@ -194,7 +184,7 @@ def teste_thinking_mode():
         conteudo = msg.content or ""
         print(f"       Raciocinio: {len(raciocinio)} chars | Resposta: {len(conteudo)} chars")
         if not raciocinio:
-            print(f"{FAIL} Sem raciocinio (nem campo dedicado nem <think>) — thinking mode/template quebrado")
+            print(f"{FAIL} Sem raciocinio (nem reasoning_content nem <think>) — thinking mode/template quebrado")
             return False
         # 240 - 35% = 156. Aceita a resposta no content ou no fim do raciocinio.
         if "156" not in (conteudo + raciocinio):
@@ -223,12 +213,7 @@ def teste_streaming():
         for chunk in stream:
             delta = chunk.choices[0].delta
             # Conta tanto o conteudo final quanto o raciocinio incremental.
-            # nome do campo de raciocinio varia por engine (ver _reasoning)
-            _ex = getattr(delta, "model_extra", None) or {}
-            texto = (delta.content
-                     or getattr(delta, "reasoning_content", None)
-                     or getattr(delta, "reasoning", None)
-                     or _ex.get("reasoning_content") or _ex.get("reasoning"))
+            texto = delta.content or getattr(delta, "reasoning_content", None)
             if texto:
                 print(texto, end="", flush=True)
                 chunks += 1
@@ -503,7 +488,7 @@ def teste_contrato_reasoning():
                   f"Baixe REASONING_BUDGET (2048 -> 1024) no .env")
             return False
         if not raciocinio:
-            print(f"{FAIL} Sem raciocinio no retorno — confira REASONING_PARSER/REASONING_FORMAT. "
+            print(f"{FAIL} Sem reasoning_content — confira REASONING_MODE=on e "
                   f"REASONING_FORMAT=deepseek no .env")
             return False
         if not conteudo:
