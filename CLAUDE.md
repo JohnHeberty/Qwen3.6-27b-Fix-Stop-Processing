@@ -112,7 +112,7 @@ path (`make start`) execs `llama-server` directly and does not go through `src/s
   real fix for the Qwen3.6 thought-loop (it repeats a paragraph inside `<think>` until `N_PREDICT`):
   on hitting the budget llama.cpp closes `</think>` and forces the answer/tool-call — capping runaway
   *reasoning* **without** shrinking context (still 104k) or breaking tool-calls. Preferred over
-  penalties/DRY for this model. See `HIPOTESE-09`.
+  penalties/DRY for this model.
 - `REASONING_MODE` / `REASONING_FORMAT` — `on` / `deepseek`, passed **explicitly** (llama.cpp's
   default is `auto` = detect from the chat template). Without them, a template change could silently
   stop populating `message.reasoning_content`, which is what OpenClaw/OpenCode display. Don't set
@@ -125,7 +125,7 @@ path (`make start`) execs `llama-server` directly and does not go through `src/s
 - `DRY_MULTIPLIER` (+ `DRY_BASE`/`DRY_ALLOWED_LENGTH`/`DRY_PENALTY_LAST_N`) — DRY sampler,
   **OFF by default (`0`)**. We tried it against the verbatim reasoning-loop, but in agentic/coding use
   it **truncated repeated file paths** (the model kept emitting `src/…/file.py`; DRY penalized the
-  repeat and cut the path mid-token → broken tool calls; confirmed in capture, see `HIPOTESE-09`).
+  repeat and cut the path mid-token → broken tool calls; confirmed in capture).
   Do not enable for coding. Anti-loop is instead handled by `REASONING_BUDGET` (cuts the thought-loop
   at the root) plus `error_warnings` (breaks tool-retry loops) — **with full 104k client context, not
   a reduced one**. The two defenses handle *different* failures and both are needed:

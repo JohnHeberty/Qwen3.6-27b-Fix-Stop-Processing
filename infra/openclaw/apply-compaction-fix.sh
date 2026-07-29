@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Corrige a compactacao destrutiva do OpenClaw (causa do loop de re-anuncio).
-# Rodar NA MAQUINA DO OPENCLAW. Ver HIPOTESE-09 para a evidencia.
+# Rodar NA MAQUINA DO OPENCLAW.
 #
 #   Antes: compactava aos ~53k e deixava ~2k -> o modelo perdia a memoria de que
 #          ja tinha respondido e re-anunciava a mesma coisa a cada turno.

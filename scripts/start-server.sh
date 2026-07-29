@@ -70,7 +70,7 @@ REASONING_BUDGET_MESSAGE="${REASONING_BUDGET_MESSAGE:-}"
 
 # DRY sampler — anti-loop de repetição verbatim (qualquer tamanho de bloco).
 # Necessário porque presence/repeat penalties leves NÃO quebram loop de parágrafo
-# (evidência: loop de raciocínio repetindo o mesmo bloco até estourar 8192 — HIPOTESE-09).
+# (evidência: loop de raciocínio repetindo o mesmo bloco até estourar 8192).
 # DRY penaliza só sequências longas repetidas -> não atrapalha repetição legítima de código.
 DRY_MULTIPLIER="${DRY_MULTIPLIER:-0}"     # 0.0 = desligado
 DRY_BASE="${DRY_BASE:-1.75}"

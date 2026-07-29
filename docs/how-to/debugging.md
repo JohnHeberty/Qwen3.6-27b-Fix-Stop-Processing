@@ -78,7 +78,7 @@ tokens de pensamento, o llama.cpp fecha `</think>` e força a resposta/ação. I
 descontrolado **sem** encolher contexto nem quebrar tool-calling.
 
 > ⚠️ **Não** use o DRY sampler em uso agêntico: ele trunca caminhos de arquivo repetidos (quebra
-> tool calls — ver `HIPOTESE-09`). Se um loop verbatim persistir, prefira `REPEAT_PENALTY=1.05` leve.
+> tool calls). Se um loop verbatim persistir, prefira `REPEAT_PENALTY=1.05` leve.
 
 Camadas anti-loop (todas preservam contexto): `REASONING_BUDGET` (thought-loop) · `error_warnings`
 (loop de retry após 2 falhas de ferramenta) · `presence_penalty=0.1` (leve).
