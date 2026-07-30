@@ -27,7 +27,7 @@
         "fallback": "none",
         "remote": {
           "baseUrl": "http://100.91.54.69:4000/v1/",
-          "apiKey": "sk-litellm-master"
+"apiKey": "${LITELLM_API_KEY}"
         }
       },
       "contextLimits": {
@@ -123,7 +123,7 @@
       "litellm": {
         "baseUrl": "http://100.91.54.69:4000",
         "api": "openai-completions",
-        "apiKey": "${LITELLM_API_KEY}",
+        "apiKey": "sk-litellm-master",
         "api": "openai-completions",
         "timeoutSeconds": 1200,
         "models": [
@@ -158,8 +158,11 @@
           "requireMention": true
         }
       },
-      "botToken": "TELEGRAM_BOT_TOKEN_PLACEHOLDER"
-    }
+      "streaming": {
+        "mode": "off"
+      }
+    },
+    "botToken": "TELEGRAM_BOT_TOKEN_PLACEHOLDER"
   },
   "skills": {
     "install": {
