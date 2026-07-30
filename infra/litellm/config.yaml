@@ -5,7 +5,6 @@ model_list:
       api_base: http://100.102.127.47:8080/v1
       api_key: "nao-precisa"
       max_tokens: 16384
-
     model_info:
       # Context Window: Ornith 35B Q4_K_M, llama.cpp, 128k ctx
       mode: chat
@@ -16,5 +15,5 @@ model_list:
       supports_tool_choice: true
 
 litellm_settings:
-  drop_params: false
+  drop_params: true
   modify_params: false
