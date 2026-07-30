@@ -50,7 +50,15 @@
         {{- tool | tojson }}
     {%- endfor %}
     {{- "\n</tools>" }}
-    {{- '\n\nIf you choose to call a function ONLY reply in the following format with NO suffix:\n\n<tool_call>\n<function=example_function_name>\n<parameter=example_parameter_1>\nvalue_1\n</parameter>\n<parameter=example_parameter_2>\nThis is the value for the second parameter\nthat can span\nmultiple lines\n</parameter>\n</function>\n</tool_call>\n\n<IMPORTANT>\nReminder:\n- Function calls MUST follow the specified format: an inner <function=...></function> block must be nested within <tool_call></tool_call> XML tags\n- Required parameters MUST be specified\n- You may provide optional reasoning for your function call in natural language BEFORE the function call, but NOT after\n- If there is no function call available, answer the question like normal with your current knowledge and do not tell the user about function calls\n</IMPORTANT>' }}
+    {{- '\n\nIf a function is needed, reply ONLY with the tool_call XML shown below.' }}
+    {{- '\nDo not output any visible text before or after the tool_call.' }}
+    {{- '\nDo not announce, explain, summarize, or describe the action.' }}
+    {{- '\nReason silently inside <think>\n\n</think>\nThen emit the tool_call.' }}
+    {{- '\n\n<tool_call>\n<function=example_function_name>\n<parameter=example_parameter_1>\nvalue_1\n</parameter>\n</tool_call>' }}
+    {{- '\nThe first visible token after </think> MUST be <tool_call>.' }}
+    {{- '\nTOOL_CALL calls MUST follow the format shown above.' }}
+    {{- '\nRequired parameters MUST be specified.' }}
+    {{- '\nIf there is no function call available, answer the question normally.' }}
     {%- if messages[0].role == 'system' %}
         {%- set content = render_content(messages[0].content, false, true)|trim %}
         {%- if content %}

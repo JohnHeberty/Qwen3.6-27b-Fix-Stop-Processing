@@ -470,6 +470,62 @@ def teste_conversa_longa_multi_tool():
         return False
 
 
+def teste_tool_streaming():
+    """Testa tool calling via streaming — o caminho real do OpenClaw.
+    Verifica se o modelo emite tool_calls via SSE sem texto visivel antes."""
+    separador("Teste 14: Tool call via streaming (OpenClaw path)")
+    try:
+        stream = _client().chat.completions.create(
+            model=MODEL,
+            messages=[{
+                "role": "user",
+                "content": "Consulte obrigatoriamente o clima de Paris.",
+            }],
+            tools=[TOOL_WEATHER],
+            tool_choice="required",
+            parallel_tool_calls=False,
+            max_tokens=512,
+            temperature=0.6,
+            stream=True,
+        )
+        tool_name = ""
+        arguments = ""
+        finish_reason = None
+        visible_before_tool = ""
+
+        for chunk in stream:
+            choice = chunk.choices[0]
+            finish_reason = choice.finish_reason or finish_reason
+
+            # Check for content BEFORE tool_calls (should be empty)
+            if choice.delta.content and not tool_name:
+                visible_before_tool += choice.delta.content
+
+            for call in (choice.delta.tool_calls or []):
+                if call.function:
+                    tool_name += call.function.name or ""
+                    arguments += call.function.arguments or ""
+
+        print(f"       tool_name={tool_name} | args={arguments[:100]} | finish={finish_reason}")
+        if visible_before_tool.strip():
+            print(f"       AVISO: texto visivel antes do tool_call: '{visible_before_tool.strip()[:80]}'")
+
+        if tool_name != "get_weather":
+            print(f"{FAIL} tool_name='{tool_name}', esperado 'get_weather'")
+            return False
+        if "Paris" not in arguments:
+            print(f"{FAIL} 'Paris' nao encontrado nos argumentos: {arguments[:200]}")
+            return False
+        if finish_reason != "tool_calls":
+            print(f"{FAIL} finish_reason='{finish_reason}', esperado 'tool_calls'")
+            return False
+        print(f"{PASS} Streaming+tools: tool_call correto via SSE, finish=tool_calls")
+        return True
+    except Exception as e:
+        print(f"{FAIL} Erro: {e}")
+        return False
+
+
 def teste_contrato_reasoning():
     """Regressao do bug que motivou o REASONING_BUDGET: o modelo gastava TODA a saida
     em reasoning_content e terminava com finish_reason='length', sem resposta visivel.
@@ -538,6 +594,7 @@ if __name__ == "__main__":
         "Correcao apos erro":      teste_tool_correcao_apos_erro(),
         "Chamadas paralelas":      teste_tool_paralelo(),
         "Conversa multi-tool":     teste_conversa_longa_multi_tool(),
+        "Tool call streaming":    teste_tool_streaming(),
         "Contrato de reasoning":   teste_contrato_reasoning(),
     }
 

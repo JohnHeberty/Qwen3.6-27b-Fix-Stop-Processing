@@ -8,7 +8,7 @@
       "models": {
         "litellm/ornith": {}
       },
-      "thinkingDefault": "medium",
+      "thinkingDefault": "low",
       "compaction": {
         "mode": "safeguard",
         "reserveTokens": 35000,
@@ -43,7 +43,7 @@
       },
       "timeoutSeconds": 1800,
       "runRetries": {
-        "max": 10
+        "max": 2
       }
     }
   },
