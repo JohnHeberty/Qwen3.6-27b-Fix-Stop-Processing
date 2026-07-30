@@ -51,7 +51,7 @@
     "mode": "local",
     "auth": {
       "mode": "token",
-      "token": "GATEWAY_TOKEN_PLACEHOLDER"
+      "token": "${GATEWAY_TOKEN}"
     },
     "port": 18789,
     "bind": "loopback",
@@ -161,7 +161,7 @@
         "mode": "off"
       }
     },
-    "botToken": "TELEGRAM_BOT_TOKEN_PLACEHOLDER"
+    "botToken": "${TELEGRAM_BOT_TOKEN}"
   },
   "skills": {
     "install": {
