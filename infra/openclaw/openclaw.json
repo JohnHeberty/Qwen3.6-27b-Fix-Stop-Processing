@@ -10,19 +10,16 @@
       },
       "thinkingDefault": "medium",
       "compaction": {
-        "enabled": true,
         "mode": "safeguard",
         "reserveTokens": 40000,
         "reserveTokensFloor": 40000,
         "keepRecentTokens": 16000,
-        "recentTurnsPreserve": 3,
         "midTurnPrecheck": {
           "enabled": true
         },
         "truncateAfterCompaction": true,
         "notifyUser": true,
         "memoryFlush": {
-          "enabled": true,
           "softThresholdTokens": 6000
         }
       },
