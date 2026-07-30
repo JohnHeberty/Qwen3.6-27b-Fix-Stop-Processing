@@ -11,16 +11,13 @@
       "thinkingDefault": "medium",
       "compaction": {
         "mode": "safeguard",
-        "reserveTokens": 40000,
-        "reserveTokensFloor": 40000,
-        "keepRecentTokens": 16000,
-        "midTurnPrecheck": {
-          "enabled": true
-        },
-        "truncateAfterCompaction": true,
-        "notifyUser": true,
+        "reserveTokens": 35000,
+        "reserveTokensFloor": 35000,
+        "keepRecentTokens": 12000,
+        "recentTurnsPreserve": 3,
+        "timeoutSeconds": 300,
         "memoryFlush": {
-          "softThresholdTokens": 6000
+          "enabled": true
         }
       },
       "memorySearch": {
@@ -126,37 +123,25 @@
       "litellm": {
         "baseUrl": "http://100.91.54.69:4000",
         "api": "openai-completions",
-        "apiKey": "sk-litellm-master",
+        "apiKey": "${LITELLM_API_KEY}",
+        "api": "openai-completions",
         "timeoutSeconds": 1200,
-        "request": {
-          "allowPrivateNetwork": true
-        },
         "models": [
           {
             "id": "ornith",
-            "name": "Ornith-35B IQ4_XS",
+            "name": "Ornith 1.0 35B Q4",
             "reasoning": true,
             "input": [
               "text"
             ],
+            "contextWindow": 131072,
+            "maxTokens": 16384,
             "cost": {
               "input": 0,
               "output": 0,
               "cacheRead": 0,
               "cacheWrite": 0
-            },
-            "contextWindow": 131072,
-            "maxTokens": 16384,
-            "compat": {
-              "supportsReasoningEffort": false,
-              "supportsUsageInStreaming": true,
-              "supportsTools": true,
-              "supportsStrictMode": false,
-              "requiresStringContent": true,
-              "strictMessageKeys": false
-            },
-            "api": "openai-completions",
-            "contextTokens": 114688
+            }
           }
         ]
       }
