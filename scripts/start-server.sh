@@ -40,7 +40,7 @@ DRAFT_MODEL_FILE="${DRAFT_MODEL_FILE:-}"
 DRAFT_N_MAX="${DRAFT_N_MAX:-5}"
 
 # Parâmetros de amostragem (ajustáveis no .env)
-# Fallbacks = valores oficiais recomendados pelo Qwen para código/tool-calling.
+# Fallbacks = valores oficiais recomendados pelo Ornith.
 TEMPERATURE="${TEMPERATURE:-0.6}"
 TOP_K="${TOP_K:-20}"
 TOP_P="${TOP_P:-0.95}"
@@ -48,14 +48,14 @@ MIN_P="${MIN_P:-0.0}"
 REPEAT_PENALTY="${REPEAT_PENALTY:-1.0}"
 REPEAT_LAST_N="${REPEAT_LAST_N:-64}"
 FREQUENCY_PENALTY="${FREQUENCY_PENALTY:-0.0}"
-PRESENCE_PENALTY="${PRESENCE_PENALTY:-1.5}"
+PRESENCE_PENALTY="${PRESENCE_PENALTY:-0.0}"
 SEED="${SEED:--1}"
-N_PREDICT="${N_PREDICT:-8192}"
+N_PREDICT="${N_PREDICT:-16384}"
 
 # Reasoning budget — teto de tokens DE PENSAMENTO (o `<think>`). Ao atingir, o llama.cpp
 # fecha o </think> e força o modelo a responder/agir. Fix real do thought-loop do Qwen3.6
 # (repetir parágrafo até 8192) SEM reduzir contexto nem quebrar tool-calling. -1 = ilimitado.
-REASONING_BUDGET="${REASONING_BUDGET:-2048}"
+REASONING_BUDGET="${REASONING_BUDGET:-4096}"
 
 # Contrato de reasoning — EXPLICITO de proposito. Os defaults do llama.cpp sao 'auto'
 # (detecta do template): se o template mudar, o reasoning_content que o OpenClaw consome
@@ -172,18 +172,13 @@ if [ "$DRY_MULTIPLIER" != "0" ] && [ "$DRY_MULTIPLIER" != "0.0" ]; then
     EXTRA_FLAGS="$EXTRA_FLAGS --dry-multiplier $DRY_MULTIPLIER --dry-base $DRY_BASE --dry-allowed-length $DRY_ALLOWED_LENGTH --dry-penalty-last-n $DRY_PENALTY_LAST_N"
 fi
 
-# ── Custom chat template ────────────────────────────────────────────
-TEMPLATE_FILE="${TEMPLATE_FILE:-data/templates/custom/chat_template_local.jinja}"
-CUSTOM_TEMPLATE="${PROJECT_ROOT}/${TEMPLATE_FILE}"
-if [ -f "$CUSTOM_TEMPLATE" ]; then
-    EXTRA_FLAGS="$EXTRA_FLAGS --chat-template-file $CUSTOM_TEMPLATE"
-fi
-
-# Heuristica de deteccao de erro do template (avisos ⚠️ + force-off do thinking).
-# Default off (evita falsos positivos). ERROR_WARNINGS=true reativa via kwargs do template.
-ERROR_WARNINGS="${ERROR_WARNINGS:-true}"
-if [ "$ERROR_WARNINGS" = "true" ]; then
-    EXTRA_FLAGS="$EXTRA_FLAGS --chat-template-kwargs {\"error_warnings\":true}"
+# ── Custom chat template (opcional) ──────────────────────────────
+# Se TEMPLATE_FILE nao estiver definido, usa o template embutido no GGUF (recomendado).
+if [ -n "${TEMPLATE_FILE:-}" ]; then
+    CUSTOM_TEMPLATE="${PROJECT_ROOT}/${TEMPLATE_FILE}"
+    if [ -f "$CUSTOM_TEMPLATE" ]; then
+        EXTRA_FLAGS="$EXTRA_FLAGS --chat-template-file $CUSTOM_TEMPLATE"
+    fi
 fi
 
 # ── Captura de conteudo para depuracao (CAPTURE_LOG) — DEFAULT OFF ───────────────
