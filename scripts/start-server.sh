@@ -45,8 +45,8 @@ TEMPERATURE="${TEMPERATURE:-0.6}"
 TOP_K="${TOP_K:-20}"
 TOP_P="${TOP_P:-0.95}"
 MIN_P="${MIN_P:-0.0}"
-REPEAT_PENALTY="${REPEAT_PENALTY:-1.08}"
-REPEAT_LAST_N="${REPEAT_LAST_N:-4096}"
+REPEAT_PENALTY="${REPEAT_PENALTY:-1.0}"
+REPEAT_LAST_N="${REPEAT_LAST_N:-64}"
 FREQUENCY_PENALTY="${FREQUENCY_PENALTY:-0.0}"
 PRESENCE_PENALTY="${PRESENCE_PENALTY:-0.0}"
 SEED="${SEED:--1}"
@@ -68,16 +68,16 @@ REASONING_FORMAT="${REASONING_FORMAT:-deepseek}"
 
 # Mensagem injetada antes do fecha-</think> quando o budget estoura. Vazio = flag omitida
 # (o corte natural do llama.cpp). Preencha so se o modelo ficar mudo apos o corte.
-REASONING_BUDGET_MESSAGE="${REASONING_BUDGET_MESSAGE:-Stop reasoning now. Call the required tool or provide one final answer. Do not announce what you will do.}"
+REASONING_BUDGET_MESSAGE="${REASONING_BUDGET_MESSAGE:-}"
 
 # DRY sampler — anti-loop de repetição verbatim (qualquer tamanho de bloco).
 # Necessário porque presence/repeat penalties leves NÃO quebram loop de parágrafo
 # (evidência: loop de raciocínio repetindo o mesmo bloco até estourar 8192).
 # DRY penaliza só sequências longas repetidas -> não atrapalha repetição legítima de código.
-DRY_MULTIPLIER="${DRY_MULTIPLIER:-0.5}"     # 0.0 = desligado
+DRY_MULTIPLIER="${DRY_MULTIPLIER:-0}"     # 0.0 = desligado
 DRY_BASE="${DRY_BASE:-1.75}"
 DRY_ALLOWED_LENGTH="${DRY_ALLOWED_LENGTH:-4}"   # 2 é agressivo p/ modelo thinking (rambleia)
-DRY_PENALTY_LAST_N="${DRY_PENALTY_LAST_N:-4096}"  # janela (não o contexto todo)
+DRY_PENALTY_LAST_N="${DRY_PENALTY_LAST_N:-2048}"  # janela (não o contexto todo)
 
 MODEL_PATH="$MODEL_DIR/$MODEL_FILE"
 
