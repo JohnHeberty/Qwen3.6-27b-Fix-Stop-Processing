@@ -9,7 +9,7 @@ Estes parâmetros **quebraram tool calling** em 30 Jul 2026 e exigiram rollback.
 
 | Parâmetro | Valor obrigatório | Motivo |
 |---|---|---|
-| `TEMPLATE_FILE` | **vazio** (template GGUF embutido) | Template custom fez modelo narrar em vez de chamar ferramentas |
+| `TEMPLATE_FILE` | **`data/templates/custom/chat_template_local.jinja`** | GGUF nativo permite "natural language BEFORE tool_call"; o custom proíbe explicitamente |
 | `DRY_MULTIPLIER` | **0** (desligado) | DRY penalizou repetições naturais de `<tool_call>` |
 | `REPEAT_PENALTY` | **1.0** (desligado) | Penalidade cortou saídas longas, modelo "desistia" |
 | `REPEAT_LAST_N` | **64** (janela mínima) | Janela grande + penalty fez modelo repetir infinitamente |
