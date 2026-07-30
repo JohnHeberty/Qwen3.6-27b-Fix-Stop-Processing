@@ -10,19 +10,20 @@
       },
       "thinkingDefault": "medium",
       "compaction": {
+        "enabled": true,
         "mode": "safeguard",
+        "reserveTokens": 40000,
+        "reserveTokensFloor": 40000,
+        "keepRecentTokens": 16000,
+        "recentTurnsPreserve": 3,
         "midTurnPrecheck": {
           "enabled": true
         },
-        "timeoutSeconds": 1200,
-        "notifyUser": true,
-        "keepRecentTokens": 50000,
-        "recentTurnsPreserve": 3,
         "truncateAfterCompaction": true,
+        "notifyUser": true,
         "memoryFlush": {
           "enabled": true,
-          "softThresholdTokens": 6000,
-          "forceFlushTranscriptBytes": "2mb"
+          "softThresholdTokens": 6000
         }
       },
       "memorySearch": {
