@@ -10,10 +10,10 @@
       },
       "models": {
         "ornith": {
-          "name": "Ornith-35B IQ4_XS (llama.cpp)",
+          "name": "Ornith 35B Q4_K_M (llama.cpp)",
           "limit": {
-            "context": 262144,
-            "output": 8192
+            "context": 131072,
+            "output": 16384
           },
           "reasoning": true,
           "interleaved": { "field": "reasoning_content" }
@@ -32,7 +32,7 @@
   "compaction": {
     "auto": true,
     "prune": true,
-    "reserved": 8192
+    "reserved": 16384
   },
   "watcher": {
     "ignore": [
