@@ -3,8 +3,7 @@
 bench_decode.py — mede decode tok/s de forma comparável entre engines.
 
 Agnóstico de engine: fala só OpenAI-compatible chat/completions com streaming.
-Serve para llama-server e para vLLM sem alteração, que é o ponto — sem o mesmo
-prompt e a mesma definição de tok/s, comparar as duas é chute.
+Serve para llama-server (e qualquer endpoint OpenAI-compatible) sem alteração.
 
 Conta tokens pelo `usage.completion_tokens` do servidor (via
 `stream_options.include_usage`), NUNCA por número de chunks SSE — um chunk pode
@@ -93,15 +92,14 @@ def one_run(base_url, model, prompt, max_tokens, timeout):
 
         if chunk.get("usage"):
             usage = chunk["usage"]
-        if chunk.get("timings"):          # llama.cpp expõe; vLLM não
+        if chunk.get("timings"):          # llama.cpp expõe
             server_timings = chunk["timings"]
 
         for ch in chunk.get("choices", []):
             delta = ch.get("delta", {})
             # O raciocínio conta: é token gerado, e um modelo thinking emite
             # bastante dele antes do content. Ignorar inflaria o tok/s.
-            # O nome do campo MUDA por engine: llama.cpp manda `reasoning_content`
-            # (--reasoning-format deepseek), o vLLM 0.26 manda `reasoning`.
+            # llama.cpp manda `reasoning_content` (--reasoning-format deepseek).
             if (delta.get("content")
                     or delta.get("reasoning_content")
                     or delta.get("reasoning")):

@@ -3,20 +3,20 @@
   "provider": {
     "qwen-local": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "Qwen Local (vLLM)",
+      "name": "Ornith 35B (llama.cpp)",
       "options": {
-        "baseURL": "http://localhost:8000/v1",
+        "baseURL": "http://localhost:8080/v1",
         "apiKey": "nao-precisa"
       },
       "models": {
-        "qwen3": {
-          "name": "Qwen3.6-27B-INT4 (vLLM)",
+        "ornith": {
+          "name": "Ornith-35B IQ4_XS (llama.cpp)",
           "limit": {
-            "context": 57344,
+            "context": 262144,
             "output": 8192
           },
           "reasoning": true,
-          "interleaved": { "field": "reasoning" }
+          "interleaved": { "field": "reasoning_content" }
         }
       }
     }
@@ -108,6 +108,6 @@
     "question": "allow",
     "external_directory": "allow"
   },
-  "model": "qwen-local/qwen3",
-  "small_model": "qwen-local/qwen3"
+  "model": "qwen-local/ornith",
+  "small_model": "qwen-local/ornith"
 }

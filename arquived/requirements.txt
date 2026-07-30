@@ -1,5 +1,0 @@
-llama-cpp-python
-huggingface-hub
-openai
-requests
-gguf

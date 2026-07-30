@@ -1,40 +1,27 @@
 model_list:
-  - model_name: qwen
+  - model_name: ornith
     litellm_params:
-      model: openai/qwen3
-      api_base: http://localhost:8000/v1
+      model: openai/ornith
+      api_base: http://100.102.127.47:8080/v1
       api_key: "nao-precisa"
-      max_tokens: 8192
+      max_tokens: 16384
       streaming: true
     model_info:
-      # ── Context Window Math (engine: vLLM) ───────────────────────────────────
-      # A janela TOTAL e MAX_MODEL_LEN=49152 no .env. Dela reservamos 8192 para a
-      # geracao, sobrando 40960 de entrada.
+      # ── Context Window Math (engine: llama.cpp + Ornith-35B IQ4_XS) ─────────
+      # RTX 3090 (24 GB). Pesos Ornith 35B IQ4_XS = ~17.4 GB.
+      # KV cache fp16: ~22 MiB por 1k tokens.
+      # Com 262144 tokens de contexto: ~22.3 GB VRAM total, ~1.9 GB livre.
+      # Treinamento do modelo: 262144 tokens (cap natural).
       #
-      # 49152 nao e escolha arbitraria: com KV fp8_e5m2 o vLLM aloca 56.631 tokens
-      # de cache nesta 3090, e 49152 e o valor medido a 82,44 tok/s (ver
-      # docs/vllm-vs-llamacpp.md). Subir ate ~56k e possivel, mas nao foi medido.
-      #
-      # ⚠️ MUDANCA vs llama.cpp: a janela subiu de 49.152 para 57.344 com
-      # --language-model-only (text-only). O input sobe de 40.960 para 49.152.
-      # A saida continua em 8.192.
-      context_window: 57344
-      max_input_tokens: 49152
-      max_output_tokens: 8192
+      # Decode benchmark: 129 tok/s @8k, 130 tok/s @24k, 77 tok/s @215k
+      # 13/13 testes de validacao passaram (tool-calling, reasoning, streaming).
+      mode: chat
+      context_window: 131072
+      max_input_tokens: 114688
+      max_output_tokens: 16384
       input_cost_per_token: 0.0000000336
       output_cost_per_token: 0.0000000336
 
 litellm_settings:
-  # false nos dois de proposito: queremos que um parametro nao suportado pelo backend
-  # vire ERRO visivel, em vez de ser descartado/reescrito em silencio. Silencio aqui foi
-  # o que dificultou depurar o thinking (nao dava para saber o que chegava no servidor).
   drop_params: false
   modify_params: false
-
-  # ⚠️ VERIFICAR: o vLLM 0.26 devolve o raciocinio no campo `reasoning`; o llama.cpp
-  # devolvia em `reasoning_content`, e nao existe flag de compatibilidade no vLLM.
-  # Se o LiteLLM nao normalizar esse nome, OpenCode e OpenClaw param de exibir o
-  # raciocinio. Testar com:
-  #   curl -s localhost:4000/v1/chat/completions -H 'Authorization: Bearer <key>' \
-  #     -d '{"model":"qwen","messages":[{"role":"user","content":"oi"}],"max_tokens":300}' \
-  #     | python3 -c 'import sys,json; print(json.load(sys.stdin)["choices"][0]["message"].keys())'

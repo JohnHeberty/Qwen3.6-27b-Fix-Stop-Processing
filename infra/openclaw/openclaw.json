@@ -3,26 +3,27 @@
     "defaults": {
       "workspace": "/root/.openclaw/workspace",
       "model": {
-        "primary": "litellm/qwen"
+        "primary": "litellm/ornith"
       },
       "models": {
-        "litellm/qwen": {}
+        "litellm/ornith": {}
       },
       "thinkingDefault": "medium",
       "compaction": {
-        "reserveTokensFloor": 12288,
-        "reserveTokens": 12288,
+        "mode": "safeguard",
         "midTurnPrecheck": {
           "enabled": true
         },
         "timeoutSeconds": 1200,
         "notifyUser": true,
+        "keepRecentTokens": 50000,
+        "recentTurnsPreserve": 3,
+        "truncateAfterCompaction": true,
         "memoryFlush": {
-          "softThresholdTokens": 20000
-        },
-        "mode": "safeguard",
-        "keepRecentTokens": 8000,
-        "truncateAfterCompaction": true
+          "enabled": true,
+          "softThresholdTokens": 6000,
+          "forceFlushTranscriptBytes": "2mb"
+        }
       },
       "memorySearch": {
         "enabled": true,
@@ -31,11 +32,11 @@
         "fallback": "none",
         "remote": {
           "baseUrl": "http://100.91.54.69:4000/v1/",
-          "apiKey": "${LITELLM_API_KEY}"
+          "apiKey": "sk-litellm-master"
         }
       },
       "contextLimits": {
-        "toolResultMaxChars": 16000
+        "toolResultMaxChars": 65536
       },
       "contextPruning": {
         "mode": "cache-ttl",
@@ -55,7 +56,7 @@
     "mode": "local",
     "auth": {
       "mode": "token",
-      "token": "${OPENCLAW_GATEWAY_TOKEN}"
+      "token": "GATEWAY_TOKEN_PLACEHOLDER"
     },
     "port": 18789,
     "bind": "loopback",
@@ -127,15 +128,15 @@
       "litellm": {
         "baseUrl": "http://100.91.54.69:4000",
         "api": "openai-completions",
-        "apiKey": "${LITELLM_API_KEY}",
+        "apiKey": "sk-litellm-master",
         "timeoutSeconds": 1200,
         "request": {
           "allowPrivateNetwork": true
         },
         "models": [
           {
-            "id": "qwen",
-            "name": "Qwen 3.6 27B INT4 (vLLM)",
+            "id": "ornith",
+            "name": "Ornith-35B IQ4_XS",
             "reasoning": true,
             "input": [
               "text"
@@ -146,8 +147,8 @@
               "cacheRead": 0,
               "cacheWrite": 0
             },
-            "contextWindow": 57344,
-            "maxTokens": 8192,
+            "contextWindow": 131072,
+            "maxTokens": 16384,
             "compat": {
               "supportsReasoningEffort": false,
               "supportsUsageInStreaming": true,
@@ -157,7 +158,7 @@
               "strictMessageKeys": false
             },
             "api": "openai-completions",
-            "contextTokens": 57344
+            "contextTokens": 114688
           }
         ]
       }
@@ -174,7 +175,7 @@
           "requireMention": true
         }
       },
-      "botToken": "${OPENCLAW_BOT_TOKEN}"
+      "botToken": "TELEGRAM_BOT_TOKEN_PLACEHOLDER"
     }
   },
   "skills": {

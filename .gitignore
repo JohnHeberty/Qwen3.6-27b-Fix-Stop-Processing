@@ -3,11 +3,12 @@
 
 # Modelos (dezenas de GB)
 data/models/
-data/models-vllm/
 
 # Ambientes
 .venv/
-.venv-vllm/
+
+# Arquivo morto (modelos, venv, configs vLLM)
+old/
 
 # Logs e temporários
 data/logs/

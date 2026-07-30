@@ -47,10 +47,8 @@ def _client():
 def _reasoning(msg):
     """Extrai o raciocinio, seja qual for o nome do campo na engine.
 
-    O nome MUDA por servidor e nao ha flag de compatibilidade:
-      llama.cpp  --reasoning-format deepseek  -> `reasoning_content`
-      vLLM 0.26  --reasoning-parser qwen3     -> `reasoning`
-    Alguns modelos ainda embutem <think>...</think> dentro do proprio content.
+    llama.cpp --reasoning-format deepseek -> `reasoning_content`
+    Alguns modelos embutem <think>...</think> dentro do proprio content.
     """
     for campo in ("reasoning_content", "reasoning"):
         rc = getattr(msg, campo, None)
