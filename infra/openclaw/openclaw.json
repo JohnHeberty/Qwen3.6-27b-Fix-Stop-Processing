@@ -96,10 +96,7 @@
     },
     "byProvider": {
       "litellm": {}
-    },
-    "alsoAllow": [
-      "message"
-    ]
+    }
   },
   "plugins": {
     "entries": {
