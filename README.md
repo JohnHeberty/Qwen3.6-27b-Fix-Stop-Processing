@@ -15,7 +15,7 @@ Estes parâmetros quebraram tool calling quando combinados com o template GGUF n
 | `REPEAT_LAST_N` | **4096** | — |
 | `REASONING_BUDGET_MESSAGE` | **vazio** | Não mexer. Mensagem corta raciocínio antes do modelo gerar `<tool_call>` |
 | `thinkingDefault` (OpenClaw) | **medium** | `low` reduz profundidade de raciocínio |
-| `runRetries.max` (OpenClaw) | **10** | `2` dá poucas chances de recuperação |
+| `runRetries.max` (OpenClaw) | **3** | `2` dá poucas chances de recuperação |
 
 Commit do rollback: `2c96270`. Commit que quebrou: `defeb63`.
 

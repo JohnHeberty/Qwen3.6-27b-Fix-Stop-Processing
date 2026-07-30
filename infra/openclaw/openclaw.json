@@ -43,7 +43,7 @@
       },
       "timeoutSeconds": 1800,
       "runRetries": {
-        "max": 10
+        "max": 3
       }
     }
   },
