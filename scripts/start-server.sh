@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# scripts/start-server.sh — Inicia llama-server servindo Ornith-35B GGUF (ver MODEL_FILE no .env)
-# Ollama continua rodando em paralelo na porta 11434 — nao e tocado
+# scripts/start-server.sh — Inicia llama-server (ver .env)
+# Ollama continua rodando em paralelo — nao e tocado
 
 set -euo pipefail
 
@@ -14,6 +14,8 @@ VENV="$PROJECT_ROOT/.venv"
 MODEL_DIR="${MODEL_DIR:-$PROJECT_ROOT/data/models}"
 MODEL_FILE="${MODEL_FILE:-Ornith-1.0-35B-UD-IQ4_XS.gguf}"
 PORT="${PORT:-8080}"
+HOST="${HOST:-0.0.0.0}"
+OLLAMA_PORT="${OLLAMA_PORT:-11434}"
 SERVED_NAME="${SERVED_NAME:-ornith}"
 N_GPU_LAYERS="${N_GPU_LAYERS:--1}"
 N_CTX="${N_CTX:-73728}"
@@ -83,8 +85,8 @@ MODEL_PATH="$MODEL_DIR/$MODEL_FILE"
 
 echo ""
 echo "================================================"
-echo "  llama-server — Ornith-35B IQ4_XS ($MODEL_FILE)"
-echo "  Ollama continua em: http://localhost:11434"
+echo "  llama-server — $SERVED_NAME ($MODEL_FILE)"
+echo "  Ollama continua em: http://localhost:$OLLAMA_PORT"
 echo "================================================"
 echo ""
 
@@ -110,7 +112,7 @@ LLAMA_SERVER="${LLAMA_SERVER:-$LLAMA_CPP_DIR/build/bin/llama-server}"
 }
 
 echo "Modelo    : $MODEL_PATH"
-echo "Porta     : $PORT  (Ollama em 11434)"
+echo "Porta     : $PORT  (Ollama em $OLLAMA_PORT)"
 echo "GPU layers: $N_GPU_LAYERS (todos na GPU)"
 echo "Contexto  : $N_CTX tokens"
 echo "KV cache  : K=$CACHE_TYPE_K V=$CACHE_TYPE_V"
@@ -124,13 +126,13 @@ echo "Reasoning : mode=$REASONING_MODE format=$REASONING_FORMAT budget=$REASONIN
 echo ""
 
 # ── Liberar VRAM do Ollama antes de iniciar ────────────────────────────────────
-if curl -sf http://localhost:11434/api/ps > /dev/null 2>&1; then
-    OLLAMA_MODELS=$(curl -s http://localhost:11434/api/ps 2>/dev/null | \
+if curl -sf "http://localhost:$OLLAMA_PORT/api/ps" > /dev/null 2>&1; then
+    OLLAMA_MODELS=$(curl -s "http://localhost:$OLLAMA_PORT/api/ps" 2>/dev/null | \
         python3 -c "import json,sys; d=json.load(sys.stdin); print(' '.join(m['name'] for m in d.get('models',[])))" 2>/dev/null)
     if [ -n "$OLLAMA_MODELS" ]; then
         echo "Ollama: descarregando modelos da GPU para liberar VRAM..."
         for MODEL in $OLLAMA_MODELS; do
-            curl -s http://localhost:11434/api/generate \
+            curl -s "http://localhost:$OLLAMA_PORT/api/generate" \
                 -d "{\"model\":\"$MODEL\",\"keep_alive\":0,\"prompt\":\"\"}" \
                 > /dev/null 2>&1 && echo "  ✓ $MODEL descarregado"
         done
@@ -218,7 +220,7 @@ exec "$LLAMA_SERVER" \
     --ctx-size         "$N_CTX"             \
     --batch-size       "$N_BATCH"           \
     --parallel         "${N_PARALLEL:-1}"   \
-    --host             0.0.0.0              \
+    --host             "$HOST"              \
     --port             "$PORT"              \
     --alias            "$SERVED_NAME"       \
     --jinja                                 \
