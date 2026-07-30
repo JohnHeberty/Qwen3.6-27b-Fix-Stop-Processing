@@ -123,8 +123,7 @@
       "litellm": {
         "baseUrl": "http://100.91.54.69:4000",
         "api": "openai-completions",
-        "apiKey": "sk-litellm-master",
-        "api": "openai-completions",
+        "apiKey": "${LITELLM_API_KEY}",
         "timeoutSeconds": 1200,
         "models": [
           {

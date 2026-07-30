@@ -7,14 +7,7 @@ model_list:
       max_tokens: 16384
       streaming: true
     model_info:
-      # ── Context Window Math (engine: llama.cpp + Ornith-35B IQ4_XS) ─────────
-      # RTX 3090 (24 GB). Pesos Ornith 35B IQ4_XS = ~17.4 GB.
-      # KV cache fp16: ~22 MiB por 1k tokens.
-      # Com 262144 tokens de contexto: ~22.3 GB VRAM total, ~1.9 GB livre.
-      # Treinamento do modelo: 262144 tokens (cap natural).
-      #
-      # Decode benchmark: 129 tok/s @8k, 130 tok/s @24k, 77 tok/s @215k
-      # 13/13 testes de validacao passaram (tool-calling, reasoning, streaming).
+      # Context Window: Ornith 35B Q4_K_M, llama.cpp, 128k ctx
       mode: chat
       context_window: 131072
       max_input_tokens: 114688
