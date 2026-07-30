@@ -27,7 +27,7 @@
         "fallback": "none",
         "remote": {
           "baseUrl": "http://100.91.54.69:4000/v1/",
-"apiKey": "${LITELLM_API_KEY}"
+          "apiKey": "${LITELLM_API_KEY}"
         }
       },
       "contextLimits": {
