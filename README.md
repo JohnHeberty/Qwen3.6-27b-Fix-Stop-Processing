@@ -3,21 +3,21 @@
 **Modelo:** Ornith-1.0-35B Q4_K_M (MoE, ~3B ativos/token) via llama-server (llama.cpp)
 **GPU:** RTX 3090 (24 GB) | **API:** `http://localhost:8080/v1` | **Contexto:** 128k
 
-## ⚠️ CRÍTICO: parâmetros que NÃO devem ser alterados
+## ⚠️ CRÍTICO: parâmetros sensíveis
 
-Estes parâmetros **quebraram tool calling** em 30 Jul 2026 e exigiram rollback. Não mexa.
+Estes parâmetros quebraram tool calling quando combinados com o template GGUF nativo (30 Jul 2026). Com `chat_template_local.jinja` funcionam normalmente.
 
-| Parâmetro | Valor obrigatório | Motivo |
+| Parâmetro | Valor atual | Observação |
 |---|---|---|
-| `TEMPLATE_FILE` | **`data/templates/custom/chat_template_local.jinja`** | GGUF nativo permite "natural language BEFORE tool_call"; o custom proíbe explicitamente |
-| `DRY_MULTIPLIER` | **0** (desligado) | DRY penalizou repetições naturais de `<tool_call>` |
-| `REPEAT_PENALTY` | **1.0** (desligado) | Penalidade cortou saídas longas, modelo "desistia" |
-| `REPEAT_LAST_N` | **64** (janela mínima) | Janela grande + penalty fez modelo repetir infinitamente |
-| `REASONING_BUDGET_MESSAGE` | **vazio** (flag omitida) | Mensagem cortava raciocínio antes do modelo gerar `<tool_call>` |
-| `thinkingDefault` (OpenClaw) | **medium** | `low` reduziu profundidade de raciocínio |
-| `runRetries.max` (OpenClaw) | **10** | `2` deu poucas chances de recuperação |
+| `TEMPLATE_FILE` | **`data/templates/custom/chat_template_local.jinja`** | Obrigatório. GGUF nativo permite "natural language BEFORE tool_call" — o custom proíbe |
+| `DRY_MULTIPLIER` | **0.7** | Só funciona com o template custom (que não gera texto antes de tool_call) |
+| `REPEAT_PENALTY` | **1.05** | Idem — template correto evita a narração que o penalty puniria |
+| `REPEAT_LAST_N` | **4096** | — |
+| `REASONING_BUDGET_MESSAGE` | **vazio** | Não mexer. Mensagem corta raciocínio antes do modelo gerar `<tool_call>` |
+| `thinkingDefault` (OpenClaw) | **medium** | `low` reduz profundidade de raciocínio |
+| `runRetries.max` (OpenClaw) | **10** | `2` dá poucas chances de recuperação |
 
-Commits de referência: `2c96270` (rollback) / `defeb63` (quebrou).
+Commit do rollback: `2c96270`. Commit que quebrou: `defeb63`.
 
 ## Comandos
 
