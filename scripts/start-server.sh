@@ -45,8 +45,8 @@ TEMPERATURE="${TEMPERATURE:-0.6}"
 TOP_K="${TOP_K:-20}"
 TOP_P="${TOP_P:-0.95}"
 MIN_P="${MIN_P:-0.0}"
-REPEAT_PENALTY="${REPEAT_PENALTY:-1.0}"
-REPEAT_LAST_N="${REPEAT_LAST_N:-64}"
+REPEAT_PENALTY="${REPEAT_PENALTY:-1.05}"
+REPEAT_LAST_N="${REPEAT_LAST_N:-2048}"
 FREQUENCY_PENALTY="${FREQUENCY_PENALTY:-0.0}"
 PRESENCE_PENALTY="${PRESENCE_PENALTY:-0.0}"
 SEED="${SEED:--1}"
@@ -55,7 +55,7 @@ N_PREDICT="${N_PREDICT:-32768}"
 # Reasoning budget — teto de tokens DE PENSAMENTO (o `<think>`). Ao atingir, o llama.cpp
 # fecha o </think> e força o modelo a responder/agir. Fix real do thought-loop do Qwen3.6
 # (repetir parágrafo até 8192) SEM reduzir contexto nem quebrar tool-calling. -1 = ilimitado.
-REASONING_BUDGET="${REASONING_BUDGET:-4096}"
+REASONING_BUDGET="${REASONING_BUDGET:-3072}"
 
 # Contrato de reasoning — EXPLICITO de proposito. Os defaults do llama.cpp sao 'auto'
 # (detecta do template): se o template mudar, o reasoning_content que o OpenClaw consome
@@ -68,16 +68,16 @@ REASONING_FORMAT="${REASONING_FORMAT:-deepseek}"
 
 # Mensagem injetada antes do fecha-</think> quando o budget estoura. Vazio = flag omitida
 # (o corte natural do llama.cpp). Preencha so se o modelo ficar mudo apos o corte.
-REASONING_BUDGET_MESSAGE="${REASONING_BUDGET_MESSAGE:-}"
+REASONING_BUDGET_MESSAGE="${REASONING_BUDGET_MESSAGE:-Stop reasoning now and provide the final answer.}"
 
 # DRY sampler — anti-loop de repetição verbatim (qualquer tamanho de bloco).
 # Necessário porque presence/repeat penalties leves NÃO quebram loop de parágrafo
 # (evidência: loop de raciocínio repetindo o mesmo bloco até estourar 8192).
 # DRY penaliza só sequências longas repetidas -> não atrapalha repetição legítima de código.
-DRY_MULTIPLIER="${DRY_MULTIPLIER:-0}"     # 0.0 = desligado
+DRY_MULTIPLIER="${DRY_MULTIPLIER:-0.8}"     # 0.0 = desligado
 DRY_BASE="${DRY_BASE:-1.75}"
 DRY_ALLOWED_LENGTH="${DRY_ALLOWED_LENGTH:-4}"   # 2 é agressivo p/ modelo thinking (rambleia)
-DRY_PENALTY_LAST_N="${DRY_PENALTY_LAST_N:-2048}"  # janela (não o contexto todo)
+DRY_PENALTY_LAST_N="${DRY_PENALTY_LAST_N:-8192}"  # janela (não o contexto todo)
 
 MODEL_PATH="$MODEL_DIR/$MODEL_FILE"
 
