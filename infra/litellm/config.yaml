@@ -4,13 +4,13 @@ model_list:
       model: openai/ornith
       api_base: http://100.102.127.47:8080/v1
       api_key: "nao-precisa"
-      max_tokens: 16384
+      max_tokens: 32768
     model_info:
       # Context Window: Ornith 35B Q4_K_M, llama.cpp, 128k ctx
       mode: chat
       context_window: 131072
-      max_input_tokens: 114688
-      max_output_tokens: 16384
+      max_input_tokens: 98304
+      max_output_tokens: 32768
       supports_function_calling: true
       supports_tool_choice: true
 

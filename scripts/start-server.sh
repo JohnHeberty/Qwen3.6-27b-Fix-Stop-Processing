@@ -50,7 +50,7 @@ REPEAT_LAST_N="${REPEAT_LAST_N:-64}"
 FREQUENCY_PENALTY="${FREQUENCY_PENALTY:-0.0}"
 PRESENCE_PENALTY="${PRESENCE_PENALTY:-0.0}"
 SEED="${SEED:--1}"
-N_PREDICT="${N_PREDICT:-16384}"
+N_PREDICT="${N_PREDICT:-32768}"
 
 # Reasoning budget — teto de tokens DE PENSAMENTO (o `<think>`). Ao atingir, o llama.cpp
 # fecha o </think> e força o modelo a responder/agir. Fix real do thought-loop do Qwen3.6

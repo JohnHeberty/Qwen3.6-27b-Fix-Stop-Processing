@@ -1,7 +1,7 @@
 # Ornith-1.0-35B — local inference server
 
 **Modelo:** Ornith-1.0-35B Q4_K_M (MoE, ~3B ativos/token) via llama-server (llama.cpp)
-**GPU:** RTX 3090 (24 GB) | **API:** `http://localhost:8080/v1` | **Contexto:** 128k
+**GPU:** RTX 3090 (24 GB) | **API:** `http://localhost:8080/v1` | **Contexto:** 128k (input 96k + output 32k)
 
 ## Configuração
 

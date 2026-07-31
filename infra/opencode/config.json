@@ -16,7 +16,7 @@
           "name": "Ornith 35B Q4_K_M (llama.cpp)",
           "limit": {
             "context": 131072,
-            "output": 16384
+            "output": 32768
           },
           "reasoning": true,
           "interleaved": {
@@ -37,7 +37,7 @@
   "compaction": {
     "auto": true,
     "prune": true,
-    "reserved": 16384
+    "reserved": 32768
   },
   "watcher": {
     "ignore": [
