@@ -27,7 +27,11 @@
         "fallback": "none",
         "remote": {
           "baseUrl": "http://100.91.54.69:4000/v1/",
-          "apiKey": "${LITELLM_API_KEY}"
+          "apiKey": {
+            "source": "file",
+            "provider": "litellm_file",
+            "id": "value"
+          }
         }
       },
       "contextLimits": {
@@ -43,7 +47,7 @@
       },
       "timeoutSeconds": 1800,
       "runRetries": {
-        "max": 3
+        "max": 10
       }
     }
   },
@@ -51,7 +55,11 @@
     "mode": "local",
     "auth": {
       "mode": "token",
-      "token": "${GATEWAY_TOKEN}"
+      "token": {
+        "source": "file",
+        "provider": "gateway_file",
+        "id": "value"
+      }
     },
     "port": 18789,
     "bind": "loopback",
@@ -96,7 +104,15 @@
     },
     "byProvider": {
       "litellm": {}
-    }
+    },
+    "alsoAllow": [
+      "message"
+    ],
+    "deny": [
+      "sessions_spawn",
+      "sessions_yield",
+      "subagents"
+    ]
   },
   "plugins": {
     "entries": {
@@ -120,7 +136,11 @@
       "litellm": {
         "baseUrl": "http://100.91.54.69:4000",
         "api": "openai-completions",
-        "apiKey": "${LITELLM_API_KEY}",
+        "apiKey": {
+          "source": "file",
+          "provider": "litellm_file",
+          "id": "value"
+        },
         "timeoutSeconds": 1200,
         "models": [
           {
@@ -154,11 +174,12 @@
           "requireMention": true
         }
       },
-      "streaming": {
-        "mode": "off"
+      "botToken": {
+        "source": "file",
+        "provider": "telegram_file",
+        "id": "value"
       }
-    },
-    "botToken": "${TELEGRAM_BOT_TOKEN}"
+    }
   },
   "skills": {
     "install": {
@@ -296,11 +317,30 @@
   },
   "meta": {
     "lastTouchedVersion": "2026.7.1-2",
-    "lastTouchedAt": "2026-07-26T19:47:32.713Z"
+    "lastTouchedAt": "2026-07-31T00:18:22.852Z"
   },
   "commands": {
     "ownerAllowFrom": [
       "telegram:1258408739"
     ]
+  },
+  "secrets": {
+    "providers": {
+      "litellm_file": {
+        "source": "file",
+        "path": "/etc/openclaw/secrets/litellm-api-key",
+        "mode": "singleValue"
+      },
+      "gateway_file": {
+        "source": "file",
+        "path": "/etc/openclaw/secrets/gateway-token",
+        "mode": "singleValue"
+      },
+      "telegram_file": {
+        "source": "file",
+        "path": "/etc/openclaw/secrets/telegram-bot-token",
+        "mode": "singleValue"
+      }
+    }
   }
 }
