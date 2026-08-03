@@ -42,11 +42,11 @@ DRAFT_N_MAX="${DRAFT_N_MAX:-5}"
 # Parâmetros de amostragem (ajustáveis no .env)
 # Fallbacks = valores oficiais recomendados pelo Ornith.
 TEMPERATURE="${TEMPERATURE:-0.6}"
-TOP_K="${TOP_K:-20}"
+TOP_K="${TOP_K:-}"
 TOP_P="${TOP_P:-0.95}"
 MIN_P="${MIN_P:-0.0}"
 REPEAT_PENALTY="${REPEAT_PENALTY:-1.05}"
-REPEAT_LAST_N="${REPEAT_LAST_N:-2048}"
+REPEAT_LAST_N="${REPEAT_LAST_N:-}"
 FREQUENCY_PENALTY="${FREQUENCY_PENALTY:-0.0}"
 PRESENCE_PENALTY="${PRESENCE_PENALTY:-0.0}"
 SEED="${SEED:--1}"
@@ -119,8 +119,9 @@ echo "KV cache  : K=$CACHE_TYPE_K V=$CACHE_TYPE_V"
 echo "Nome API  : $SERVED_NAME"
 echo "RAM ctrl  : ctx_checkpoints=$CTX_CHECKPOINTS cache_ram=${CACHE_RAM}MiB idle_slots=$CACHE_IDLE_SLOTS"
 echo "Decode    : MTP=$ENABLE_MTP(tokens=$MTP_TOKENS) Draft=$DRAFT_ENABLED(n_max=$DRAFT_N_MAX)"
-echo "Sampling  : temp=$TEMPERATURE top_k=$TOP_K top_p=$TOP_P min_p=$MIN_P"
-echo "            repeat=$REPEAT_PENALTY(last $REPEAT_LAST_N) freq=$FREQUENCY_PENALTY pres=$PRESENCE_PENALTY"
+echo "Sampling  : temp=$TEMPERATURE top_p=$TOP_P min_p=$MIN_P"
+[ -n "$TOP_K" ] && echo "            top_k=$TOP_K"
+echo "            repeat=$REPEAT_PENALTY${REPEAT_LAST_N:+(last $REPEAT_LAST_N)} freq=$FREQUENCY_PENALTY pres=$PRESENCE_PENALTY"
 echo "            seed=$SEED n_predict=$N_PREDICT"
 echo "Reasoning : mode=$REASONING_MODE format=$REASONING_FORMAT budget=$REASONING_BUDGET"
 echo ""
@@ -209,6 +210,11 @@ elif [ "${ENABLE_MTP:-false}" = "true" ]; then
     echo "AVISO: Ornith nao suporta MTP — ignorando ENABLE_MTP"
 fi
 
+TOP_K_ARGS=()
+if [ -n "$TOP_K" ]; then TOP_K_ARGS=(--top-k "$TOP_K"); fi
+REPEAT_LAST_N_ARGS=()
+if [ -n "$REPEAT_LAST_N" ]; then REPEAT_LAST_N_ARGS=(--repeat-last-n "$REPEAT_LAST_N"); fi
+
 exec "$LLAMA_SERVER" \
     --model            "$MODEL_PATH"        \
     --n-gpu-layers     "$N_GPU_LAYERS"      \
@@ -220,11 +226,9 @@ exec "$LLAMA_SERVER" \
     --alias            "$SERVED_NAME"       \
     --jinja                                 \
     --temp             "$TEMPERATURE"       \
-    --top-k            "$TOP_K"             \
     --top-p            "$TOP_P"             \
     --min-p            "$MIN_P"             \
     --repeat-penalty   "$REPEAT_PENALTY"    \
-    --repeat-last-n    "$REPEAT_LAST_N"     \
     --frequency-penalty "$FREQUENCY_PENALTY" \
     --presence-penalty "$PRESENCE_PENALTY"  \
     --seed             "$SEED"              \
@@ -234,4 +238,6 @@ exec "$LLAMA_SERVER" \
     --cache-type-k     "$CACHE_TYPE_K"      \
     --cache-type-v     "$CACHE_TYPE_V"      \
     "${REASONING_MSG_ARGS[@]}" \
+    "${TOP_K_ARGS[@]}"        \
+    "${REPEAT_LAST_N_ARGS[@]}" \
     $EXTRA_FLAGS
