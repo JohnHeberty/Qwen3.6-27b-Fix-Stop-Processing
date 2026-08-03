@@ -46,7 +46,7 @@ TOP_K="${TOP_K:-}"
 TOP_P="${TOP_P:-0.95}"
 MIN_P="${MIN_P:-0.0}"
 REPEAT_PENALTY="${REPEAT_PENALTY:-1.05}"
-REPEAT_LAST_N="${REPEAT_LAST_N:-}"
+REPEAT_LAST_N="${REPEAT_LAST_N:-2048}"
 FREQUENCY_PENALTY="${FREQUENCY_PENALTY:-0.0}"
 PRESENCE_PENALTY="${PRESENCE_PENALTY:-0.0}"
 SEED="${SEED:--1}"
@@ -55,7 +55,7 @@ N_PREDICT="${N_PREDICT:-32768}"
 # Reasoning budget — teto de tokens DE PENSAMENTO (o `<think>`). Ao atingir, o llama.cpp
 # fecha o </think> e força o modelo a responder/agir. Fix real do thought-loop do Qwen3.6
 # (repetir parágrafo até 8192) SEM reduzir contexto nem quebrar tool-calling. -1 = ilimitado.
-REASONING_BUDGET="${REASONING_BUDGET:-3072}"
+REASONING_BUDGET="${REASONING_BUDGET:-4096}"
 
 # Contrato de reasoning — EXPLICITO de proposito. Os defaults do llama.cpp sao 'auto'
 # (detecta do template): se o template mudar, o reasoning_content que o OpenClaw consome
@@ -120,8 +120,7 @@ echo "Nome API  : $SERVED_NAME"
 echo "RAM ctrl  : ctx_checkpoints=$CTX_CHECKPOINTS cache_ram=${CACHE_RAM}MiB idle_slots=$CACHE_IDLE_SLOTS"
 echo "Decode    : MTP=$ENABLE_MTP(tokens=$MTP_TOKENS) Draft=$DRAFT_ENABLED(n_max=$DRAFT_N_MAX)"
 echo "Sampling  : temp=$TEMPERATURE top_p=$TOP_P min_p=$MIN_P"
-[ -n "$TOP_K" ] && echo "            top_k=$TOP_K"
-echo "            repeat=$REPEAT_PENALTY${REPEAT_LAST_N:+(last $REPEAT_LAST_N)} freq=$FREQUENCY_PENALTY pres=$PRESENCE_PENALTY"
+echo "            repeat=$REPEAT_PENALTY(last $REPEAT_LAST_N) freq=$FREQUENCY_PENALTY pres=$PRESENCE_PENALTY"
 echo "            seed=$SEED n_predict=$N_PREDICT"
 echo "Reasoning : mode=$REASONING_MODE format=$REASONING_FORMAT budget=$REASONING_BUDGET"
 echo ""
@@ -161,7 +160,7 @@ EXTRA_FLAGS=""
 # Reasoning: modo + formato + teto de pensamento (fix do thought-loop, preserva contexto e tools)
 EXTRA_FLAGS="$EXTRA_FLAGS --reasoning $REASONING_MODE"
 EXTRA_FLAGS="$EXTRA_FLAGS --reasoning-format $REASONING_FORMAT"
-EXTRA_FLAGS="$EXTRA_FLAGS --reasoning-budget $REASONING_BUDGET"
+[ -n "$REASONING_BUDGET" ] && EXTRA_FLAGS="$EXTRA_FLAGS --reasoning-budget $REASONING_BUDGET"
 # A mensagem tem espacos — nao pode entrar no $EXTRA_FLAGS (que sofre word-splitting).
 REASONING_MSG_ARGS=()
 if [ -n "$REASONING_BUDGET_MESSAGE" ]; then
@@ -210,10 +209,6 @@ elif [ "${ENABLE_MTP:-false}" = "true" ]; then
     echo "AVISO: Ornith nao suporta MTP — ignorando ENABLE_MTP"
 fi
 
-TOP_K_ARGS=()
-if [ -n "$TOP_K" ]; then TOP_K_ARGS=(--top-k "$TOP_K"); fi
-REPEAT_LAST_N_ARGS=()
-if [ -n "$REPEAT_LAST_N" ]; then REPEAT_LAST_N_ARGS=(--repeat-last-n "$REPEAT_LAST_N"); fi
 
 exec "$LLAMA_SERVER" \
     --model            "$MODEL_PATH"        \
@@ -229,6 +224,7 @@ exec "$LLAMA_SERVER" \
     --top-p            "$TOP_P"             \
     --min-p            "$MIN_P"             \
     --repeat-penalty   "$REPEAT_PENALTY"    \
+    --repeat-last-n    "$REPEAT_LAST_N"     \
     --frequency-penalty "$FREQUENCY_PENALTY" \
     --presence-penalty "$PRESENCE_PENALTY"  \
     --seed             "$SEED"              \
@@ -238,6 +234,4 @@ exec "$LLAMA_SERVER" \
     --cache-type-k     "$CACHE_TYPE_K"      \
     --cache-type-v     "$CACHE_TYPE_V"      \
     "${REASONING_MSG_ARGS[@]}" \
-    "${TOP_K_ARGS[@]}"        \
-    "${REPEAT_LAST_N_ARGS[@]}" \
     $EXTRA_FLAGS
