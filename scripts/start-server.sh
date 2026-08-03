@@ -11,8 +11,8 @@ VENV="$PROJECT_ROOT/.venv"
 # Carregar variaveis do .env (se existir)
 [ -f "$PROJECT_ROOT/.env" ] && set -a && source "$PROJECT_ROOT/.env" && set +a
 
-MODEL_DIR="${MODEL_DIR:-$PROJECT_ROOT/data/models}"
-MODEL_FILE="${MODEL_FILE:-Ornith-1.0-35B-UD-IQ4_XS.gguf}"
+MODEL_DIR="${MODEL_DIR:-$PROJECT_ROOT/data/models/Ornith-1.0-35B-Q4_K_XL}"
+MODEL_FILE="${MODEL_FILE:-Ornith-1.0-35B-UD-Q4_K_XL.gguf}"
 PORT="${PORT:-8080}"
 HOST="${HOST:-0.0.0.0}"
 OLLAMA_PORT="${OLLAMA_PORT:-11434}"
