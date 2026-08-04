@@ -8,8 +8,8 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "Ornith 35B (llama.cpp)",
       "options": {
-        "baseURL": "http://localhost:8080/v1",
-        "apiKey": "nao-precisa"
+        "baseURL": "https://llm.loadstask.com/v1",
+        "apiKey": "sk-litellm-master"
       },
       "models": {
         "ornith": {

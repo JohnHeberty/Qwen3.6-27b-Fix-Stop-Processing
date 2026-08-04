@@ -2,8 +2,8 @@ model_list:
   - model_name: ornith
     litellm_params:
       model: openai/ornith
-      api_base: http://100.102.127.47:8080/v1
-      api_key: "nao-precisa"
+      api_base: https://llm.loadstask.com/v1
+      api_key: "sk-litellm-master"
       max_tokens: 32768
     model_info:
       # Context Window: Ornith 35B Q4_K_M, llama.cpp, 128k ctx

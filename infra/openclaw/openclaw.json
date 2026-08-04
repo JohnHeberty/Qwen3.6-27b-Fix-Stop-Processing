@@ -11,9 +11,9 @@
       "thinkingDefault": "medium",
       "compaction": {
         "mode": "safeguard",
-        "reserveTokens": 35000,
-        "reserveTokensFloor": 35000,
-        "keepRecentTokens": 12000,
+        "reserveTokens": 50000,
+        "reserveTokensFloor": 50000,
+        "keepRecentTokens": 15000,
         "recentTurnsPreserve": 3,
         "timeoutSeconds": 300,
         "memoryFlush": {
@@ -26,7 +26,7 @@
         "model": "qwen3-embedding:0.6b-cpu-smart",
         "fallback": "none",
         "remote": {
-          "baseUrl": "http://100.91.54.69:4000/v1/",
+          "baseUrl": "https://llm.loadstask.com/v1/",
           "apiKey": {
             "source": "file",
             "provider": "litellm_file",
@@ -45,9 +45,9 @@
           "placeholder": "[Old tool result removed to preserve context]"
         }
       },
-      "timeoutSeconds": 1800,
+      "timeoutSeconds": 3600,
       "runRetries": {
-        "max": 10
+        "max": 5
       }
     }
   },
@@ -134,7 +134,7 @@
     "mode": "merge",
     "providers": {
       "litellm": {
-        "baseUrl": "http://100.91.54.69:4000",
+        "baseUrl": "https://llm.loadstask.com",
         "api": "openai-completions",
         "apiKey": {
           "source": "file",
