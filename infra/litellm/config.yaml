@@ -6,10 +6,10 @@ model_list:
       api_key: "sk-litellm-master"
       max_tokens: 16384
     model_info:
-      # Context Window: Ornith 35B APEX, llama.cpp, 96k ctx (q5_1 KV)
+      # Context Window: Ornith 35B Q4_K_XL, llama.cpp, 128k ctx
       mode: chat
-      context_window: 98304
-      max_input_tokens: 81920
+      context_window: 131072
+      max_input_tokens: 114688
       max_output_tokens: 16384
       supports_function_calling: true
       supports_tool_choice: true

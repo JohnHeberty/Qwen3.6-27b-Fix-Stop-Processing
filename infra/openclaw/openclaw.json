@@ -145,12 +145,12 @@
         "models": [
           {
             "id": "ornith",
-            "name": "Ornith 1.0 35B APEX",
+            "name": "Ornith 1.0 35B Q4_K_XL",
             "reasoning": true,
             "input": [
               "text"
             ],
-            "contextWindow": 98304,
+            "contextWindow": 131072,
             "maxTokens": 16384,
             "cost": {
               "input": 0,

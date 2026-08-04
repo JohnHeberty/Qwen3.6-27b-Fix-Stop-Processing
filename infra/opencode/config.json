@@ -13,9 +13,9 @@
       },
       "models": {
         "ornith": {
-          "name": "Ornith 35B APEX (llama.cpp)",
+          "name": "Ornith 35B Q4_K_XL (llama.cpp)",
           "limit": {
-            "context": 98304,
+            "context": 131072,
             "output": 16384
           },
           "reasoning": true,
