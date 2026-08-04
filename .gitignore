@@ -1,19 +1,37 @@
 # Credenciais — nunca versionar
 .env
+.env.local
 
 # Modelos (dezenas de GB)
 data/models/
+data/models-vllm/
 
-# Ambientes
+# Ambientes Python
 .venv/
+.venv-vllm/
 
-# Arquivo morto (modelos, venv, configs vLLM)
+# Arquivo morto
 old/
+arquived/
 
 # Logs e temporários
 data/logs/
 data/temp/
+data/capture/
+
+# Dados gerados
+data/pdf_pages/
 
 # Python
 __pycache__/
 *.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
