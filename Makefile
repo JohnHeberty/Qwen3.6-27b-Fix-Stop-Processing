@@ -32,7 +32,7 @@ SUDO             := $(shell [ "$$(id -u)" = "0" ] && echo "" || echo sudo)
 CAPTURE_MAX_MB   ?= 500
 CUDA_HOME        ?= /usr/local/cuda
 MODEL_DIR        ?= $(PROJECT_ROOT)/data/models
-MODEL_FILE       ?= Ornith-1.0-35B-UD-IQ4_XS.gguf
+MODEL_FILE       ?= Ornith-1.0-35B-UD-Q4_K_XL.gguf
 HF_TOKEN         ?= $(HUGGINGFACE_TOKEN)
 
 .DEFAULT_GOAL := help
@@ -93,7 +93,8 @@ help:
 	@echo "  make disable-service    Desabilita no boot (mantém instalado)"
 	@echo "  make start-service / stop-service   Inicia / para agora"
 	@echo "  make service-status / service-logs  Estado / logs (journalctl)"
-	@echo "  make uninstall-service  Remove o serviço (código do repo fica intacto)"
+	@echo "  make watchdog-status                Estado do health check periódico"
+	@echo "  make uninstall-service              Remove o serviço (código do repo fica intacto)"
 	@echo ""
 	@echo "  LIMPEZA:"
 	@echo "  make clean              Remove modelo, logs e venv (mantém código)"
@@ -390,14 +391,24 @@ start-bg: _check-ready
 	@echo "Servidor iniciado em background. Acompanhe: make logs"
 
 stop:
-	@pkill llama-server 2>/dev/null && echo "Servidor parado. VRAM liberada — Ollama pode usar a GPU novamente." || echo "Nenhum servidor rodando."
+	@if systemctl is-active --quiet $(SERVICE_NAME) 2>/dev/null; then \
+		$(SUDO) systemctl stop $(SERVICE_NAME) && echo "Servidor parado via systemd. VRAM liberada."; \
+	elif pkill llama-server 2>/dev/null; then \
+		echo "Servidor parado (pkill). VRAM liberada."; \
+	else \
+		echo "Nenhum servidor rodando."; \
+	fi
 
 restart: stop
-	@$(MAKE) start-bg
+	@if systemctl is-enabled --quiet $(SERVICE_NAME) 2>/dev/null; then \
+		$(SUDO) systemctl start $(SERVICE_NAME) && echo "Servidor reiniciado via systemd."; \
+	else \
+		$(MAKE) start-bg; \
+	fi
 
 status:
-	@if curl -sf http://localhost:8000/health > /dev/null 2>&1; then \
-		echo "Servidor: RODANDO em http://localhost:8080/v1 (modelo: $${SERVED_NAME:-ornith})"; \
+	@if curl -sf http://localhost:$(PORT)/health > /dev/null 2>&1; then \
+		echo "Servidor: RODANDO em http://localhost:$(PORT)/v1 (modelo: $${SERVED_NAME:-ornith})"; \
 		nvidia-smi --query-gpu=name,memory.used,memory.free --format=csv,noheader 2>/dev/null | awk '{print "GPU:     "$$0}'; \
 	else \
 		echo "Servidor: PARADO"; \
@@ -408,7 +419,7 @@ logs:
 	tail -f "$(LOG)"
 
 test:
-	@$(PYTHON) "$(PROJECT_ROOT)/tests/test_api.py"
+	@TEST_BASE_URL="http://localhost:$(PORT)" $(PYTHON) "$(PROJECT_ROOT)/tests/test_api.py"
 
 benchmark: _check-ready
 	@$(PYTHON) "$(PROJECT_ROOT)/tests/benchmark.py" $(ARGS)
@@ -421,10 +432,13 @@ install-service:
 	@sed "s|__PROJECT_ROOT__|$(PROJECT_ROOT)|g" \
 		"$(PROJECT_ROOT)/infra/llama-server/qwen-server.service" \
 		| $(SUDO) tee "$(SERVICE_DEST)" > /dev/null
+	@cp "$(PROJECT_ROOT)/infra/llama-server/qwen-watchdog.service" /etc/systemd/system/qwen-watchdog.service
+	@cp "$(PROJECT_ROOT)/infra/llama-server/qwen-watchdog.timer" /etc/systemd/system/qwen-watchdog.timer
 	@$(SUDO) systemctl daemon-reload
-	@echo "✓ Serviço '$(SERVICE_NAME)' instalado em $(SERVICE_DEST) (PROJECT_ROOT=$(PROJECT_ROOT))."
+	@echo "✓ Serviço '$(SERVICE_NAME)' instalado + watchdog (health check a cada 60s)"
 	@echo "  make enable-service    → auto-start no boot + Restart=always (recomendado)"
 	@echo "  make start-service     → inicia agora sem habilitar no boot"
+	@echo "  make watchdog-status   → verifica timer de health check"
 	@echo "  make uninstall-service → remove o serviço"
 
 # Remove completamente o serviço (para levar/limpar a VM).
@@ -456,6 +470,11 @@ service-status:
 
 service-logs:
 	@$(SUDO) journalctl -u $(SERVICE_NAME) -f --no-pager
+
+watchdog-status:
+	@systemctl list-timers qwen-watchdog --no-pager
+	@echo ""
+	@systemctl status qwen-watchdog.service --no-pager 2>/dev/null | head -8 || echo "Watchdog service não encontrado"
 
 ##############################################################################
 # CAPTURA DE CONTEÚDO (debug) — liga o log de prompt+geração e analisa

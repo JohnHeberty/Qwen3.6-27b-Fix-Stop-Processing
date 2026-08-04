@@ -1,5 +1,5 @@
 [Unit]
-Description=llama-server — Qwen3.6 GGUF (35B-A3B default) Server (porta 8000)
+Description=llama-server — Ornith-1.0-35B Q4_K_XL Server (porta 8080)
 After=network-online.target
 Wants=network-online.target
 # Independente do Ollama.
