@@ -4,13 +4,13 @@ model_list:
       model: openai/ornith
       api_base: https://llm.loadstask.com/v1
       api_key: "sk-litellm-master"
-      max_tokens: 32768
+      max_tokens: 16384
     model_info:
-      # Context Window: Ornith 35B Q4_K_M, llama.cpp, 128k ctx
+      # Context Window: Ornith 35B APEX, llama.cpp, 96k ctx (q5_1 KV)
       mode: chat
-      context_window: 131072
-      max_input_tokens: 98304
-      max_output_tokens: 32768
+      context_window: 98304
+      max_input_tokens: 81920
+      max_output_tokens: 16384
       supports_function_calling: true
       supports_tool_choice: true
 

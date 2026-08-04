@@ -11,8 +11,8 @@
       "thinkingDefault": "medium",
       "compaction": {
         "mode": "safeguard",
-        "reserveTokens": 50000,
-        "reserveTokensFloor": 50000,
+        "reserveTokens": 16384,
+        "reserveTokensFloor": 16384,
         "keepRecentTokens": 15000,
         "recentTurnsPreserve": 3,
         "timeoutSeconds": 300,
@@ -145,13 +145,13 @@
         "models": [
           {
             "id": "ornith",
-            "name": "Ornith 1.0 35B Q4",
+            "name": "Ornith 1.0 35B APEX",
             "reasoning": true,
             "input": [
               "text"
             ],
-            "contextWindow": 131072,
-            "maxTokens": 32768,
+            "contextWindow": 98304,
+            "maxTokens": 16384,
             "cost": {
               "input": 0,
               "output": 0,

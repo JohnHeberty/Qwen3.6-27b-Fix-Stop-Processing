@@ -13,10 +13,10 @@
       },
       "models": {
         "ornith": {
-          "name": "Ornith 35B Q4_K_M (llama.cpp)",
+          "name": "Ornith 35B APEX (llama.cpp)",
           "limit": {
-            "context": 131072,
-            "output": 32768
+            "context": 98304,
+            "output": 16384
           },
           "reasoning": true,
           "interleaved": {
@@ -37,7 +37,7 @@
   "compaction": {
     "auto": true,
     "prune": true,
-    "reserved": 32768
+    "reserved": 16384
   },
   "watcher": {
     "ignore": [

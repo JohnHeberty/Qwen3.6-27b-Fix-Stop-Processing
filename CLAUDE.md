@@ -92,7 +92,15 @@ path (`make start`) execs `llama-server` directly and does not go through `src/s
 - `DRAFT_ENABLED` + `DRAFT_MODEL_FILE` — alternative speculative decoding using an external small
   draft model instead of MTP; mutually exclusive with MTP (draft wins if enabled).
 - `CACHE_TYPE_K` / `CACHE_TYPE_V` — KV cache quantization (q8_0 default), the main lever trading VRAM
-  for max context length.
+  for max context length. **This repo builds llama.cpp with `-DGGML_CUDA_GRAPHS=OFF`** (in both
+  `build-llama-server` and `update-llama-server` cmake lines). That is a *compile-time* choice, not a
+  CLI flag, and it is load-bearing for the 35B-A3B APEX model: with CUDA graphs ON, `cudaGraphInstantiate`
+  grabs a memory pool at the first decode and the 22 GB model + KV cache OOM the 24 GB card even at
+  q4_0/96k; with graphs OFF the decode runs on plain streams and q5_1/96k fits (~224 MiB headroom).
+  **Don't remove that cmake flag** — if you ever need it back, sync with the VRAM math in `.env` first.
+- `N_CTX` — `98304` (96k) for the APEX model: the max that fits on the 3090 with q5_1 KV. `131072`
+  only loaded with q4_0 and left ~16 MiB of headroom (crash-prone). Bumping it back up requires
+  either a smaller quant or re-checking `docs/infra/configs/current.md` for the context math.
 - `N_PARALLEL` — must stay `1` (see the bug this fixes, above); do not "optimize" this back to `-1`/auto.
 - `CTX_CHECKPOINTS` / `CACHE_RAM` — bound host-RAM usage of llama-server's prompt-cache checkpoints;
   relevant because this runs in an LXC/Proxmox container prone to OOM on long prompts.

@@ -206,7 +206,8 @@ if [ "${DRAFT_ENABLED:-false}" = "true" ] && [ -n "$DRAFT_MODEL_FILE" ]; then
         echo "AVISO: Draft model nao encontrado em $DRAFT_PATH — usando MTP interno"
     fi
 elif [ "${ENABLE_MTP:-false}" = "true" ]; then
-    echo "AVISO: Ornith nao suporta MTP — ignorando ENABLE_MTP"
+    EXTRA_FLAGS="$EXTRA_FLAGS --spec-type draft-mtp --spec-draft-n-max $MTP_TOKENS"
+    echo "MTP interno: --spec-type draft-mtp (n_max=$MTP_TOKENS)"
 fi
 
 
