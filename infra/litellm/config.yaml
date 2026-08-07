@@ -17,3 +17,10 @@ model_list:
 litellm_settings:
   drop_params: true
   modify_params: false
+
+guardrails:
+  - guardrail_name: "loop-guard"
+    litellm_params:
+      guardrail: loop_guard.LoopGuard
+      mode: "post_call"
+      default_on: true
