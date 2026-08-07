@@ -42,7 +42,7 @@ DRAFT_N_MAX="${DRAFT_N_MAX:-5}"
 # Parâmetros de amostragem (ajustáveis no .env)
 # Fallbacks = valores oficiais recomendados pelo Ornith.
 TEMPERATURE="${TEMPERATURE:-0.6}"
-TOP_K="${TOP_K:-}"
+TOP_K="${TOP_K:-0}"
 TOP_P="${TOP_P:-0.95}"
 MIN_P="${MIN_P:-0.0}"
 REPEAT_PENALTY="${REPEAT_PENALTY:-1.05}"
@@ -222,6 +222,7 @@ exec "$LLAMA_SERVER" \
     --alias            "$SERVED_NAME"       \
     --jinja                                 \
     --temp             "$TEMPERATURE"       \
+    --top-k            "$TOP_K"             \
     --top-p            "$TOP_P"             \
     --min-p            "$MIN_P"             \
     --repeat-penalty   "$REPEAT_PENALTY"    \
