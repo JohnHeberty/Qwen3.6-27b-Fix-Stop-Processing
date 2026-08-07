@@ -5,8 +5,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_DB: litellm
-      POSTGRES_USER: llmproxy
-      POSTGRES_PASSWORD: dbpassword9090
+      POSTGRES_USER: ${POSTGRES_USER:-llmproxy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD no .env}
     volumes:
       - litellm_postgres_data:/var/lib/postgresql/data
     healthcheck:
