@@ -49,6 +49,7 @@ REPEAT_PENALTY="${REPEAT_PENALTY:-1.05}"
 REPEAT_LAST_N="${REPEAT_LAST_N:-2048}"
 FREQUENCY_PENALTY="${FREQUENCY_PENALTY:-0.0}"
 PRESENCE_PENALTY="${PRESENCE_PENALTY:-0.0}"
+ERROR_WARNINGS="${ERROR_WARNINGS:-false}"
 SEED="${SEED:--1}"
 N_PREDICT="${N_PREDICT:-32768}"
 
@@ -181,6 +182,16 @@ if [ -n "${TEMPLATE_FILE:-}" ]; then
     fi
 fi
 
+# ERROR_WARNINGS (false por default): injeta aviso de erro e desliga thinking
+# apos 2 erros de tool seguidos — quebra loop de retry de tool. So o template
+# local (chat_template_local.jinja) honra esse flag.
+# O JSON contem aspas — nao pode entrar no $EXTRA_FLAGS (word-splitting);
+# usa array dedicado como o REASONING_MSG_ARGS.
+ERROR_WARN_ARGS=()
+if [ "$ERROR_WARNINGS" = "true" ]; then
+    ERROR_WARN_ARGS=(--chat-template-kwargs '{"error_warnings":true}')
+fi
+
 # ── Captura de conteudo para depuracao (CAPTURE_LOG) — DEFAULT OFF ───────────────
 # Liga o log do CONTEUDO real das requisicoes (o server.log normal so tem timings):
 #   --log-prompts-dir : grava o prompt renderizado (1 arquivo <ts>.txt por requisicao)
@@ -236,4 +247,5 @@ exec "$LLAMA_SERVER" \
     --cache-type-k     "$CACHE_TYPE_K"      \
     --cache-type-v     "$CACHE_TYPE_V"      \
     "${REASONING_MSG_ARGS[@]}" \
+    "${ERROR_WARN_ARGS[@]}" \
     $EXTRA_FLAGS
