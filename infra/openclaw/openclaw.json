@@ -3,10 +3,10 @@
     "defaults": {
       "workspace": "/root/.openclaw/workspace",
       "model": {
-        "primary": "litellm/ornith"
+        "primary": "llama/ornith"
       },
       "models": {
-        "litellm/ornith": {}
+        "llama/ornith": {}
       },
       "thinkingDefault": "medium",
       "compaction": {
@@ -26,10 +26,10 @@
         "model": "qwen3-embedding:0.6b-cpu-smart",
         "fallback": "none",
         "remote": {
-          "baseUrl": "https://llm.loadstask.com/v1/",
+          "baseUrl": "http://192.168.1.139:8080/v1/",
           "apiKey": {
             "source": "file",
-            "provider": "litellm_file",
+            "provider": "gateway_file",
             "id": "value"
           }
         }
@@ -103,7 +103,7 @@
       "ask": "off"
     },
     "byProvider": {
-      "litellm": {}
+      "llama": {}
     },
     "alsoAllow": [
       "message"
@@ -123,7 +123,7 @@
         "enabled": true
       },
       "litellm": {
-        "enabled": true
+        "enabled": false
       },
       "vericlaw": {
         "enabled": true
@@ -133,25 +133,20 @@
   "models": {
     "mode": "merge",
     "providers": {
-      "litellm": {
-        "baseUrl": "https://llm.loadstask.com",
+      "llama": {
+        "baseUrl": "http://192.168.1.139:8080",
         "api": "openai-completions",
-        "apiKey": {
-          "source": "file",
-          "provider": "litellm_file",
-          "id": "value"
-        },
         "timeoutSeconds": 1200,
         "models": [
           {
             "id": "ornith",
-            "name": "Ornith 1.0 35B Q4_K_XL",
+            "name": "Ornith 35B Q8_0",
             "reasoning": true,
             "input": [
               "text"
             ],
-            "contextWindow": 131072,
-            "maxTokens": 16384,
+            "contextWindow": 262144,
+            "maxTokens": 65536,
             "cost": {
               "input": 0,
               "output": 0,
@@ -326,11 +321,6 @@
   },
   "secrets": {
     "providers": {
-      "litellm_file": {
-        "source": "file",
-        "path": "/etc/openclaw/secrets/litellm-api-key",
-        "mode": "singleValue"
-      },
       "gateway_file": {
         "source": "file",
         "path": "/etc/openclaw/secrets/gateway-token",

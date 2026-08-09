@@ -69,7 +69,7 @@ REASONING_FORMAT="${REASONING_FORMAT:-deepseek}"
 
 # Mensagem injetada antes do fecha-</think> quando o budget estoura. Vazio = flag omitida
 # (o corte natural do llama.cpp). Preencha so se o modelo ficar mudo apos o corte.
-REASONING_BUDGET_MESSAGE="${REASONING_BUDGET_MESSAGE:-Stop reasoning now and provide the final answer.}"
+REASONING_BUDGET_MESSAGE="${REASONING_BUDGET_MESSAGE:-}"
 
 # DRY sampler — anti-loop de repetição verbatim (qualquer tamanho de bloco).
 # Necessário porque presence/repeat penalties leves NÃO quebram loop de parágrafo
