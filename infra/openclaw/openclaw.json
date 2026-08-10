@@ -11,11 +11,11 @@
       "thinkingDefault": "medium",
       "compaction": {
         "mode": "safeguard",
-        "reserveTokens": 16384,
-        "reserveTokensFloor": 16384,
-        "keepRecentTokens": 15000,
-        "recentTurnsPreserve": 3,
-        "timeoutSeconds": 300,
+        "reserveTokens": 32768,
+        "reserveTokensFloor": 32768,
+        "keepRecentTokens": 8000,
+        "recentTurnsPreserve": 2,
+        "timeoutSeconds": 120,
         "memoryFlush": {
           "enabled": true
         }
@@ -35,11 +35,11 @@
         }
       },
       "contextLimits": {
-        "toolResultMaxChars": 65536
+        "toolResultMaxChars": 32768
       },
       "contextPruning": {
         "mode": "cache-ttl",
-        "ttl": "5m",
+        "ttl": "3m",
         "hardClear": {
           "enabled": true,
           "placeholder": "[Old tool result removed to preserve context]"
@@ -47,7 +47,7 @@
       },
       "timeoutSeconds": 3600,
       "runRetries": {
-        "max": 5
+        "max": 2
       }
     }
   },
