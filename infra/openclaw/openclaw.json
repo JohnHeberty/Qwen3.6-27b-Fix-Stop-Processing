@@ -8,46 +8,27 @@
       "models": {
         "llama/ornith": {}
       },
-      "thinkingDefault": "medium",
+      "experimental": {
+        "localModelLean": true
+      },
+      "thinkingDefault": "low",
+      "timeoutSeconds": 3600,
       "compaction": {
         "mode": "safeguard",
         "reserveTokens": 32768,
         "reserveTokensFloor": 32768,
         "keepRecentTokens": 8000,
         "recentTurnsPreserve": 2,
-        "timeoutSeconds": 120,
-        "memoryFlush": {
-          "enabled": true
-        }
+        "timeoutSeconds": 120
       },
-      "memorySearch": {
-        "enabled": true,
-        "provider": "openai-compatible",
-        "model": "qwen3-embedding:0.6b-cpu-smart",
-        "fallback": "none",
-        "remote": {
-          "baseUrl": "http://192.168.1.139:8080/v1/",
-          "apiKey": {
-            "source": "file",
-            "provider": "gateway_file",
-            "id": "value"
-          }
-        }
+      "runRetries": {
+        "max": 2
       },
       "contextLimits": {
         "toolResultMaxChars": 32768
       },
       "contextPruning": {
-        "mode": "cache-ttl",
-        "ttl": "3m",
-        "hardClear": {
-          "enabled": true,
-          "placeholder": "[Old tool result removed to preserve context]"
-        }
-      },
-      "timeoutSeconds": 3600,
-      "runRetries": {
-        "max": 2
+        "ttl": "3m"
       }
     }
   },
@@ -55,282 +36,71 @@
     "mode": "local",
     "auth": {
       "mode": "token",
-      "token": {
-        "source": "file",
-        "provider": "gateway_file",
-        "id": "value"
-      }
-    },
-    "port": 18789,
-    "bind": "loopback",
-    "tailscale": {
-      "mode": "off",
-      "resetOnExit": false
-    },
-    "controlUi": {
-      "allowInsecureAuth": true
-    },
-    "nodes": {
-      "denyCommands": [
-        "camera.snap",
-        "camera.clip",
-        "screen.record",
-        "contacts.add",
-        "calendar.add",
-        "reminders.add",
-        "sms.send",
-        "sms.search"
-      ]
+      "token": "22d187fa69bb50edf622cba73209cdb0bcf6379fd8c6c1d5"
     }
   },
-  "session": {
-    "dmScope": "per-channel-peer"
-  },
-  "tools": {
-    "profile": "coding",
-    "loopDetection": {
-      "enabled": true
-    },
-    "web": {
-      "search": {
-        "provider": "duckduckgo",
-        "enabled": true
-      }
-    },
-    "exec": {
-      "host": "gateway",
-      "security": "full",
-      "ask": "off"
-    },
-    "byProvider": {
-      "llama": {}
-    },
-    "alsoAllow": [
-      "message"
-    ],
-    "deny": [
-      "sessions_spawn",
-      "sessions_yield",
-      "subagents"
-    ]
-  },
-  "plugins": {
-    "entries": {
-      "telegram": {
-        "enabled": true
-      },
-      "duckduckgo": {
-        "enabled": true
-      },
-      "litellm": {
-        "enabled": false
-      },
-      "vericlaw": {
-        "enabled": true
-      }
-    }
+  "meta": {
+    "lastTouchedVersion": "2026.7.1-2",
+    "lastTouchedAt": "2026-08-10T15:37:14.585Z"
   },
   "models": {
     "mode": "merge",
     "providers": {
       "llama": {
-        "baseUrl": "http://192.168.1.139:8080",
-        "api": "openai-completions",
-        "timeoutSeconds": 3600,
+        "baseUrl": "http://192.168.1.139:8080/v1",
+        "apiKey": "llama-local",
+        "api": "openai-responses",
+        "timeoutSeconds": 300,
         "models": [
           {
             "id": "ornith",
-            "name": "Ornith 35B Q8_0",
+            "name": "Ornith LAN",
             "reasoning": true,
             "input": [
               "text"
             ],
-            "contextWindow": 262144,
-            "maxTokens": 65536,
             "cost": {
               "input": 0,
               "output": 0,
               "cacheRead": 0,
               "cacheWrite": 0
-            }
+            },
+            "contextWindow": 262144,
+            "maxTokens": 32768
           }
         ]
       }
     }
   },
-  "auth": {
-    "profiles": {}
+  "plugins": {
+    "entries": {
+      "telegram": {
+        "enabled": true
+      }
+    }
   },
   "channels": {
     "telegram": {
       "enabled": true,
-      "groups": {
-        "*": {
-          "requireMention": true
-        }
+      "botToken": "8141723995:AAGJXk_dbOBKUxwV8Fz2eEX-ZWsYGiQ9rFc",
+      "streaming": {
+        "mode": "off"
       },
-      "botToken": {
-        "source": "file",
-        "provider": "telegram_file",
-        "id": "value"
-      }
+      "errorPolicy": "once",
+      "dmPolicy": "allowlist",
+      "allowFrom": [
+        "1258408739"
+      ]
     }
-  },
-  "skills": {
-    "install": {
-      "nodeManager": "npm"
-    },
-    "entries": {
-      "1password": {
-        "enabled": false
-      },
-      "blogwatcher": {
-        "enabled": false
-      },
-      "blucli": {
-        "enabled": false
-      },
-      "camsnap": {
-        "enabled": false
-      },
-      "coding-agent": {
-        "enabled": false
-      },
-      "eightctl": {
-        "enabled": false
-      },
-      "gemini": {
-        "enabled": false
-      },
-      "gh-issues": {
-        "enabled": false
-      },
-      "gifgrep": {
-        "enabled": false
-      },
-      "github": {
-        "enabled": false
-      },
-      "gog": {
-        "enabled": false
-      },
-      "goplaces": {
-        "enabled": false
-      },
-      "himalaya": {
-        "enabled": false
-      },
-      "mcporter": {
-        "enabled": false
-      },
-      "nano-pdf": {
-        "enabled": false
-      },
-      "obsidian": {
-        "enabled": false
-      },
-      "openai-whisper": {
-        "enabled": false
-      },
-      "openai-whisper-api": {
-        "enabled": false
-      },
-      "openhue": {
-        "enabled": false
-      },
-      "oracle": {
-        "enabled": false
-      },
-      "ordercli": {
-        "enabled": false
-      },
-      "sag": {
-        "enabled": false
-      },
-      "session-logs": {
-        "enabled": false
-      },
-      "sherpa-onnx-tts": {
-        "enabled": false
-      },
-      "songsee": {
-        "enabled": false
-      },
-      "sonoscli": {
-        "enabled": false
-      },
-      "spotify-player": {
-        "enabled": false
-      },
-      "summarize": {
-        "enabled": false
-      },
-      "tmux": {
-        "enabled": false
-      },
-      "trello": {
-        "enabled": false
-      },
-      "video-frames": {
-        "enabled": false
-      },
-      "xurl": {
-        "enabled": false
-      },
-      "stock-data": {
-        "enabled": false
-      }
-    }
-  },
-  "hooks": {
-    "internal": {
-      "enabled": true,
-      "entries": {
-        "boot-md": {
-          "enabled": true
-        },
-        "bootstrap-extra-files": {
-          "enabled": true
-        },
-        "command-logger": {
-          "enabled": true
-        },
-        "compaction-notifier": {
-          "enabled": true
-        },
-        "session-memory": {
-          "enabled": true
-        }
-      }
-    }
-  },
-  "wizard": {
-    "lastRunAt": "2026-07-25T03:57:17.273Z",
-    "lastRunVersion": "2026.7.1-2",
-    "lastRunCommand": "doctor",
-    "lastRunMode": "local"
-  },
-  "meta": {
-    "lastTouchedVersion": "2026.7.1-2",
-    "lastTouchedAt": "2026-07-31T00:18:22.852Z"
   },
   "commands": {
     "ownerAllowFrom": [
       "telegram:1258408739"
     ]
   },
-  "secrets": {
-    "providers": {
-      "gateway_file": {
-        "source": "file",
-        "path": "/etc/openclaw/secrets/gateway-token",
-        "mode": "singleValue"
-      },
-      "telegram_file": {
-        "source": "file",
-        "path": "/etc/openclaw/secrets/telegram-bot-token",
-        "mode": "singleValue"
-      }
+  "tools": {
+    "loopDetection": {
+      "enabled": true
     }
   }
 }
