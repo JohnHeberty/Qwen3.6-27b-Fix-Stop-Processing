@@ -136,7 +136,7 @@
       "llama": {
         "baseUrl": "http://192.168.1.139:8080",
         "api": "openai-completions",
-        "timeoutSeconds": 1200,
+        "timeoutSeconds": 3600,
         "models": [
           {
             "id": "ornith",
