@@ -15,11 +15,11 @@
       "timeoutSeconds": 3600,
       "compaction": {
         "mode": "safeguard",
-        "reserveTokens": 32768,
-        "reserveTokensFloor": 32768,
+        "reserveTokens": 50000,
+        "reserveTokensFloor": 50000,
         "keepRecentTokens": 8000,
         "recentTurnsPreserve": 2,
-        "timeoutSeconds": 120
+        "timeoutSeconds": 300
       },
       "runRetries": {
         "max": 2
