@@ -15,11 +15,11 @@
       "timeoutSeconds": 3600,
       "compaction": {
         "mode": "safeguard",
-        "reserveTokens": 50000,
-        "reserveTokensFloor": 50000,
+        "reserveTokens": 80000,
+        "reserveTokensFloor": 80000,
         "keepRecentTokens": 8000,
         "recentTurnsPreserve": 2,
-        "timeoutSeconds": 300
+        "timeoutSeconds": 900
       },
       "runRetries": {
         "max": 2
@@ -50,7 +50,7 @@
         "baseUrl": "http://192.168.1.139:8080/v1",
         "apiKey": "llama-local",
         "api": "openai-responses",
-        "timeoutSeconds": 300,
+        "timeoutSeconds": 900,
         "models": [
           {
             "id": "ornith",
