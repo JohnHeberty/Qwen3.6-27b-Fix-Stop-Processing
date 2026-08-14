@@ -267,6 +267,7 @@ if [ "$VISION_ENABLED" = "true" ]; then
         "$LLAMA_SERVER" \
             --model "$VISION_PATH" \
             --mmproj "$VISION_MMPROJ_PATH" \
+            --n-gpu-layers 999 \
             --host "$HOST" \
             --port "$VISION_PORT" \
             --ctx-size "$VISION_CTX" \
