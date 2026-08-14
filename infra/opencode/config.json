@@ -1,23 +1,36 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "lsp": true,
-  "model": "llama/ornith",
-  "small_model": "llama/ornith",
+  "model": "llama/qwen3.6-27b",
+  "small_model": "llama/qwen3.6-27b",
   "provider": {
     "llama": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "Ornith 35B Q8 (llama.cpp)",
+      "name": "Qwen3.6-27B Q4_K_M+MTP (llama.cpp)",
       "options": {
         "baseURL": "http://192.168.1.139:8080/v1"
       },
       "models": {
-        "ornith": {
-          "name": "Ornith 35B Q8_0 (llama.cpp, 256k)",
+        "qwen3.6-27b": {
+          "name": "Qwen3.6-27B Q4_K_M+MTP (llama.cpp, 262k)",
           "limit": {
             "context": 196608,
             "output": 65536
           },
           "reasoning": true,
+          "vision": false,
+          "interleaved": {
+            "field": "reasoning_content"
+          }
+        },
+        "qwen3-vl-4b-vision": {
+          "name": "Qwen3-VL 4B Q4+Vision (llama.cpp, 32k)",
+          "limit": {
+            "context": 28672,
+            "output": 4096
+          },
+          "reasoning": false,
+          "vision": true,
           "interleaved": {
             "field": "reasoning_content"
           }
@@ -36,7 +49,7 @@
   "compaction": {
     "auto": true,
     "prune": true,
-    "reserved": 16384
+    "reserved": 65536
   },
   "watcher": {
     "ignore": [

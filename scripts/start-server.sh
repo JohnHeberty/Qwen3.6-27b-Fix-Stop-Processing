@@ -159,8 +159,12 @@ EXTRA_FLAGS=""
 [ "${CACHE_IDLE_SLOTS:-0}" = "0" ] && EXTRA_FLAGS="$EXTRA_FLAGS --no-cache-idle-slots"
 
 # Reasoning: modo + formato + teto de pensamento (fix do thought-loop, preserva contexto e tools)
-EXTRA_FLAGS="$EXTRA_FLAGS --reasoning $REASONING_MODE"
-EXTRA_FLAGS="$EXTRA_FLAGS --reasoning-format $REASONING_FORMAT"
+# Só adiciona flags se reasoning estiver ligado — Qwen3-Coder-Next NÃO suporta thinking,
+# e passar --reasoning on para um modelo non-thinking causa warnings ou comportamento indefinido.
+if [ "$REASONING_MODE" != "off" ] && [ -n "$REASONING_MODE" ]; then
+    EXTRA_FLAGS="$EXTRA_FLAGS --reasoning $REASONING_MODE"
+    [ -n "$REASONING_FORMAT" ] && EXTRA_FLAGS="$EXTRA_FLAGS --reasoning-format $REASONING_FORMAT"
+fi
 [ -n "$REASONING_BUDGET" ] && EXTRA_FLAGS="$EXTRA_FLAGS --reasoning-budget $REASONING_BUDGET"
 # A mensagem tem espacos — nao pode entrar no $EXTRA_FLAGS (que sofre word-splitting).
 REASONING_MSG_ARGS=()
@@ -208,17 +212,85 @@ if [ "$CAPTURE_LOG" = "true" ]; then
 fi
 
 # ── Speculative Decoding ────────────────────────────────────
+# Pode usar MTP interno + draft externo ao mesmo tempo
+SPEC_FLAGS=""
+
+if [ "${ENABLE_MTP:-false}" = "true" ]; then
+    SPEC_FLAGS="$SPEC_FLAGS --spec-type draft-mtp --spec-draft-n-max $MTP_TOKENS"
+    echo "MTP interno: --spec-type draft-mtp (n_max=$MTP_TOKENS)"
+fi
+
 if [ "${DRAFT_ENABLED:-false}" = "true" ] && [ -n "$DRAFT_MODEL_FILE" ]; then
-    DRAFT_PATH="$MODEL_DIR/$DRAFT_MODEL_FILE"
-    if [ -f "$DRAFT_PATH" ]; then
-        EXTRA_FLAGS="$EXTRA_FLAGS --model-draft $DRAFT_PATH --spec-draft-n-max $DRAFT_N_MAX"
+    # Suporta caminho absoluto ou relativo ao MODEL_DIR
+    if [ -f "$DRAFT_MODEL_FILE" ]; then
+        DRAFT_PATH="$DRAFT_MODEL_FILE"
+    elif [ -f "$MODEL_DIR/$DRAFT_MODEL_FILE" ]; then
+        DRAFT_PATH="$MODEL_DIR/$DRAFT_MODEL_FILE"
+    else
+        DRAFT_PATH=""
+    fi
+    if [ -n "$DRAFT_PATH" ]; then
+        # Se MTP já ativou --spec-type, adicionar draft-simple à lista
+        if echo "$SPEC_FLAGS" | grep -q "draft-mtp"; then
+            SPEC_FLAGS=$(echo "$SPEC_FLAGS" | sed 's/--spec-type draft-mtp/--spec-type draft-mtp,draft-simple/')
+        else
+            SPEC_FLAGS="$SPEC_FLAGS --spec-type draft-simple"
+        fi
+        SPEC_FLAGS="$SPEC_FLAGS --spec-draft-model $DRAFT_PATH --spec-draft-n-max $DRAFT_N_MAX"
         echo "Draft model: $DRAFT_PATH (n_max=$DRAFT_N_MAX)"
     else
-        echo "AVISO: Draft model nao encontrado em $DRAFT_PATH — usando MTP interno"
+        echo "AVISO: Draft model nao encontrado: $DRAFT_MODEL_FILE — ignorando"
     fi
-elif [ "${ENABLE_MTP:-false}" = "true" ]; then
-    EXTRA_FLAGS="$EXTRA_FLAGS --spec-type draft-mtp --spec-draft-n-max $MTP_TOKENS"
-    echo "MTP interno: --spec-type draft-mtp (n_max=$MTP_TOKENS)"
+fi
+
+EXTRA_FLAGS="$EXTRA_FLAGS $SPEC_FLAGS"
+
+# ── Vision Server (Qwen3-VL 4B) ─────────────────────────
+VISION_ENABLED="${VISION_ENABLED:-false}"
+if [ "$VISION_ENABLED" = "true" ]; then
+    VISION_PORT="${VISION_PORT:-8081}"
+    VISION_MODEL_DIR="${VISION_MODEL_DIR:-$PROJECT_ROOT/data/models/qwen3-vl-4b-vision}"
+    VISION_MODEL_FILE="${VISION_MODEL_FILE:-Qwen3VL-4B-Instruct-Q4_K_M.gguf}"
+    VISION_MMPROJ="${VISION_MMPROJ:-mmproj-Qwen3VL-4B-Instruct-F16.gguf}"
+    VISION_CTX="${VISION_CTX:-32768}"
+    VISION_N_PREDICT="${VISION_N_PREDICT:-4096}"
+    VISION_PATH="$VISION_MODEL_DIR/$VISION_MODEL_FILE"
+    VISION_MMPROJ_PATH="$VISION_MODEL_DIR/$VISION_MMPROJ"
+
+    if [ -f "$VISION_PATH" ] && [ -f "$VISION_MMPROJ_PATH" ]; then
+        # Kill any existing vision server on the same port
+        lsof -ti :"$VISION_PORT" | xargs -r kill 2>/dev/null || true
+        sleep 1
+
+        echo "Vision server: starting on port $VISION_PORT..."
+
+        "$LLAMA_SERVER" \
+            --model "$VISION_PATH" \
+            --mmproj "$VISION_MMPROJ_PATH" \
+            --host "$HOST" \
+            --port "$VISION_PORT" \
+            --ctx-size "$VISION_CTX" \
+            --n-predict "$VISION_N_PREDICT" \
+            --parallel 1 \
+            --chat-template chatml \
+            --log-disable \
+            > "$PROJECT_ROOT/data/logs/vision-server.log" 2>&1 &
+
+        VISION_PID=$!
+        echo "Vision server: PID=$VISION_PID"
+
+        # Wait for vision server to be ready
+        for i in $(seq 1 12); do
+            if curl -s "http://localhost:$VISION_PORT/health" 2>/dev/null | grep -q '"ok"'; then
+                echo "Vision server: OK (port $VISION_PORT)"
+                break
+            fi
+            [ "$i" -eq 12 ] && echo "Vision server: timeout waiting for health check"
+            sleep 3
+        done
+    else
+        echo "AVISO: Vision model nao encontrado ($VISION_PATH) — ignorando"
+    fi
 fi
 
 
