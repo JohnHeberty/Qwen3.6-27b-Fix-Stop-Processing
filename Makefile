@@ -362,24 +362,44 @@ build-llama-cpp-python: $(SENTINEL_VENV) setup-cuda _patch-glibc-cuda
 	fi
 
 ##############################################################################
-# [7] BAIXAR MODELO GGUF
+# [7] BAIXAR MODELO GGUF (aria2c acelerado, 16 conexoes, resume)
 ##############################################################################
 download-model: $(SENTINEL_MODEL)
 
-$(SENTINEL_MODEL): $(SENTINEL_VENV) install-python-deps
-	@echo "[7/8] Baixando modelo GGUF..."
+$(SENTINEL_MODEL):
+	@echo "[download] Baixando modelo GGUF com aria2c (16 conexoes)..."
 	@mkdir -p "$(MODEL_DIR)"
-	@if [ -z "$(HF_TOKEN)" ]; then \
-		echo "  AVISO: HUGGINGFACE_TOKEN não definido em .env"; \
-		echo "  Copie env-examples/<modelo>/.env.example para .env e preencha o token."; \
-	fi
 	@MODEL_HF_RESOLVED="$${MODEL_HF:-unsloth/Qwen3.6-35B-A3B-MTP-GGUF}"; \
-	echo "      Repositório: $$MODEL_HF_RESOLVED"; \
-	echo "      Arquivo: $(MODEL_FILE) (~22.6 GB)"; \
-	HF_TOKEN="$(HF_TOKEN)" \
-	$(VENV)/bin/hf download "$$MODEL_HF_RESOLVED" "$(MODEL_FILE)" \
-		--local-dir "$(MODEL_DIR)"
+	REPO="$$(echo "$$MODEL_HF_RESOLVED" | sed 's|/|/|')"; \
+	URL="https://huggingface.co/$$MODEL_HF_RESOLVED/resolve/main/$(MODEL_FILE)"; \
+	echo "      Repo: $$MODEL_HF_RESOLVED"; \
+	echo "      Arquivo: $(MODEL_FILE)"; \
+	echo "      URL: $$URL"; \
+	if command -v aria2c >/dev/null 2>&1; then \
+		echo "      Motor: aria2c (16 conexoes)"; \
+		aria2c -x 16 -s 16 -k 10M -c --disk-cache=32M \
+			--summary-interval=10 --console-log-level=notice \
+			-d "$(MODEL_DIR)" -o "$(MODEL_FILE)" \
+			--header="User-Agent: wget/1.24.5" \
+			"$$URL"; \
+	else \
+		echo "      Motor: wget (1 conexao)"; \
+		wget -c -q --show-progress -O "$(MODEL_DIR)/$(MODEL_FILE)" "$$URL"; \
+	fi
 	@echo "      OK — $(MODEL_DIR)/$(MODEL_FILE)"
+	@if [ -f "$(MODEL_DIR)/mmproj-F16.gguf" ]; then echo "      mmproj-F16.gguf ja existe, ignorando"; \
+	else echo "      Baixando mmproj-F16.gguf (vision)..."; \
+		MODEL_HF_RESOLVED="$${MODEL_HF:-unsloth/Qwen3.6-35B-A3B-MTP-GGUF}"; \
+		URL="https://huggingface.co/$$MODEL_HF_RESOLVED/resolve/main/mmproj-F16.gguf"; \
+		if command -v aria2c >/dev/null 2>&1; then \
+			aria2c -x 16 -s 16 -k 10M -c --disk-cache=32M \
+				-d "$(MODEL_DIR)" -o "mmproj-F16.gguf" \
+				--header="User-Agent: wget/1.24.5" \
+				"$$URL" 2>/dev/null || true; \
+		else \
+			wget -c -q --show-progress -O "$(MODEL_DIR)/mmproj-F16.gguf" "$$URL" 2>/dev/null || true; \
+		fi; \
+	fi
 
 ##############################################################################
 # SERVIDOR
@@ -661,5 +681,6 @@ _check-ready:
 		echo "ERRO: llama-server não encontrado. Execute: make setup"; exit 1; \
 	fi
 	@if [ ! -f "$(SENTINEL_MODEL)" ]; then \
-		echo "ERRO: modelo não encontrado. Execute: make download-model"; exit 1; \
+		echo "AVISO: modelo não encontrado — baixando automaticamente..."; \
+		$(MAKE) download-model; \
 	fi
