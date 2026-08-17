@@ -196,6 +196,19 @@ if [ "$ERROR_WARNINGS" = "true" ]; then
     ERROR_WARN_ARGS=(--chat-template-kwargs '{"error_warnings":true}')
 fi
 
+# ── Vision nativa (mmproj para modelos com vision embutida) ────────
+MMPROJ_ARGS=()
+MMPROJ="${MMPROJ:-}"
+if [ -n "$MMPROJ" ]; then
+    MMPROJ_PATH="$MODEL_DIR/$MMPROJ"
+    if [ -f "$MMPROJ_PATH" ]; then
+        MMPROJ_ARGS=(--mmproj "$MMPROJ_PATH")
+        echo "Vision nativa: $MMPROJ"
+    else
+        echo "AVISO: mmproj nao encontrado ($MMPROJ_PATH) — vision desabilitada"
+    fi
+fi
+
 # ── Captura de conteudo para depuracao (CAPTURE_LOG) — DEFAULT OFF ───────────────
 # Liga o log do CONTEUDO real das requisicoes (o server.log normal so tem timings):
 #   --log-prompts-dir : grava o prompt renderizado (1 arquivo <ts>.txt por requisicao)
@@ -319,6 +332,7 @@ exec "$LLAMA_SERVER" \
     --cache-ram        "$CACHE_RAM"         \
     --cache-type-k     "$CACHE_TYPE_K"      \
     --cache-type-v     "$CACHE_TYPE_V"      \
+    "${MMPROJ_ARGS[@]}" \
     "${REASONING_MSG_ARGS[@]}" \
     "${ERROR_WARN_ARGS[@]}" \
     $EXTRA_FLAGS
