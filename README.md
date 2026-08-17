@@ -1,25 +1,47 @@
-# Ornith-1.0-35B — local inference server
+# Qwen3.8-27B — local inference server
 
-**Modelo:** Ornith-1.0-35B Q4_K_M (MoE, ~3B ativos/token) via llama-server (llama.cpp)
-**GPU:** RTX 3090 (24 GB) | **API:** `http://localhost:8080/v1` | **Contexto:** 128k (input 96k + output 32k)
+**Model:** Qwen3.8-27B Q8_0 (dense 27B, hybrid Gated DeltaNet + Attention, native MTP + native vision)
+**GPU:** 2x RTX 3090 (48 GB) | **API:** `http://localhost:8080/v1` | **Context:** 262k (input 192k + output 65k)
 
-## Configuração
+## Configuration
 
-Configuração baseada na [receita oficial do Ornith](https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B):
-- **Template:** embutido no GGUF (sem `--chat-template-file`)
-- **Sampling:** `temp=0.6, top_p=0.95, top_k=20` — sem penalidades (repeat/frequency/presence = off)
-- **DRY:** desligado (`DRY_MULTIPLIER=0`)
-- **Reasoning:** `on`, formato `deepseek`, budget `4096`
+- **Template:** embedded in the GGUF (no `--chat-template-file`)
+- **Sampling:** official thinking-mode values — `temp=1.0, top_p=0.95, top_k=20, min_p=0.0`,
+  no penalties (`presence=0.0, repeat=1.0, frequency=0.0`)
+- **Reasoning:** `on`, format `deepseek` (exposes `message.reasoning_content`), budget `8192`.
+  Thinking depth: `REASONING_EFFORT` (`low` | `medium` | `high` | `xhigh`; the model's own default
+  is `xhigh`) — `medium` is the recommended setting for agentic coding.
+- **Speculative decoding:** native MTP, `n=3` (`--spec-type draft-mtp`)
+- **KV cache:** `q8_0` (f16 does not fit alongside a 29 GB Q8_0 model at 262k)
+- **Vision:** native, via `mmproj-F16.gguf` from the same repo
+- **DRY sampler:** off (`DRY_MULTIPLIER=0`) — never re-enable for coding, it corrupts long file paths
 
-## Comandos
+Full parameter reference: [`.env`](.env). Alternative model/GPU configs: [`env-examples/`](env-examples/).
+
+## Commands
 
 ```bash
 make start       # foreground
-make start-bg    # background, logs em data/logs/server.log
-make stop        # para o servidor
-make test        # 14 testes (API, tool calling, streaming)
-make logs        # acompanha log
+make start-bg    # background, logs to data/logs/server.log
+make stop        # stop the server
+make status      # is it up, and on which model
+make test        # tests/test_api.py — API, tool calling, streaming
+make logs        # tail the log
 ```
 
-Setup completo: `make setup` (pipelines zero-dependência).
-Mais alvos: `make help`.
+Full setup: `make setup` (zero-dependency pipeline: system deps → CUDA → venv → build
+`llama-server` → download the GGUF). More targets: `make help`.
+
+## Measured performance
+
+| Metric | Q8_0 + MTP n=3 + q8_0 KV @ 262k |
+|---|---|
+| Decode (long generations, 6k-13k tokens out) | 36-40 tok/s |
+| Prompt processing | 600-715 tok/s |
+| VRAM | ~21.4 GB (GPU 0) + ~22.7 GB (GPU 1) |
+
+## Downstream
+
+`infra/` holds the integration layer: LiteLLM gateway (`:4000`, `make litellm-start`), OpenCode
+config, systemd units + watchdog, and logrotate. All of them point at `:8080` / model
+`qwen3.8-27b` and must be kept in sync with `.env`.

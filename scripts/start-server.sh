@@ -11,14 +11,14 @@ VENV="$PROJECT_ROOT/.venv"
 # Carregar variaveis do .env (se existir)
 [ -f "$PROJECT_ROOT/.env" ] && set -a && source "$PROJECT_ROOT/.env" && set +a
 
-MODEL_DIR="${MODEL_DIR:-$PROJECT_ROOT/data/models/Ornith-1.0-35B-Q4_K_XL}"
-MODEL_FILE="${MODEL_FILE:-Ornith-1.0-35B-UD-Q4_K_XL.gguf}"
+MODEL_DIR="${MODEL_DIR:-$PROJECT_ROOT/data/models/Qwen3.8-27B-Q8}"
+MODEL_FILE="${MODEL_FILE:-Qwen3.8-27B-Q8_0.gguf}"
 PORT="${PORT:-8080}"
 HOST="${HOST:-0.0.0.0}"
 OLLAMA_PORT="${OLLAMA_PORT:-11434}"
-SERVED_NAME="${SERVED_NAME:-ornith}"
-N_GPU_LAYERS="${N_GPU_LAYERS:--1}"
-N_CTX="${N_CTX:-73728}"
+SERVED_NAME="${SERVED_NAME:-qwen3.8-27b}"
+N_GPU_LAYERS="${N_GPU_LAYERS:-999}"
+N_CTX="${N_CTX:-262144}"
 N_BATCH="${N_BATCH:-4096}"
 
 # Quantização do KV Cache
@@ -32,7 +32,7 @@ CACHE_IDLE_SLOTS="${CACHE_IDLE_SLOTS:-1}"
 
 # Speculative Decoding (MTP)
 ENABLE_MTP="${ENABLE_MTP:-true}"
-MTP_TOKENS="${MTP_TOKENS:-2}"
+MTP_TOKENS="${MTP_TOKENS:-3}"
 
 # External draft model (alternativa ao MTP interno)
 DRAFT_ENABLED="${DRAFT_ENABLED:-false}"
@@ -40,13 +40,13 @@ DRAFT_MODEL_FILE="${DRAFT_MODEL_FILE:-}"
 DRAFT_N_MAX="${DRAFT_N_MAX:-5}"
 
 # Parâmetros de amostragem (ajustáveis no .env)
-# Fallbacks = valores oficiais recomendados pelo Ornith.
-TEMPERATURE="${TEMPERATURE:-0.6}"
-TOP_K="${TOP_K:-0}"
+# Fallbacks = perfil thinking oficial do Qwen3.8-27B (HF model card, Best Practices).
+TEMPERATURE="${TEMPERATURE:-1.0}"
+TOP_K="${TOP_K:-20}"
 TOP_P="${TOP_P:-0.95}"
 MIN_P="${MIN_P:-0.0}"
-REPEAT_PENALTY="${REPEAT_PENALTY:-1.05}"
-REPEAT_LAST_N="${REPEAT_LAST_N:-2048}"
+REPEAT_PENALTY="${REPEAT_PENALTY:-1.0}"
+REPEAT_LAST_N="${REPEAT_LAST_N:-256}"
 FREQUENCY_PENALTY="${FREQUENCY_PENALTY:-0.0}"
 PRESENCE_PENALTY="${PRESENCE_PENALTY:-0.0}"
 ERROR_WARNINGS="${ERROR_WARNINGS:-false}"
@@ -66,6 +66,11 @@ REASONING_BUDGET="${REASONING_BUDGET:-4096}"
 #                                   (none = deixa cru no content; deepseek-legacy = <think> no content)
 REASONING_MODE="${REASONING_MODE:-on}"
 REASONING_FORMAT="${REASONING_FORMAT:-deepseek}"
+
+# REASONING_EFFORT low|medium|high|xhigh — profundidade do thinking. O template embutido
+# do Qwen3.8 le isso como chat-template-kwarg (default dele: xhigh). Vazio = nao passa nada
+# (deixa o default do template). Ver .env para o porque de 'medium' em coding.
+REASONING_EFFORT="${REASONING_EFFORT:-}"
 
 # Mensagem injetada antes do fecha-</think> quando o budget estoura. Vazio = flag omitida
 # (o corte natural do llama.cpp). Preencha so se o modelo ficar mudo apos o corte.
@@ -123,7 +128,7 @@ echo "Decode    : MTP=$ENABLE_MTP(tokens=$MTP_TOKENS) Draft=$DRAFT_ENABLED(n_max
 echo "Sampling  : temp=$TEMPERATURE top_p=$TOP_P min_p=$MIN_P"
 echo "            repeat=$REPEAT_PENALTY(last $REPEAT_LAST_N) freq=$FREQUENCY_PENALTY pres=$PRESENCE_PENALTY"
 echo "            seed=$SEED n_predict=$N_PREDICT"
-echo "Reasoning : mode=$REASONING_MODE format=$REASONING_FORMAT budget=$REASONING_BUDGET"
+echo "Reasoning : mode=$REASONING_MODE format=$REASONING_FORMAT budget=$REASONING_BUDGET effort=${REASONING_EFFORT:-<template default>}"
 echo ""
 
 # ── Liberar VRAM do Ollama antes de iniciar ────────────────────────────────────
@@ -186,14 +191,23 @@ if [ -n "${TEMPLATE_FILE:-}" ]; then
     fi
 fi
 
-# ERROR_WARNINGS (false por default): injeta aviso de erro e desliga thinking
-# apos 2 erros de tool seguidos — quebra loop de retry de tool. So o template
-# local (chat_template_local.jinja) honra esse flag.
+# ── chat-template-kwargs ─────────────────────────────────────────
+# Uma unica flag --chat-template-kwargs, JSON montado a partir de:
+#   reasoning_effort : profundidade do thinking (Qwen3.8; default do template = xhigh)
+#   error_warnings   : ERROR_WARNINGS=true injeta aviso e desliga thinking apos 2 erros
+#                      de tool seguidos (quebra loop de retry). So o template local
+#                      (chat_template_local.jinja) honra esse flag.
 # O JSON contem aspas — nao pode entrar no $EXTRA_FLAGS (word-splitting);
 # usa array dedicado como o REASONING_MSG_ARGS.
+TEMPLATE_KWARGS=()
+[ -n "$REASONING_EFFORT" ] && TEMPLATE_KWARGS+=("\"reasoning_effort\":\"$REASONING_EFFORT\"")
+[ "$ERROR_WARNINGS" = "true" ] && TEMPLATE_KWARGS+=('"error_warnings":true')
+
 ERROR_WARN_ARGS=()
-if [ "$ERROR_WARNINGS" = "true" ]; then
-    ERROR_WARN_ARGS=(--chat-template-kwargs '{"error_warnings":true}')
+if [ ${#TEMPLATE_KWARGS[@]} -gt 0 ]; then
+    KWARGS_JSON="{$(IFS=,; echo "${TEMPLATE_KWARGS[*]}")}"
+    ERROR_WARN_ARGS=(--chat-template-kwargs "$KWARGS_JSON")
+    echo "Template kwargs: $KWARGS_JSON"
 fi
 
 # ── Vision nativa (mmproj para modelos com vision embutida) ────────
