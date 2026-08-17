@@ -30,6 +30,10 @@ CTX_CHECKPOINTS="${CTX_CHECKPOINTS:-16}"
 CACHE_RAM="${CACHE_RAM:-4096}"
 CACHE_IDLE_SLOTS="${CACHE_IDLE_SLOTS:-1}"
 
+# Split entre GPUs. 'layer' e o default do llama.cpp e o unico seguro com MTP:
+# draft-mtp + '--split-mode tensor' trava a CUDA no Qwen3.8-27B (issue 27122).
+SPLIT_MODE="${SPLIT_MODE:-layer}"
+
 # Speculative Decoding (MTP)
 ENABLE_MTP="${ENABLE_MTP:-true}"
 MTP_TOKENS="${MTP_TOKENS:-3}"
@@ -124,7 +128,7 @@ echo "Contexto  : $N_CTX tokens"
 echo "KV cache  : K=$CACHE_TYPE_K V=$CACHE_TYPE_V"
 echo "Nome API  : $SERVED_NAME"
 echo "RAM ctrl  : ctx_checkpoints=$CTX_CHECKPOINTS cache_ram=${CACHE_RAM}MiB idle_slots=$CACHE_IDLE_SLOTS"
-echo "Decode    : MTP=$ENABLE_MTP(tokens=$MTP_TOKENS) Draft=$DRAFT_ENABLED(n_max=$DRAFT_N_MAX)"
+echo "Decode    : MTP=$ENABLE_MTP(tokens=$MTP_TOKENS) Draft=$DRAFT_ENABLED(n_max=$DRAFT_N_MAX) split=$SPLIT_MODE"
 echo "Sampling  : temp=$TEMPERATURE top_p=$TOP_P min_p=$MIN_P"
 echo "            repeat=$REPEAT_PENALTY(last $REPEAT_LAST_N) freq=$FREQUENCY_PENALTY pres=$PRESENCE_PENALTY"
 echo "            seed=$SEED n_predict=$N_PREDICT"
@@ -328,6 +332,7 @@ exec "$LLAMA_SERVER" \
     --ctx-size         "$N_CTX"             \
     --batch-size       "$N_BATCH"           \
     --parallel         "${N_PARALLEL:-1}"   \
+    --split-mode       "$SPLIT_MODE"        \
     --host             "$HOST"              \
     --port             "$PORT"              \
     --alias            "$SERVED_NAME"       \
