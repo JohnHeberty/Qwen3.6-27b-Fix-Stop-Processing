@@ -115,12 +115,20 @@ just forwards it.
 - `DRY_MULTIPLIER` — OFF by default (0). Do not enable for coding (truncates file paths).
 - `CAPTURE_LOG` — `false` by default. `true` logs request/response content for debugging.
 
-**Server sampling is only a default — clients override it.** Any `temperature`/`top_p`/
-`presence_penalty`/`max_tokens` in a request body wins over the `.env` values. Verified: OpenCode
-traffic (from a Windows workstation, per the captured prompts) arrived with `temperature=0.6,
-top_p=1.0, presence_penalty=1.0, max_tokens=32000` — none of which came from `.env`. So tuning
-`.env` alone does not change what such a client actually gets. `.env` remains the source of truth
-for this repo — it sets the server defaults, which apply to every request that omits those fields.
+**Server sampling is only a default — request bodies win, but only for the fields the client
+actually sends.** Measured precisely on 2026-08-18 by reading `GET /slots` while a real OpenCode
+request was in flight (no capture or restart needed — this is the cheapest way to see effective
+per-request sampling):
+- `temperature`, `top_k`, `min_p`, `presence_penalty`, `frequency_penalty`, `repeat_penalty`
+  all arrived with the **`.env` values** → the client does not send them, `.env` governs.
+- `top_p` arrived as **1.0** while `.env` said 0.80, and `max_tokens` as **32000** while
+  `N_PREDICT` said 65536 → these two are **client-side** and override the server.
+
+An earlier note here claimed OpenCode sent `temperature=0.6` and `presence_penalty=1.0` too. That
+was wrong: at the time `.env` itself held 0.6 and 1.0, so those values matched by coincidence, not
+by override. Only `top_p` and `max_tokens` were ever client-supplied. Consequence: tuning sampling
+in `.env` *does* reach the real agent traffic — except `top_p`, which must be changed on the client
+to have any effect.
 Fixing a client's own overrides is a change on that client, out of scope here. (For reference, if it
 ever comes up: OpenCode keeps sampling **per agent** — `agent.<name>.{temperature,top_p}` plus a
 free-form `options` object — not per model; its *model*-level `temperature` key is a boolean
