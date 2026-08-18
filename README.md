@@ -18,6 +18,8 @@
 - **KV cache:** `q8_0` (f16 does not fit alongside a 29 GB Q8_0 model at 262k)
 - **Vision:** native, via `mmproj-F16.gguf` from the same repo
 - **DRY sampler:** off (`DRY_MULTIPLIER=0`) — never re-enable for coding, it corrupts long file paths
+- **Chat WebUI:** on (`WEBUI=true`) — llama-server's built-in chat UI is served at `GET /`, i.e.
+  the same port as the API. No extra install, no second process.
 
 Full parameter reference: [`.env`](.env). Alternative model/GPU configs: [`env-examples/`](env-examples/).
 

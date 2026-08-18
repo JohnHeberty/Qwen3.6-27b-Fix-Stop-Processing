@@ -114,6 +114,14 @@ just forwards it.
   session. Empty = template default.
 - `DRY_MULTIPLIER` — OFF by default (0). Do not enable for coding (truncates file paths).
 - `CAPTURE_LOG` — `false` by default. `true` logs request/response content for debugging.
+- `WEBUI` — `true` → `--webui`, `false` → `--no-webui`. llama-server serves a SvelteKit chat UI at
+  `GET /` on the same port as the API, so `http://localhost:8080` is a working chat client with no
+  extra install. Enabled by default upstream; pinned explicitly here. Two gotchas: it shares the
+  single slot (`N_PARALLEL=1`), so a UI chat queues behind any in-flight agent request; and it is
+  served **gzip-only**, so `curl` without `--compressed` gets `HTTP 415 Error: gzip is not supported
+  by this browser` — browsers are unaffected. Useful for testing `reasoning_effort`,
+  `enable_thinking` and sampling per request (the UI sends them in the body, overriding the server)
+  without a restart.
 
 **Server sampling is only a default — request bodies win, but only for the fields the client
 actually sends.** Measured precisely on 2026-08-18 by reading `GET /slots` while a real OpenCode

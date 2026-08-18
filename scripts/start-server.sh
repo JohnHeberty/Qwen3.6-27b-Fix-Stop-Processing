@@ -34,6 +34,13 @@ CACHE_IDLE_SLOTS="${CACHE_IDLE_SLOTS:-1}"
 # draft-mtp + '--split-mode tensor' trava a CUDA no Qwen3.8-27B (issue 27122).
 SPLIT_MODE="${SPLIT_MODE:-layer}"
 
+# WebUI de chat embutida no llama-server, servida na propria porta da API (GET /).
+# Default do upstream ja e ligada; explicito aqui para nao depender disso.
+# OBS: ela usa o MESMO slot do agente (N_PARALLEL=1) — um chat na UI espera na fila
+# se houver requisicao em voo. E util para testar reasoning_effort/thinking sem
+# reiniciar, porque o painel de sampling manda os valores no corpo da requisicao.
+WEBUI="${WEBUI:-true}"
+
 # Speculative Decoding (MTP)
 ENABLE_MTP="${ENABLE_MTP:-true}"
 MTP_TOKENS="${MTP_TOKENS:-3}"
@@ -73,7 +80,8 @@ REASONING_FORMAT="${REASONING_FORMAT:-deepseek}"
 
 # REASONING_EFFORT low|medium|high|xhigh — profundidade do thinking. O template embutido
 # do Qwen3.8 le isso como chat-template-kwarg (default dele: xhigh). Vazio = nao passa nada
-# (deixa o default do template). Ver .env para o porque de 'medium' em coding.
+# (deixa o default do template). Ver .env para o porque de 'low' em coding —
+# atencao: 'medium' NAO injeta instrucao nenhuma no template do Qwen3.8.
 REASONING_EFFORT="${REASONING_EFFORT:-}"
 
 # REASONING_PRESERVE true|false|vazio. O template do Qwen3.8 preserva os <think> de todo
@@ -132,6 +140,12 @@ echo "GPU layers: $N_GPU_LAYERS (todos na GPU)"
 echo "Contexto  : $N_CTX tokens"
 echo "KV cache  : K=$CACHE_TYPE_K V=$CACHE_TYPE_V"
 echo "Nome API  : $SERVED_NAME"
+if [ "$WEBUI" != "false" ]; then
+    LAN_IP=$(ip -4 addr show 2>/dev/null | grep -oE 'inet [0-9.]+' | grep -v '127.0.0.1' | head -1 | awk '{print $2}')
+    echo "Chat WebUI: http://localhost:$PORT${LAN_IP:+  |  http://$LAN_IP:$PORT}"
+else
+    echo "Chat WebUI: DESLIGADA (WEBUI=false)"
+fi
 echo "RAM ctrl  : ctx_checkpoints=$CTX_CHECKPOINTS cache_ram=${CACHE_RAM}MiB idle_slots=$CACHE_IDLE_SLOTS"
 echo "Decode    : MTP=$ENABLE_MTP(tokens=$MTP_TOKENS) Draft=$DRAFT_ENABLED(n_max=$DRAFT_N_MAX) split=$SPLIT_MODE"
 echo "Sampling  : temp=$TEMPERATURE top_p=$TOP_P min_p=$MIN_P"
@@ -180,6 +194,11 @@ if [ "$REASONING_MODE" != "off" ] && [ -n "$REASONING_MODE" ]; then
     [ -n "$REASONING_FORMAT" ] && EXTRA_FLAGS="$EXTRA_FLAGS --reasoning-format $REASONING_FORMAT"
 fi
 [ -n "$REASONING_BUDGET" ] && EXTRA_FLAGS="$EXTRA_FLAGS --reasoning-budget $REASONING_BUDGET"
+case "$WEBUI" in
+    false) EXTRA_FLAGS="$EXTRA_FLAGS --no-webui" ;;
+    *)     EXTRA_FLAGS="$EXTRA_FLAGS --webui" ;;
+esac
+
 case "$REASONING_PRESERVE" in
     true)  EXTRA_FLAGS="$EXTRA_FLAGS --reasoning-preserve" ;;
     false) EXTRA_FLAGS="$EXTRA_FLAGS --no-reasoning-preserve" ;;
