@@ -76,6 +76,11 @@ REASONING_FORMAT="${REASONING_FORMAT:-deepseek}"
 # (deixa o default do template). Ver .env para o porque de 'medium' em coding.
 REASONING_EFFORT="${REASONING_EFFORT:-}"
 
+# REASONING_PRESERVE true|false|vazio. O template do Qwen3.8 preserva os <think> de todo
+# o historico por default, o que infla o prompt a cada passo de um loop de agente.
+# Vazio = nao passa flag (default do template).
+REASONING_PRESERVE="${REASONING_PRESERVE:-}"
+
 # Mensagem injetada antes do fecha-</think> quando o budget estoura. Vazio = flag omitida
 # (o corte natural do llama.cpp). Preencha so se o modelo ficar mudo apos o corte.
 REASONING_BUDGET_MESSAGE="${REASONING_BUDGET_MESSAGE:-}"
@@ -132,7 +137,7 @@ echo "Decode    : MTP=$ENABLE_MTP(tokens=$MTP_TOKENS) Draft=$DRAFT_ENABLED(n_max
 echo "Sampling  : temp=$TEMPERATURE top_p=$TOP_P min_p=$MIN_P"
 echo "            repeat=$REPEAT_PENALTY(last $REPEAT_LAST_N) freq=$FREQUENCY_PENALTY pres=$PRESENCE_PENALTY"
 echo "            seed=$SEED n_predict=$N_PREDICT"
-echo "Reasoning : mode=$REASONING_MODE format=$REASONING_FORMAT budget=$REASONING_BUDGET effort=${REASONING_EFFORT:-<template default>}"
+echo "Reasoning : mode=$REASONING_MODE format=$REASONING_FORMAT budget=$REASONING_BUDGET effort=${REASONING_EFFORT:-<template default>} preserve=${REASONING_PRESERVE:-<template default>}"
 echo ""
 
 # ── Liberar VRAM do Ollama antes de iniciar ────────────────────────────────────
@@ -175,6 +180,10 @@ if [ "$REASONING_MODE" != "off" ] && [ -n "$REASONING_MODE" ]; then
     [ -n "$REASONING_FORMAT" ] && EXTRA_FLAGS="$EXTRA_FLAGS --reasoning-format $REASONING_FORMAT"
 fi
 [ -n "$REASONING_BUDGET" ] && EXTRA_FLAGS="$EXTRA_FLAGS --reasoning-budget $REASONING_BUDGET"
+case "$REASONING_PRESERVE" in
+    true)  EXTRA_FLAGS="$EXTRA_FLAGS --reasoning-preserve" ;;
+    false) EXTRA_FLAGS="$EXTRA_FLAGS --no-reasoning-preserve" ;;
+esac
 # A mensagem tem espacos — nao pode entrar no $EXTRA_FLAGS (que sofre word-splitting).
 REASONING_MSG_ARGS=()
 if [ -n "$REASONING_BUDGET_MESSAGE" ]; then

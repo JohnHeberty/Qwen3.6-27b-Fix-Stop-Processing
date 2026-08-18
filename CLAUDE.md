@@ -11,8 +11,8 @@ copy a config from `env-examples/` to `.env`, `make setup`, `make start`.
 
 Qwen3.8-27B features:
 - **Native vision** (image + video understanding via mmproj-F16.gguf, no separate vision server needed)
-- **Native MTP** (Multi-Token Prediction) for speculative decoding (MTP n=3, ~36-40 tok/s decode
-  measured on long generations; 600-715 tok/s prompt processing)
+- **Native MTP** (Multi-Token Prediction) for speculative decoding (MTP n=3; 36-40 tok/s decode at
+  short context, 24-26 tok/s in the real long-context agent regime; 355-715 tok/s prompt processing)
 - **Hybrid architecture**: 16×(3×Gated DeltaNet + FFN) + 1×(Gated Attention + FFN) per block
 - **262K native context** (extensible to 1M with RoPE scaling)
 - **Thinking/reasoning mode** (default on, controlled via REASONING_BUDGET)
@@ -93,14 +93,25 @@ just forwards it.
 - `N_PARALLEL` — must stay `1` (avoids KV cache split bugs).
 - `TEMPLATE_FILE` — empty = use GGUF-embedded template (Qwen3.8 qwen35 architecture, no custom needed).
 - `MMPROJ` — path to mmproj file for native vision. Current: `mmproj-F16.gguf`.
-- `REASONING_BUDGET` — hard ceiling on thinking tokens (8192; -1 = off).
+- `REASONING_BUDGET` — hard ceiling on thinking tokens (8192; -1 = off). It is a **guillotine, not
+  a brake**: on hitting it llama.cpp force-closes `</think>` and makes the model answer mid-thought,
+  which wrecks tool-call quality. Do not tighten it to reduce verbosity — tighten `REASONING_EFFORT`
+  instead. (Learned the hard way: 4096 was tried on 2026-08-17 and 90 of 674 real requests hit it.)
 - `REASONING_MODE` / `REASONING_FORMAT` — `on` / `deepseek` for reasoning_content support.
-- `REASONING_EFFORT` — `low`|`medium`|`high`|`xhigh`, forwarded as
-  `--chat-template-kwargs '{"reasoning_effort":"..."}'`. **New in Qwen3.8:** its embedded template
-  reads this kwarg and defaults to `xhigh`; clients can override per request with
-  `chat_template_kwargs`. This did *not* work on the earlier models, where llama.cpp ignored
-  client-side `reasoning_effort` and only `REASONING_BUDGET` mattered. Current: `medium` — `xhigh`
-  burns thousands of thinking tokens per tool call, which dominates agent step latency at ~37 tok/s.
+- `REASONING_EFFORT` — forwarded as `--chat-template-kwargs '{"reasoning_effort":"..."}'` (there is
+  no `--reasoning-effort` flag). Valid: `low`|`medium`|`xhigh`; `high` is an **alias of `xhigh`**,
+  anything else makes the template raise and the request fail. Read the template itself (`GET
+  /props`) before trusting these names — what each value *injects* is not what the names suggest:
+  - `xhigh` (template default) → "think carefully, validate key assumptions, consider alternatives…"
+  - `medium` → **nothing at all**. There is no `medium` branch in the template, so
+    `reasoning_instructions` stays empty. It is "no guidance", not "medium effort".
+  - `low` → "Keep your thinking brief and focused, moving directly to the conclusion."
+  Current: `low` — the only value that actually asks for short thinking. `medium` was used briefly
+  and produced long thinking that then hit `REASONING_BUDGET`.
+- `REASONING_PRESERVE` — `false` here → `--no-reasoning-preserve`. The Qwen3.8 template keeps
+  `preserve_thinking` on by default, so every prior turn's `<think>` block stays in history and
+  each agent step re-feeds all accumulated reasoning, inflating prompt size and latency over a
+  session. Empty = template default.
 - `DRY_MULTIPLIER` — OFF by default (0). Do not enable for coding (truncates file paths).
 - `CAPTURE_LOG` — `false` by default. `true` logs request/response content for debugging.
 
@@ -140,5 +151,7 @@ Model: **Qwen3.8-27B Q8_0** (29.0 GB on disk / as reported by the server)
   older `temp=0.6 + presence_penalty=1.0` in this repo was an inherited Qwen3.6 recipe mislabeled
   as official. Raise presence_penalty toward 2.0 only if endless repetition shows up (the card
   warns it can cause language mixing).
-- Reasoning: REASONING_BUDGET=8192, REASONING_MODE=on, REASONING_FORMAT=deepseek,
-  REASONING_EFFORT=medium
+- Reasoning: REASONING_MODE=on, REASONING_FORMAT=deepseek, REASONING_EFFORT=low,
+  REASONING_BUDGET=8192 (safety net only), REASONING_PRESERVE=false
+- Measured decode: **24-26 tok/s in the real agent regime** (long context, ~4k-token generations
+  taking 140-175s per step); 36-40 tok/s only at short context. Prompt processing 355-715 tok/s.
