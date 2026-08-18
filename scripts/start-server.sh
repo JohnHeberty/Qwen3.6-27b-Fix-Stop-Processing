@@ -41,6 +41,13 @@ SPLIT_MODE="${SPLIT_MODE:-layer}"
 # reiniciar, porque o painel de sampling manda os valores no corpo da requisicao.
 WEBUI="${WEBUI:-true}"
 
+# WEBUI_CONFIG: JSON com defaults da UI (--webui-config). Vazio = omite a flag.
+# Por que isso importa: a WebUI do build b865 tem um bug (llama.cpp issue 25605) —
+# o campo booleano "backend_sampling" e enviado SEM guarda de valor, entao num perfil
+# novo vai como string vazia e o servidor responde 500 bad_function_call em TODA
+# mensagem. Fixar o default aqui evita o placeholder vazio.
+WEBUI_CONFIG="${WEBUI_CONFIG:-}"
+
 # Speculative Decoding (MTP)
 ENABLE_MTP="${ENABLE_MTP:-true}"
 MTP_TOKENS="${MTP_TOKENS:-3}"
@@ -198,6 +205,12 @@ case "$WEBUI" in
     false) EXTRA_FLAGS="$EXTRA_FLAGS --no-webui" ;;
     *)     EXTRA_FLAGS="$EXTRA_FLAGS --webui" ;;
 esac
+
+# JSON tem aspas e espacos — argv dedicado, como o REASONING_MSG_ARGS.
+WEBUI_CFG_ARGS=()
+if [ "$WEBUI" != "false" ] && [ -n "$WEBUI_CONFIG" ]; then
+    WEBUI_CFG_ARGS=(--webui-config "$WEBUI_CONFIG")
+fi
 
 case "$REASONING_PRESERVE" in
     true)  EXTRA_FLAGS="$EXTRA_FLAGS --reasoning-preserve" ;;
@@ -361,6 +374,7 @@ exec "$LLAMA_SERVER" \
     --batch-size       "$N_BATCH"           \
     --parallel         "${N_PARALLEL:-1}"   \
     --split-mode       "$SPLIT_MODE"        \
+    "${WEBUI_CFG_ARGS[@]}"                  \
     --host             "$HOST"              \
     --port             "$PORT"              \
     --alias            "$SERVED_NAME"       \
