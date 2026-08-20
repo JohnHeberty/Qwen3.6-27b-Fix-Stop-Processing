@@ -13,7 +13,16 @@ data/models-vllm/
 
 # Arquivo morto
 old/
-arquived/
+
+# Pesados dentro de arquived/ (padroes ancorados: data/models/ nao casa abaixo de subdirs)
+/arquived/data/models/
+/arquived/data/logs/
+/arquived/data/pdf_pages/
+/arquived/data/temp/
+/arquived/data/capture/
+
+# Backup de .env com credenciais
+env.bk
 
 # Clone vLLM (repo externo com .git proprio; venv e modelos somam dezenas de GB)
 qwen38-27b-rtx3090/

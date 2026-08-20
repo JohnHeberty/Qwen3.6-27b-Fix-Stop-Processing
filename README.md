@@ -46,8 +46,8 @@ The llama.cpp setup was extensively tuned before being retired: CUDA-graphs buil
 2-slot split across GPUs with `TENSOR_SPLIT`, vision offloaded to CPU, Prometheus
 metrics, and a full benchmark in `docs/llama-cpp-b10502-benchmark.md`.
 
-Everything from that era is preserved locally in `arquived/` (not versioned, kept out
-of git on purpose — tens of GB of GGUFs and venvs):
+Everything from that era is preserved in `arquived/` (versioned in this repo, except
+tens of GB of GGUFs, logs and `.env` secrets, which stay in `.gitignore`):
 
 - `.env` + `Makefile` + `scripts/start-server.sh` + `tests/` — the llama.cpp pipeline
 - `data/models/` — GGUF checkpoints (Q6_K_XL, UD-Q4_K_XL, Q5_K_M, mmproj)
