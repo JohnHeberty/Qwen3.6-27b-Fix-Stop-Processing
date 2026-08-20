@@ -35,6 +35,9 @@ data/capture/
 # Dados gerados
 data/pdf_pages/
 
+# vLLM Playground (instances.json é versionado como seed; métricas são runtime)
+data/vllm-playground/metrics-history.jsonl
+
 # Python
 __pycache__/
 *.pyc

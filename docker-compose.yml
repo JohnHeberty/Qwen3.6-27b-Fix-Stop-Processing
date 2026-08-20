@@ -1,0 +1,15 @@
+services:
+  vllm-playground:
+    build:
+      context: .
+      dockerfile: Dockerfile.vllm-playground
+    image: vllm-playground:local
+    container_name: vllm-playground
+    restart: unless-stopped
+    # host network: UI fica em 0.0.0.0:7860 e alcança o vLLM em 127.0.0.1:8080
+    # (o vLLM roda no host via systemd qwen-vllm-dflash2)
+    network_mode: host
+    volumes:
+      - ./data/vllm-playground:/root/.vllm-playground
+      # Patch local: remotes retomam health loop no boot (v0.1.8 marca "stopped" e trava)
+      - ./data/vllm-playground-patch/backend_registry.py:/usr/local/lib/python3.12/site-packages/vllm_playground/backend_registry.py:ro
