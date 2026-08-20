@@ -1,0 +1,28 @@
+model_list:
+  - model_name: qwen3.8-27b
+    litellm_params:
+      model: openai/qwen3.8-27b
+      api_base: http://localhost:8080/v1
+      api_key: "sk-litellm-master"
+      max_tokens: 32000
+    model_info:
+      # Qwen3.8-27B AutoRound INT4 (Frozenlock) + DFlash2 (z-lab), vLLM TP=2,
+      # 96k context (pool 96.538 validado), ~22GB/GPU, sem visão (--language-model-only)
+      mode: chat
+      context_window: 96000
+      max_input_tokens: 64000
+      max_output_tokens: 32000
+      supports_function_calling: true
+      supports_tool_choice: true
+      supports_vision: false
+
+litellm_settings:
+  drop_params: true
+  modify_params: false
+
+guardrails:
+  - guardrail_name: "loop-guard"
+    litellm_params:
+      guardrail: loop_guard.LoopGuard
+      mode: "post_call"
+      default_on: true

@@ -1,0 +1,106 @@
+{
+  "agents": {
+    "defaults": {
+      "workspace": "/root/.openclaw/workspace",
+      "model": {
+        "primary": "vllm/qwen3.8-27b"
+      },
+      "models": {
+        "vllm/qwen3.8-27b": {}
+      },
+      "experimental": {
+        "localModelLean": true
+      },
+      "thinkingDefault": "medium",
+      "timeoutSeconds": 3600,
+      "compaction": {
+        "mode": "safeguard",
+        "reserveTokens": 80000,
+        "reserveTokensFloor": 80000,
+        "keepRecentTokens": 8000,
+        "recentTurnsPreserve": 2,
+        "timeoutSeconds": 900
+      },
+      "runRetries": {
+        "max": 2
+      },
+      "contextLimits": {
+        "toolResultMaxChars": 32768
+      },
+      "contextPruning": {
+        "ttl": "3m"
+      }
+    }
+  },
+  "gateway": {
+    "mode": "local",
+    "auth": {
+      "mode": "token",
+      "token": "22d187fa69bb50edf622cba73209cdb0bcf6379fd8c6c1d5"
+    }
+  },
+  "meta": {
+    "lastTouchedVersion": "2026.7.1-2",
+    "lastTouchedAt": "2026-08-10T15:37:14.585Z"
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "vllm": {
+        "baseUrl": "http://192.168.1.139:8080/v1",
+        "apiKey": "vllm-local",
+        "api": "openai-responses",
+        "timeoutSeconds": 900,
+        "models": [
+          {
+            "id": "qwen3.8-27b",
+            "name": "Qwen3.8-27B LAN (vLLM)",
+            "reasoning": true,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 96000,
+            "maxTokens": 32000
+          }
+        ]
+      }
+    }
+  },
+  "plugins": {
+    "entries": {
+      "telegram": {
+        "enabled": true
+      }
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "botToken": "8141723995:AAGJXk_dbOBKUxwV8Fz2eEX-ZWsYGiQ9rFc",
+      "streaming": {
+        "mode": "off"
+      },
+      "errorPolicy": "once",
+      "dmPolicy": "allowlist",
+      "allowFrom": [
+        "1258408739"
+      ]
+    }
+  },
+  "commands": {
+    "ownerAllowFrom": [
+      "telegram:1258408739"
+    ]
+  },
+  "tools": {
+    "loopDetection": {
+      "enabled": true
+    }
+  }
+}
