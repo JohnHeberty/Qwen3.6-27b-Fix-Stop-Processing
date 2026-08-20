@@ -2,7 +2,41 @@ FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1
 
-RUN pip install --no-cache-dir vllm-playground==0.1.8
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates wget \
+ && rm -rf /var/lib/apt/lists/* \
+ && wget -q -O /usr/local/bin/ttyd https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 \
+ && chmod +x /usr/local/bin/ttyd
+
+RUN pip install --no-cache-dir vllm-playground==0.1.8 \
+ && pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
+ && pip install --no-cache-dir "vllm-playground[benchmark,mcp]"
+
+RUN python - <<'EOF'
+import pathlib
+
+p = pathlib.Path("/usr/local/lib/python3.12/site-packages/vllm_playground/app.py")
+src = p.read_text()
+
+anchor = '    asyncio.create_task(registry.recover_on_startup())\n    logger.info("InstanceRegistry initialized")'
+addition = anchor + '''
+
+    try:
+        active_id = registry.active_id
+        if active_id:
+            entry = await registry.get(active_id)
+            if entry and entry.health in ("healthy", "unknown"):
+                await _do_activate(active_id)
+                logger.info(f"[AUTO-RECONNECT] Reactivated remote instance {active_id} on startup")
+            else:
+                logger.info(f"[AUTO-RECONNECT] Active instance {active_id} health={getattr(entry, 'health', None)} - skip")
+    except Exception as e:
+        logger.warning(f"[AUTO-RECONNECT] Failed to reactivate instance on startup: {e}")'''
+
+assert anchor in src, "anchor not found in app.py"
+p.write_text(src.replace(anchor, addition))
+print("app.py patched: auto-reconnect on startup")
+EOF
 
 EXPOSE 7860
 
