@@ -1,7 +1,7 @@
 # Qwen3.8-27B — local inference server
 
 Production stack: **vLLM TP=2 + AutoRound INT4 + DFlash2** on 2× RTX 3090 (48 GB VRAM),
-exposing an OpenAI-compatible API on port 8080.
+exposing an OpenAI-compatible API on port 18020.
 
 - Model: `qwen3.8-27b` — dense 27B, hybrid Gated DeltaNet + Attention
 - Engine: vLLM (fork in `qwen38-27b-rtx3090/`, v0.27.1 lineage) + `z-lab/Qwen3.8-27B-DFlash2`
@@ -15,14 +15,14 @@ exposing an OpenAI-compatible API on port 8080.
 ## Run
 
 ```bash
-systemctl start qwen-vllm-dflash2        # systemd unit, enabled at boot
+systemctl start qwen38-27b        # systemd unit, enabled at boot
 # or
-bash scripts/start-vllm-dflash2.sh       # foreground
+bash qwen38-27b-rtx3090/single-user/start_qwen.sh  # foreground
 ```
 
-- Profile: `.env.vllm-dflash2` (single source of truth for the stack)
-- Unit: `systemd/qwen-vllm-dflash2.service` (installed as `qwen-vllm-dflash2.service`)
-- Logs: `data/logs/vllm-dflash2.log`
+- Profile: `qwen38-27b-rtx3090/` clone (start_qwen.sh + env vars)
+- Unit: `infra/qwen38-27b.service` (installed as `qwen38-27b.service`)
+- Logs: `data/logs/qwen38-27b.log`
 
 Notes:
 - First boot takes 3-4 min (CUDA profiling of both GPUs).

@@ -3,7 +3,7 @@
 # Uso: make help
 #
 # Stack:
-#   - servidor: vLLM TP=2 + DFlash2 via systemd (qwen-vllm-dflash2, porta 8080)
+#   - servidor: vLLM TP=2 + DFlash2 via systemd (qwen38-27b, porta 18020)
 #   - playground: container docker vllm-playground (UI em :7860, network host)
 #   - LiteLLM: proxy OpenAI em :4000 (docker compose em infra/litellm)
 ##############################################################################
@@ -13,11 +13,11 @@ PROJECT_ROOT := $(shell pwd)
 SUDO         := $(shell [ "$$(id -u)" = "0" ] && echo "" || echo sudo)
 
 # ── Servidor systemd ─────────────────────────────────────────────────────────
-SERVICE_NAME ?= qwen-vllm-dflash2
-SERVICE_UNIT ?= $(PROJECT_ROOT)/infra/vllm/qwen-vllm-dflash2.service
+SERVICE_NAME ?= qwen38-27b
+SERVICE_UNIT ?= $(PROJECT_ROOT)/infra/qwen38-27b.service
 SERVICE_DEST ?= /etc/systemd/system/$(SERVICE_NAME).service
-LOG          ?= $(PROJECT_ROOT)/data/logs/vllm-dflash2.log
-PORT         ?= 8080
+LOG          ?= $(PROJECT_ROOT)/data/logs/qwen38-27b.log
+PORT         ?= 18020
 
 # ── Docker compose ───────────────────────────────────────────────────────────
 COMPOSE_PLAYGROUND ?= $(PROJECT_ROOT)/docker-compose.yml
@@ -40,7 +40,7 @@ help:
 	@echo ""
 	@echo "  Qwen3.8-27B — stack vLLM (servidor systemd + playground + LiteLLM)"
 	@echo ""
-	@echo "  SERVIDOR (systemd qwen-vllm-dflash2, TP=2 + DFlash2, porta 8080):"
+	@echo "  SERVIDOR (systemd qwen38-27b, TP=2 + DFlash2, porta 18020):"
 	@echo "  make start              Inicia o serviço"
 	@echo "  make stop               Para o serviço"
 	@echo "  make restart            Reinicia o serviço"
@@ -64,11 +64,11 @@ help:
 	@echo "  VALIDAÇÃO:"
 	@echo "  make test               Validação offline (paths + JSON, sem servidor)"
 	@echo ""
-	@echo "  API: http://localhost:8080/v1  |  Log do vLLM: $(LOG)"
+	@echo "  API: http://localhost:18020/v1  |  Log do vLLM: $(LOG)"
 	@echo ""
 
 ##############################################################################
-# SERVIDOR (systemd qwen-vllm-dflash2)
+# SERVIDOR (systemd qwen38-27b)
 ##############################################################################
 start:
 	$(SUDO) systemctl start $(SERVICE_NAME)
@@ -92,7 +92,7 @@ status:
 	fi
 	@nvidia-smi --query-gpu=name,memory.used,memory.free --format=csv,noheader 2>/dev/null | awk '{print "GPU:       "$$0}'
 
-# O unit usa StandardOutput=append:data/logs/vllm-dflash2.log — o journal mostra
+# O unit usa StandardOutput=append:data/logs/qwen38-27b.log — o journal mostra
 # apenas o ciclo de vida do serviço; o conteúdo completo fica em $(LOG).
 logs:
 	@echo "Acompanhando journal do serviço $(SERVICE_NAME) (Ctrl+C para sair)..."
@@ -170,9 +170,12 @@ litellm-stop:
 # Verifica os paths críticos da stack e a integridade dos JSONs versionados.
 test:
 	@echo "Validando stack vLLM (offline)..."
-	@test -x "$(PROJECT_ROOT)/scripts/start-vllm-dflash2.sh" \
-		&& echo "  ✓ scripts/start-vllm-dflash2.sh (executável)" \
-		|| { echo "  ✗ scripts/start-vllm-dflash2.sh ausente ou sem permissão de execução"; exit 1; }
+	@test -x "$(PROJECT_ROOT)/qwen38-27b-rtx3090/single-user/start_qwen.sh" \
+		&& echo "  ✓ qwen38-27b-rtx3090/single-user/start_qwen.sh (executável)" \
+		|| { echo "  ✗ qwen38-27b-rtx3090/single-user/start_qwen.sh ausente ou sem permissão de execução"; exit 1; }
+	@test -f "$(PROJECT_ROOT)/qwen38-27b-rtx3090/models/Qwen3.8-27B-DFlash2-W4A16/model.safetensors" \
+		&& echo "  ✓ Drafter Qwen3.8-27B-DFlash2-W4A16 presente" \
+		|| { echo "  ✗ Drafter Qwen3.8-27B-DFlash2-W4A16 ausente"; exit 1; }
 	@test -f "$(SERVICE_UNIT)" \
 		&& echo "  ✓ $(SERVICE_UNIT)" \
 		|| { echo "  ✗ $(SERVICE_UNIT) ausente"; exit 1; }
