@@ -1,7 +1,6 @@
 # Credenciais — nunca versionar
 .env
 .env.local
-.env.vllm-dflash2
 
 # Modelos (dezenas de GB)
 data/models/

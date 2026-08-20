@@ -1,0 +1,22 @@
+[Unit]
+Description=vLLM Qwen3.8-27B single-user DFlash2 (porta 18020)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/qwen3/qwen38-27b-rtx3090
+ExecStartPre=/bin/bash -c 'for i in $(seq 1 24); do used=$(/usr/bin/nvidia-smi -i 0 --query-gpu=memory.used --format=csv,noheader,nounits); [ "$used" -lt 1000 ] && exit 0; sleep 5; done; exit 1'
+ExecStart=/bin/bash /root/qwen3/qwen38-27b-rtx3090/single-user/start_qwen.sh
+Environment=SPEC=dflash2 DFLASH_TOKENS=15 PREFIX_CACHE=1 CUDA_VISIBLE_DEVICES=0 KV_MEM=6442450944
+Restart=always
+RestartSec=20
+TimeoutStartSec=600
+TimeoutStopSec=45
+OOMPolicy=continue
+StandardOutput=append:/root/qwen3/data/logs/qwen38-27b.log
+StandardError=append:/root/qwen3/data/logs/qwen38-27b.log
+
+[Install]
+WantedBy=multi-user.target
