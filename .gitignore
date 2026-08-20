@@ -32,6 +32,9 @@ data/logs/
 data/temp/
 data/capture/
 
+# Log do plugin flowdeck (opencode)
+.opencode/flowdeck.log
+
 # Dados gerados
 data/pdf_pages/
 
