@@ -7,9 +7,9 @@
       "id": "be-1",
       "name": "Qwen3.8-27B vLLM (2x3090)",
       "model": "qwen3.8-27b",
-      "url": "http://192.168.1.139:8080",
-      "port": 8080,
-      "api_key": null,
+      "url": "http://192.168.1.139:18020",
+      "port": 18020,
+      "api_key": "vllm-local",
       "run_mode": "remote",
       "managed": false,
       "pid": null,
@@ -18,7 +18,7 @@
       "config": {
         "model": "qwen3.8-27b",
         "host": "0.0.0.0",
-        "port": 8080,
+        "port": 18020,
         "tensor_parallel_size": 1,
         "gpu_memory_utilization": 0.9,
         "max_model_len": null,
@@ -37,8 +37,8 @@
         "model_has_builtin_template": false,
         "local_model_path": null,
         "run_mode": "subprocess",
-        "remote_url": "http://192.168.1.139:8080",
-        "remote_api_key": null,
+        "remote_url": "http://192.168.1.139:18020",
+        "remote_api_key": "vllm-local",
         "gpu_device": null,
         "accelerator": "nvidia",
         "enable_tool_calling": false,
@@ -55,7 +55,7 @@
         "prompt_lookup_max": null
       },
       "health": "healthy",
-      "health_checked_at": "2026-08-20T01:24:50.388705",
+      "health_checked_at": "2026-08-20T23:44:22.455491",
       "created_at": "2026-08-19T22:03:54.267099",
       "saved": true
     }

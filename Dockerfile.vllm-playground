@@ -38,6 +38,29 @@ p.write_text(src.replace(anchor, addition))
 print("app.py patched: auto-reconnect on startup")
 EOF
 
+# Patch cli.py: skip singleton kill when PID is 1 (Docker) or ourselves.
+# v0.1.8 tries to kill the "existing" process on startup; in a container
+# the PID-file/port-scan resolves to PID 1 = the container entrypoint
+# itself, causing an infinite crash loop.
+RUN python - <<'EOF'
+import pathlib
+
+p = pathlib.Path("/usr/local/lib/python3.12/site-packages/vllm_playground/cli.py")
+src = p.read_text()
+
+anchor = '''    # Check for existing process
+    existing_proc = get_existing_process(port)
+    if existing_proc:'''
+
+addition = '''    # Check for existing process
+    existing_proc = get_existing_process(port)
+    if existing_proc and existing_proc.pid != 1 and existing_proc.pid != __import__("os").getpid():'''
+
+assert anchor in src, "cli.py anchor not found — vllm-playground version may have changed"
+p.write_text(src.replace(anchor, addition))
+print("cli.py patched: singleton guard skips PID 1 / self-PID")
+EOF
+
 EXPOSE 7860
 
 CMD ["vllm-playground", "start", "--host", "0.0.0.0", "--port", "7860"]

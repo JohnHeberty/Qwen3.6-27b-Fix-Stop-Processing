@@ -6,8 +6,8 @@ services:
     image: vllm-playground:local
     container_name: vllm-playground
     restart: unless-stopped
-    # host network: UI fica em 0.0.0.0:7860 e alcança o vLLM em 127.0.0.1:8080
-    # (o vLLM roda no host via systemd qwen-vllm-dflash2)
+    # host network: UI fica em 0.0.0.0:7860 e alcança o vLLM em 127.0.0.1:18020
+    # (o vLLM roda no host via systemd qwen38-27b)
     network_mode: host
     volumes:
       - ./data/vllm-playground:/root/.vllm-playground

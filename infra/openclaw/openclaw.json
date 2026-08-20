@@ -15,8 +15,8 @@
       "timeoutSeconds": 3600,
       "compaction": {
         "mode": "safeguard",
-        "reserveTokens": 80000,
-        "reserveTokensFloor": 80000,
+        "reserveTokens": 50000,
+        "reserveTokensFloor": 50000,
         "keepRecentTokens": 8000,
         "recentTurnsPreserve": 2,
         "timeoutSeconds": 900
@@ -47,7 +47,7 @@
     "mode": "merge",
     "providers": {
       "vllm": {
-        "baseUrl": "http://192.168.1.139:8080/v1",
+        "baseUrl": "http://192.168.1.139:18020/v1",
         "apiKey": "vllm-local",
         "api": "openai-responses",
         "timeoutSeconds": 900,
@@ -65,7 +65,7 @@
               "cacheRead": 0,
               "cacheWrite": 0
             },
-            "contextWindow": 96000,
+            "contextWindow": 56000,
             "maxTokens": 32000
           }
         ]
