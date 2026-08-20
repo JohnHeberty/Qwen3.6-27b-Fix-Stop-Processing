@@ -1,53 +1,59 @@
 # Qwen3.8-27B — local inference server
 
-**Model:** Qwen3.8-27B Q8_0 (dense 27B, hybrid Gated DeltaNet + Attention, native MTP + native vision)
-**GPU:** 2x RTX 3090 (48 GB) | **API:** `http://localhost:8080/v1` | **Context:** 262k (input 192k + output 65k)
+Production stack: **vLLM TP=2 + AutoRound INT4 + DFlash2** on 2× RTX 3090 (48 GB VRAM),
+exposing an OpenAI-compatible API on port 8080.
 
-## Configuration
+- Model: `qwen3.8-27b` — dense 27B, hybrid Gated DeltaNet + Attention
+- Engine: vLLM (fork in `qwen38-27b-rtx3090/`, v0.27.1 lineage) + `z-lab/Qwen3.8-27B-DFlash2`
+  draft model (7 parallel drafts), target `Frozenlock/Qwen3.8-27B-int4-AutoRound`
+- Context: 96k (validated pool of 96,538 tokens on this VRAM), ~22 GB VRAM per GPU
+- Measured: **~173 tok/s wall / ~177 tok/s decode** (code), ~97 tok/s (narrative),
+  TTFT ~90 ms, 68.3% draft acceptance (code)
+- Reasoning: thinking on, effort `low`, `preserve_thinking` off
+- Tool calling: validated (OpenCode/LiteLLM work against :8080)
 
-- **Template:** embedded in the GGUF (no `--chat-template-file`)
-- **Sampling:** official thinking-mode values — `temp=1.0, top_p=0.95, top_k=20, min_p=0.0`,
-  no penalties (`presence=0.0, repeat=1.0, frequency=0.0`)
-- **Reasoning:** `on`, format `deepseek` (exposes `message.reasoning_content`).
-  Thinking depth is set by `REASONING_EFFORT=low` — the only value whose template branch actually
-  asks for brief thinking (`medium` injects *nothing*, `xhigh` is the model's own default and asks
-  for exhaustive deliberation). `REASONING_BUDGET=8192` is a safety net against thought-loops, not
-  a verbosity brake: hitting it cuts the reasoning mid-thought and degrades tool calls.
-  `REASONING_PRESERVE=false` keeps old `<think>` blocks out of the history.
-- **Speculative decoding:** native MTP, `n=3` (`--spec-type draft-mtp`)
-- **KV cache:** `q8_0` (f16 does not fit alongside a 29 GB Q8_0 model at 262k)
-- **Vision:** native, via `mmproj-F16.gguf` from the same repo
-- **DRY sampler:** off (`DRY_MULTIPLIER=0`) — never re-enable for coding, it corrupts long file paths
-- **Chat WebUI:** on (`WEBUI=true`) — llama-server's built-in chat UI is served at `GET /`, i.e.
-  the same port as the API. No extra install, no second process.
-
-Full parameter reference: [`.env`](.env). Alternative model/GPU configs: [`env-examples/`](env-examples/).
-
-## Commands
+## Run
 
 ```bash
-make start       # foreground
-make start-bg    # background, logs to data/logs/server.log
-make stop        # stop the server
-make status      # is it up, and on which model
-make test        # tests/test_api.py — API, tool calling, streaming
-make logs        # tail the log
+systemctl start qwen-vllm-dflash2        # systemd unit, enabled at boot
+# or
+bash scripts/start-vllm-dflash2.sh       # foreground
 ```
 
-Full setup: `make setup` (zero-dependency pipeline: system deps → CUDA → venv → build
-`llama-server` → download the GGUF). More targets: `make help`.
+- Profile: `.env.vllm-dflash2` (single source of truth for the stack)
+- Unit: `systemd/qwen-vllm-dflash2.service` (installed as `qwen-vllm-dflash2.service`)
+- Logs: `data/logs/vllm-dflash2.log`
 
-## Measured performance
+Notes:
+- First boot takes 3-4 min (CUDA profiling of both GPUs).
+- No WebUI and no vision support in this stack — that is the trade-off for speed
+  (llama.cpp offered both; see `arquived/`).
+- `MAX_MODEL_LEN=96000` is the ceiling: 100k missed by ~30 MiB and 128k+ requires
+  the custom revision from the original repo post.
 
-| Metric | Q8_0 + MTP n=3 + q8_0 KV @ 262k |
-|---|---|
-| Decode, short context | 36-40 tok/s |
-| Decode, real agent regime (long context) | 24-26 tok/s |
-| Prompt processing | 355-715 tok/s |
-| VRAM | ~21.4 GB (GPU 0) + ~22.7 GB (GPU 1) |
+## `arquived/` — the llama.cpp era
 
-## Downstream
+The previous engine, **llama.cpp (b10502)** with the Q4_K_XL GGUF and MTP speculative
+decoding, was archived on 2026-08-19 because it was **slow compared to the vLLM stack**:
 
-`infra/` holds the integration layer: LiteLLM gateway (`:4000`, `make litellm-start`), OpenCode
-config, systemd units + watchdog, and logrotate. All of them point at `:8080` / model
-`qwen3.8-27b` and must be kept in sync with `.env`.
+| Engine | 1 client | 2 clients (combined) | Context | Vision | WebUI |
+|---|---|---|---|---|---|
+| llama.cpp b10502 (archived) | ~56-58 tok/s | ~71-74 tok/s | 2×256k | native (mmproj) | yes |
+| vLLM + DFlash2 (current) | ~97-177 tok/s | 2 concurrent short | 96k | no | no |
+
+The llama.cpp setup was extensively tuned before being retired: CUDA-graphs build
+(+3.8% over the previous build), MTP sweep (n=2, p_min=0.5 → 82.9% acceptance),
+2-slot split across GPUs with `TENSOR_SPLIT`, vision offloaded to CPU, Prometheus
+metrics, and a full benchmark in `docs/llama-cpp-b10502-benchmark.md`.
+
+Everything from that era is preserved locally in `arquived/` (not versioned, kept out
+of git on purpose — tens of GB of GGUFs and venvs):
+
+- `.env` + `Makefile` + `scripts/start-server.sh` + `tests/` — the llama.cpp pipeline
+- `data/models/` — GGUF checkpoints (Q6_K_XL, UD-Q4_K_XL, Q5_K_M, mmproj)
+- `infra/llama-server/` — systemd units + watchdog for the old server
+- `env-examples/` — per-model `.env.example` profiles (Ornith, Qwen3.6, Qwen3.8)
+- `llama-cpp-grammar-patches.patch`, `docs/`, benchmarks and MTP sweep results
+
+To restore the old stack, move the contents back to the repo root and rebuild:
+`make setup && make start` (the Makefile lives in `arquived/`).

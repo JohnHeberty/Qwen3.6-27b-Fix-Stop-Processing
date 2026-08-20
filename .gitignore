@@ -1,6 +1,7 @@
 # Credenciais — nunca versionar
 .env
 .env.local
+.env.vllm-dflash2
 
 # Modelos (dezenas de GB)
 data/models/
@@ -13,6 +14,9 @@ data/models-vllm/
 # Arquivo morto
 old/
 arquived/
+
+# Clone vLLM (repo externo com .git proprio; venv e modelos somam dezenas de GB)
+qwen38-27b-rtx3090/
 
 # Logs e temporários
 data/logs/

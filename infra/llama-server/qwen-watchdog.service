@@ -1,6 +1,0 @@
-[Unit]
-Description=qwen-healthcheck — reinicia llama-server se não responder
-
-[Service]
-Type=oneshot
-ExecStart=/bin/bash -c 'curl -sf --max-time 10 http://localhost:8080/health || systemctl restart qwen-server'
