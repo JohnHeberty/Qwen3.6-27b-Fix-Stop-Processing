@@ -8,7 +8,6 @@
         "vllm": {
             "npm": "@ai-sdk/openai-compatible",
             "name": "Qwen3.8-27B AutoRound+DFlash2 (vLLM)",
-            "apiKey": "vllm-local",
             "options": {
                 "baseURL": "http://192.168.1.139:18020/v1"
             },
