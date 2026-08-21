@@ -31,41 +31,9 @@ LITELLM_ENV        ?= $(PROJECT_ROOT)/infra/litellm/.env
         install-service uninstall-service \
         playground-up playground-down playground-logs playground-build \
         litellm-start litellm-stop \
-        test
-
-##############################################################################
-# HELP
-##############################################################################
-help:
-	@echo ""
-	@echo "  Qwen3.8-27B — stack vLLM (servidor systemd + playground + LiteLLM)"
-	@echo ""
-	@echo "  SERVIDOR (systemd qwen38-27b, TP=2 + DFlash2, porta 18020):"
-	@echo "  make start              Inicia o serviço"
-	@echo "  make stop               Para o serviço"
-	@echo "  make restart            Reinicia o serviço"
-	@echo "  make status             Estado (active/enabled) + API health + VRAM"
-	@echo "  make logs               Acompanha journal do serviço (Ctrl+C)"
-	@echo ""
-	@echo "  INSTALAÇÃO DO SERVIÇO:"
-	@echo "  make install-service    Instala unit versionado (substitui symlink quebrado)"
-	@echo "  make uninstall-service  Para, desabilita e remove o unit instalado"
-	@echo ""
-	@echo "  PLAYGROUND (container vllm-playground, UI em :7860):"
-	@echo "  make playground-up      Sobe o playground em background"
-	@echo "  make playground-down    Para o playground"
-	@echo "  make playground-logs    Acompanha logs do playground (Ctrl+C)"
-	@echo "  make playground-build   Reconstrói a imagem do playground"
-	@echo ""
-	@echo "  LITELLM (proxy em :4000, exige infra/litellm/.env):"
-	@echo "  make litellm-start      Sobe LiteLLM + Postgres em background"
-	@echo "  make litellm-stop       Para LiteLLM + Postgres"
-	@echo ""
-	@echo "  VALIDAÇÃO:"
-	@echo "  make test               Validação offline (paths + JSON, sem servidor)"
-	@echo ""
-	@echo "  API: http://localhost:18020/v1  |  Log do vLLM: $(LOG)"
-	@echo ""
+        test \
+        setup setup-repo setup-venv setup-model setup-quant setup-patches \
+        setup-fast setup-dflash2 setup-service setup-verify
 
 ##############################################################################
 # SERVIDOR (systemd qwen38-27b)
@@ -193,3 +161,144 @@ test:
 		fi; \
 	done
 	@echo "  ✓ Validação offline OK — stack pronta"
+
+##############################################################################
+# SETUP (pipeline completo: clonar repo → venv → modelo → patches → service)
+##############################################################################
+# Sentinelas para cada etapa (idempotente — só roda uma vez)
+_VENV_SENTINEL  := $(PROJECT_ROOT)/qwen38-27b-rtx3090/venv/bin/python
+_MODEL_SENTINEL := $(PROJECT_ROOT)/qwen38-27b-rtx3090/models/Qwen3.8-27B-W4A16-AutoRound/config.json
+_PATCH_SENTINEL := $(PROJECT_ROOT)/qwen38-27b-rtx3090/.patches-applied
+_REPO_URL      ?= https://github.com/syv-ai/qwen38-27b-rtx3090.git
+
+# make setup — pipeline completo, idempotente
+setup: setup-repo setup-venv setup-model setup-quant setup-patches setup-fast setup-dflash2 setup-service setup-verify
+	@echo ""
+	@echo "  ✓ Setup completo! Para iniciar: make start"
+	@echo ""
+
+# 1. Clonar o repo (se ainda não existe)
+setup-repo:
+	@if [ -d "$(PROJECT_ROOT)/qwen38-27b-rtx3090/.git" ]; then \
+		echo "  ✓ Repo qwen38-27b-rtx3090 já existe, pulando clone"; \
+	else \
+		echo "  → Clonando $(_REPO_URL)..."; \
+		git clone "$(_REPO_URL)" "$(PROJECT_ROOT)/qwen38-27b-rtx3090"; \
+	fi
+
+# 2. Criar venv + instalar dependências (vllm, hf_transfer, etc.)
+setup-venv:
+	@if [ -f "$(_VENV_SENTINEL)" ]; then \
+		echo "  ✓ venv já existe, pulando"; \
+	else \
+		echo "  → Criando venv..."; \
+		python3 -m venv "$(PROJECT_ROOT)/qwen38-27b-rtx3090/venv"; \
+		echo "  → Instalando dependências (vllm, huggingface_hub, hf_transfer)..."; \
+		HF_HUB_ENABLE_HF_TRANSFER=1 "$(PROJECT_ROOT)/qwen38-27b-rtx3090/venv/bin/pip" install \
+			vllm huggingface_hub hf_transfer ninja 2>&1 | tail -5; \
+	fi
+
+# 3. Baixar o modelo (~19.5 GB)
+setup-model:
+	@if [ -f "$(_MODEL_SENTINEL)" ]; then \
+		echo "  ✓ Modelo Qwen3.8-27B-W4A16-AutoRound já baixado, pulando"; \
+	else \
+		echo "  → Baixando modelo (~19.5 GB)..."; \
+		HF_HUB_ENABLE_HF_TRANSFER=1 "$(PROJECT_ROOT)/qwen38-27b-rtx3090/venv/bin/hf" download \
+			dbirks/Qwen3.8-27B-W4A16-AutoRound \
+			--local-dir "$(PROJECT_ROOT)/qwen38-27b-rtx3090/models/Qwen3.8-27B-W4A16-AutoRound"; \
+	fi
+
+# 4. Requantizar (lm_head + embed + MTP) — CPU apenas, alguns minutos
+setup-quant: setup-model
+	@cd "$(PROJECT_ROOT)/qwen38-27b-rtx3090" && \
+		vst=$$(venv/bin/python -c "import json; w=json.load(open('models/Qwen3.8-27B-W4A16-AutoRound/model.safetensors.index.json'))['weight_map']; print('yes' if 'lm_head.weight_packed' in w and 'mtp.layers.0.mlp.down_proj.weight_packed' in w else 'no')"); \
+		if [ "$$vst" = "yes" ]; then \
+			echo "  ✓ Requantização já aplicada, pulando"; \
+		else \
+			echo "  → Requantizando lm_head, embed_tokens e MTP..."; \
+			venv/bin/python quant_lm_head.py models/Qwen3.8-27B-W4A16-AutoRound && \
+			venv/bin/python quant_embed.py   models/Qwen3.8-27B-W4A16-AutoRound && \
+			venv/bin/python quant_mtp.py     models/Qwen3.8-27B-W4A16-AutoRound && \
+			venv/bin/python build_draft_vocab.py models/Qwen3.8-27B-W4A16-AutoRound --ids draft_vocab_ids.json; \
+			echo "  ✓ Requantização concluída"; \
+		fi
+
+# 5. Aplicar patches do vLLM (todos de uma vez)
+setup-patches: setup-venv
+	@if [ -f "$(_PATCH_SENTINEL)" ]; then \
+		echo "  ✓ Patches já aplicados, pulando"; \
+	else \
+		echo "  → Aplicando patches do vLLM..."; \
+		cd "$(PROJECT_ROOT)/qwen38-27b-rtx3090" && \
+		for p in patches/*.patch; do \
+			patch -p1 -d venv/lib/python3.12/site-packages/vllm < "$$p" 2>&1 | tail -1; \
+		done; \
+		touch "$(_PATCH_SENTINEL)"; \
+	fi
+
+# 6. Baixar variante fast (~1 GB, hardlinks do modelo base)
+setup-fast: setup-venv setup-model
+	@if [ -d "$(PROJECT_ROOT)/qwen38-27b-rtx3090/models/Qwen3.8-27B-W4A16-AutoRound-fast" ]; then \
+		echo "  ✓ Variante fast já existe, pulando"; \
+	else \
+		echo "  → Baixando variante fast (int4-GPTQ lm_head)..."; \
+		cd "$(PROJECT_ROOT)/qwen38-27b-rtx3090" && venv/bin/python fetch_fast_variant.py; \
+	fi
+
+# 7. Baixar drafter DFlash2 (~1.2 GB) — opcional, para SPEC=dflash2
+setup-dflash2: setup-venv
+	@if [ -f "$(PROJECT_ROOT)/qwen38-27b-rtx3090/models/Qwen3.8-27B-DFlash2-W4A16/model.safetensors" ]; then \
+		echo "  ✓ Drafter DFlash2 já existe, pulando"; \
+	else \
+		echo "  → Baixando drafter DFlash2 (W4A16, ~1.2 GB)..."; \
+		cd "$(PROJECT_ROOT)/qwen38-27b-rtx3090" && venv/bin/python fetch_dflash2.py; \
+	fi
+
+# 8. Instalar o unit no systemd
+setup-service:
+	@echo "  → Instalando serviço systemd..."
+	@$(MAKE) install-service
+
+# 9. Rodar verificação final
+setup-verify:
+	@echo "  → Rodando verificação..."
+	@cd "$(PROJECT_ROOT)/qwen38-27b-rtx3090" && \
+		VLLM_API_KEY=placeholder bash verify.sh --no-server
+
+##############################################################################
+# HELP (atualizado)
+##############################################################################
+help:
+	@echo ""
+	@echo "  Qwen3.8-27B — stack vLLM (servidor systemd + playground + LiteLLM)"
+	@echo ""
+	@echo "  SETUP (pipeline completo):"
+	@echo "  make setup              Configura tudo: clonar repo → venv → modelo → patches → service"
+	@echo ""
+	@echo "  SERVIDOR (systemd qwen38-27b, TP=2 + DFlash2, porta 18020):"
+	@echo "  make start              Inicia o serviço"
+	@echo "  make stop               Para o serviço"
+	@echo "  make restart            Reinicia o serviço"
+	@echo "  make status             Estado (active/enabled) + API health + VRAM"
+	@echo "  make logs               Acompanha journal do serviço (Ctrl+C)"
+	@echo ""
+	@echo "  INSTALAÇÃO DO SERVIÇO:"
+	@echo "  make install-service    Instala unit versionado (substitui symlink quebrado)"
+	@echo "  make uninstall-service  Para, desabilita e remove o unit instalado"
+	@echo ""
+	@echo "  PLAYGROUND (container vllm-playground, UI em :7860):"
+	@echo "  make playground-up      Sobe o playground em background"
+	@echo "  make playground-down    Para o playground"
+	@echo "  make playground-logs    Acompanha logs do playground (Ctrl+C)"
+	@echo "  make playground-build   Reconstrói a imagem do playground"
+	@echo ""
+	@echo "  LITELLM (proxy em :4000, exige infra/litellm/.env):"
+	@echo "  make litellm-start      Sobe LiteLLM + Postgres em background"
+	@echo "  make litellm-stop       Para LiteLLM + Postgres"
+	@echo ""
+	@echo "  VALIDAÇÃO:"
+	@echo "  make test               Validação offline (paths + JSON, sem servidor)"
+	@echo ""
+	@echo "  API: http://localhost:18020/v1  |  Log do vLLM: $(LOG)"
+	@echo ""
