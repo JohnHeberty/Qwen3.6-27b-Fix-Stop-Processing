@@ -6,11 +6,11 @@ model_list:
       api_key: "vllm-local"
       max_tokens: 32000
     model_info:
-      # Qwen3.8-27B AutoRound INT4 (Frozenlock) + DFlash2 (z-lab), vLLM TP=2,
-      # 96k context (pool 96.538 validado), ~22GB/GPU, sem visão (--language-model-only)
+      # Qwen3.8-27B AutoRound+DFlash2 (vLLM TP=2, 142k max, 130k usable),
+      # ~16GB/GPU, sem visão (--language-model-only)
       mode: chat
-      context_window: 56000
-      max_input_tokens: 56000
+      context_window: 130000
+      max_input_tokens: 120000
       max_output_tokens: 32000
       supports_function_calling: true
       supports_tool_choice: true

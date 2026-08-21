@@ -14,9 +14,9 @@
             },
             "models": {
                 "qwen3.8-27b": {
-                    "name": "Qwen3.8-27B AutoRound+DFlash2 (vLLM TP=2, 56k)",
+                    "name": "Qwen3.8-27B AutoRound+DFlash2 (vLLM TP=2, 130k)",
                     "limit": {
-                        "context": 56000,
+                        "context": 130000,
                         "output": 16384
                     },
                     "tools": true,

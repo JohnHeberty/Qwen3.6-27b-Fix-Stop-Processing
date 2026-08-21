@@ -15,8 +15,8 @@
       "timeoutSeconds": 3600,
       "compaction": {
         "mode": "safeguard",
-        "reserveTokens": 50000,
-        "reserveTokensFloor": 50000,
+        "reserveTokens": 120000,
+        "reserveTokensFloor": 120000,
         "keepRecentTokens": 8000,
         "recentTurnsPreserve": 2,
         "timeoutSeconds": 900
@@ -65,7 +65,7 @@
               "cacheRead": 0,
               "cacheWrite": 0
             },
-            "contextWindow": 56000,
+            "contextWindow": 130000,
             "maxTokens": 32000
           }
         ]
