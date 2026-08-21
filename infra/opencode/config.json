@@ -15,8 +15,8 @@
                 "qwen3.8-27b": {
                     "name": "Qwen3.8-27B AutoRound+DFlash2 (vLLM TP=2, 130k)",
                     "limit": {
-                        "context": 130000,
-                        "output": 16384
+                        "context": 130072,
+                        "output": 32768
                     },
                     "tools": true,
                     "reasoning": true,
@@ -32,9 +32,9 @@
         "@tarquinen/opencode-dcp",
         "opencode-websearch-cited",
         "opencode-mem",
-        "@ramtinj95/opencode-tokenscope",
         "opencode-reflection",
-        "@dv.nghiem/flowdeck"
+        "opencode-auto-resume",
+        "opencode-anti-loop"
     ],
     "compaction": {
         "auto": true,
