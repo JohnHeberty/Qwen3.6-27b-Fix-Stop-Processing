@@ -33,9 +33,7 @@
         "@tarquinen/opencode-dcp",
         "opencode-websearch-cited",
         "opencode-mem",
-        "@ramtinj95/opencode-tokenscope",
-        "opencode-reflection",
-        "@dv.nghiem/flowdeck"
+        "opencode-reflection"
     ],
     "compaction": {
         "auto": true,
@@ -70,27 +68,10 @@
         ]
     },
     "mcp": {
-        "repomix": {
-            "type": "local",
-            "command": [
-                "docker",
-                "run",
-                "-i",
-                "--rm",
-                "-v",
-                "/opt/jupyter:/workspace",
-                "ghcr.io/yamadashy/repomix",
-                "--mcp",
-                "--config",
-                "/workspace/.opencode/repomix.config.json"
-            ],
-            "enabled": false,
-            "timeout": 60000
-        },
         "context7": {
             "type": "remote",
             "url": "https://mcp.context7.com/mcp",
-            "enabled": false,
+            "enabled": true,
             "timeout": 30000
         },
         "playwright": {
@@ -101,14 +82,9 @@
                 "@playwright/mcp@latest",
                 "--headless"
             ],
-            "enabled": false,
+            "enabled": true,
             "timeout": 120000
         }
-    },
-    "skills": {
-        "paths": [
-            ".opencode/skills"
-        ]
     },
     "instructions": [
         "AGENTS.md"
