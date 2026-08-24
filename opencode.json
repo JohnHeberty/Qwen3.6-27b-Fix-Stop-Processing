@@ -22,7 +22,24 @@
                     "reasoning": true,
                     "interleaved": {
                         "field": "reasoning_content"
-                    }
+                    },
+                    "settings": {
+                        "reasoningEffort": "low"
+                    },
+                    "variants": [
+                        {
+                            "name": "Thinking ON",
+                            "settings": {
+                                "reasoningEffort": "low"
+                            }
+                        },
+                        {
+                            "name": "Thinking OFF",
+                            "settings": {
+                                "reasoningEffort": "none"
+                            }
+                        }
+                    ]
                 }
             }
         }

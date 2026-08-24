@@ -15,14 +15,31 @@
                 "qwen3.8-27b": {
                     "name": "Qwen3.8-27B AutoRound+DFlash2 (vLLM TP=2, 130k)",
                     "limit": {
-                        "context": 130072,
+                        "context": 130000,
                         "output": 32768
                     },
                     "tools": true,
                     "reasoning": true,
                     "interleaved": {
                         "field": "reasoning_content"
-                    }
+                    },
+                    "settings": {
+                        "reasoningEffort": "low"
+                    },
+                    "variants": [
+                        {
+                            "name": "Thinking ON",
+                            "settings": {
+                                "reasoningEffort": "low"
+                            }
+                        },
+                        {
+                            "name": "Thinking OFF",
+                            "settings": {
+                                "reasoningEffort": "none"
+                            }
+                        }
+                    ]
                 }
             }
         }
@@ -69,27 +86,10 @@
         ]
     },
     "mcp": {
-        "repomix": {
-            "type": "local",
-            "command": [
-                "docker",
-                "run",
-                "-i",
-                "--rm",
-                "-v",
-                "/opt/jupyter:/workspace",
-                "ghcr.io/yamadashy/repomix",
-                "--mcp",
-                "--config",
-                "/workspace/.opencode/repomix.config.json"
-            ],
-            "enabled": false,
-            "timeout": 60000
-        },
         "context7": {
             "type": "remote",
             "url": "https://mcp.context7.com/mcp",
-            "enabled": false,
+            "enabled": true,
             "timeout": 30000
         },
         "playwright": {
@@ -100,14 +100,9 @@
                 "@playwright/mcp@latest",
                 "--headless"
             ],
-            "enabled": false,
+            "enabled": true,
             "timeout": 120000
         }
-    },
-    "skills": {
-        "paths": [
-            ".opencode/skills"
-        ]
     },
     "instructions": [
         "AGENTS.md"
