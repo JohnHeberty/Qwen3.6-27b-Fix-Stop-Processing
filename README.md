@@ -1,59 +1,59 @@
-# Qwen3.8-27B — local inference server
+# Qwen3.8-27B — servidor local de inferência
 
-Production stack: **vLLM TP=2 + AutoRound INT4 + DFlash2** on 2× RTX 3090 (48 GB VRAM),
-exposing an OpenAI-compatible API on port 18020.
+Stack de produção: **vLLM TP=2 + AutoRound INT4 + DFlash2** em 2× RTX 3090 (48 GB VRAM),
+expondo uma API compatível com OpenAI na porta 18020.
 
-- Model: `qwen3.8-27b` — dense 27B, hybrid Gated DeltaNet + Attention
-- Engine: vLLM (fork in `qwen38-27b-rtx3090/`, v0.27.1 lineage) + `z-lab/Qwen3.8-27B-DFlash2`
-  draft model (7 parallel drafts), target `Frozenlock/Qwen3.8-27B-int4-AutoRound`
-- Context: 96k (validated pool of 96,538 tokens on this VRAM), ~22 GB VRAM per GPU
-- Measured: **~173 tok/s wall / ~177 tok/s decode** (code), ~97 tok/s (narrative),
-  TTFT ~90 ms, 68.3% draft acceptance (code)
-- Reasoning: thinking on, effort `low`, `preserve_thinking` off
-- Tool calling: validated (OpenCode/LiteLLM work against :8080)
+- Modelo: `qwen3.8-27b` — denso 27B, híbrido Gated DeltaNet + Atenção
+- Engine: vLLM (fork em `qwen38-27b-rtx3090/`, linhagem v0.27.1) + modelo draft
+  `z-lab/Qwen3.8-27B-DFlash2` (7 drafts paralelos), alvo `Frozenlock/Qwen3.8-27B-int4-AutoRound`
+- Contexto: 96k (pool validado de 96.538 tokens nesta VRAM), ~22 GB VRAM por GPU
+- Medido: **~173 tok/s wall / ~177 tok/s decode** (código), ~97 tok/s (narrativo),
+  TTFT ~90 ms, 68,3% de aceitação de draft (código)
+- Raciocínio: thinking ligado, effort `low`, `preserve_thinking` desligado
+- Tool calling: validado (OpenCode/LiteLLM funcionam contra :8080)
 
-## Run
+## Execução
 
 ```bash
-systemctl start qwen38-27b        # systemd unit, enabled at boot
-# or
-bash qwen38-27b-rtx3090/single-user/start_qwen.sh  # foreground
+systemctl start qwen38-27b        # unidade systemd, habilitada na inicialização
+# ou
+bash qwen38-27b-rtx3090/single-user/start_qwen.sh  # primeiro plano
 ```
 
-- Profile: `qwen38-27b-rtx3090/` clone (start_qwen.sh + env vars)
-- Unit: `infra/qwen38-27b.service` (installed as `qwen38-27b.service`)
+- Perfil: clone em `qwen38-27b-rtx3090/` (start_qwen.sh + variáveis de ambiente)
+- Unidade: `infra/qwen38-27b.service` (instalada como `qwen38-27b.service`)
 - Logs: `data/logs/qwen38-27b.log`
 
-Notes:
-- First boot takes 3-4 min (CUDA profiling of both GPUs).
-- No WebUI and no vision support in this stack — that is the trade-off for speed
-  (llama.cpp offered both; see `arquived/`).
-- `MAX_MODEL_LEN=96000` is the ceiling: 100k missed by ~30 MiB and 128k+ requires
-  the custom revision from the original repo post.
+Notas:
+- A primeira inicialização leva 3-4 min (perfis CUDA das duas GPUs).
+- Sem WebUI e sem suporte a visão neste stack — esse é o trade-off pela velocidade
+  (llama.cpp oferecia ambos; ver `arquived/`).
+- `MAX_MODEL_LEN=96000` é o teto: 100k falhou por ~30 MiB e 128k+ requer
+  a revisão custom do repositório original.
 
-## `arquived/` — the llama.cpp era
+## `arquived/` — a era do llama.cpp
 
-The previous engine, **llama.cpp (b10502)** with the Q4_K_XL GGUF and MTP speculative
-decoding, was archived on 2026-08-19 because it was **slow compared to the vLLM stack**:
+O engine anterior, **llama.cpp (b10502)** com GGUF Q4_K_XL e decodificação especulativa MTP,
+foi arquivado em 2026-08-19 porque era **lento comparado ao stack vLLM**:
 
-| Engine | 1 client | 2 clients (combined) | Context | Vision | WebUI |
+| Engine | 1 cliente | 2 clientes (combinado) | Contexto | Visão | WebUI |
 |---|---|---|---|---|---|
-| llama.cpp b10502 (archived) | ~56-58 tok/s | ~71-74 tok/s | 2×256k | native (mmproj) | yes |
-| vLLM + DFlash2 (current) | ~97-177 tok/s | 2 concurrent short | 96k | no | no |
+| llama.cpp b10502 (arquivado) | ~56-58 tok/s | ~71-74 tok/s | 2×256k | nativa (mmproj) | sim |
+| vLLM + DFlash2 (atual) | ~97-177 tok/s | 2 curtos concorrentes | 96k | não | não |
 
-The llama.cpp setup was extensively tuned before being retired: CUDA-graphs build
-(+3.8% over the previous build), MTP sweep (n=2, p_min=0.5 → 82.9% acceptance),
-2-slot split across GPUs with `TENSOR_SPLIT`, vision offloaded to CPU, Prometheus
-metrics, and a full benchmark in `docs/llama-cpp-b10502-benchmark.md`.
+O setup do llama.cpp foi extensivamente ajustado antes de ser aposentado: construção de
+CUDA-graphs (+3,8% sobre a construção anterior), varredura MTP (n=2, p_min=0.5 → 82,9% de
+aceitação), split de 2 slots entre GPUs com `TENSOR_SPLIT`, visão offloadada para CPU,
+métricas Prometheus, e um benchmark completo em `docs/llama-cpp-b10502-benchmark.md`.
 
-Everything from that era is preserved in `arquived/` (versioned in this repo, except
-tens of GB of GGUFs, logs and `.env` secrets, which stay in `.gitignore`):
+Tudo dessa era está preservado em `arquived/` (versionado neste repositório, exceto
+dezenas de GB de GGUFs, logs e segredos `.env`, que ficam no `.gitignore`):
 
-- `.env` + `Makefile` + `scripts/start-server.sh` + `tests/` — the llama.cpp pipeline
-- `data/models/` — GGUF checkpoints (Q6_K_XL, UD-Q4_K_XL, Q5_K_M, mmproj)
-- `infra/llama-server/` — systemd units + watchdog for the old server
-- `env-examples/` — per-model `.env.example` profiles (Ornith, Qwen3.6, Qwen3.8)
-- `llama-cpp-grammar-patches.patch`, `docs/`, benchmarks and MTP sweep results
+- `.env` + `Makefile` + `scripts/start-server.sh` + `tests/` — o pipeline do llama.cpp
+- `data/models/` — checkpoints GGUF (Q6_K_XL, UD-Q4_K_XL, Q5_K_M, mmproj)
+- `infra/llama-server/` — unidades systemd + watchdog do servidor antigo
+- `env-examples/` — perfis `.env.example` por modelo (Ornith, Qwen3.6, Qwen3.8)
+- `llama-cpp-grammar-patches.patch`, `docs/`, benchmarks e resultados da varredura MTP
 
-To restore the old stack, move the contents back to the repo root and rebuild:
-`make setup && make start` (the Makefile lives in `arquived/`).
+Para restaurar o stack antigo, mova o conteúdo de volta para a raiz do repositório e reconstrua:
+`make setup && make start` (o Makefile está em `arquived/`).

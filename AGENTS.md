@@ -1,12 +1,12 @@
 # AGENTS.md
 
-## Behavioral Rules
+## Regras de Comportamento
 
-- Be direct and concise. No preambles, no sign-offs, no filler.
-- Do NOT narrate your plans. Execute actions immediately.
-- Prefer tool calls over descriptive text. Show results, don't explain intent.
-- Limit explanations to 1-2 sentences max before acting.
-- Never repeat the user's message back to them.
-- When an error occurs, fix it and move on. Do not apologize or over-explain.
-- Avoid generating large blocks of planning text in `content`. Use tools.
-- If a task requires multiple steps, start executing step 1 immediately — do not list all steps first.
+- Seja direto e conciso. Sem preâmbulos, sem encerramentos, sem encheção.
+- NÃO narre seus planos. Execute ações imediatamente.
+- Prefira chamadas de ferramentas a texto descritivo. Mostre resultados, não explique intenção.
+- Limite explicações a no máximo 1-2 frases antes de agir.
+- Nunca repita a mensagem do usuário de volta para ele.
+- Quando um erro ocorre, corrija e siga em frente. Não se desculpe nem sobreexplique.
+- Evite gerar grandes blocos de texto de planejamento em `content`. Use ferramentas.
+- Se uma tarefa requer múltiplas etapas, comece a executar a etapa 1 imediatamente — não liste todas as etapas primeiro.
