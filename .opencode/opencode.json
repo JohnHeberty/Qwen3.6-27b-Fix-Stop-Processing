@@ -7,13 +7,13 @@
     "provider": {
         "vllm": {
             "npm": "@ai-sdk/openai-compatible",
-            "name": "Qwen3.8-27B AutoRound+DFlash2 (vLLM)",
+            "name": "Qwen3.8-27B (vLLM TP=2, 130k)",
             "options": {
                 "baseURL": "http://192.168.1.139:18020/v1"
             },
             "models": {
                 "qwen3.8-27b": {
-                    "name": "Qwen3.8-27B AutoRound+DFlash2 (vLLM TP=2, 130k)",
+                    "name": "AutoRound+DFlash2",
                     "limit": {
                         "context": 130000,
                         "output": 32768
@@ -21,25 +21,11 @@
                     "tools": true,
                     "reasoning": true,
                     "interleaved": {
-                        "field": "reasoning_content"
+                        "field": "reasoning"
                     },
                     "settings": {
                         "reasoningEffort": "low"
-                    },
-                    "variants": [
-                        {
-                            "name": "Thinking ON",
-                            "settings": {
-                                "reasoningEffort": "low"
-                            }
-                        },
-                        {
-                            "name": "Thinking OFF",
-                            "settings": {
-                                "reasoningEffort": "none"
-                            }
-                        }
-                    ]
+                    }
                 }
             }
         }

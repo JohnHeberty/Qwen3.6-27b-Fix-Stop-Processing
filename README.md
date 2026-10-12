@@ -4,13 +4,14 @@ Stack de produção: **vLLM TP=2 + AutoRound INT4 + DFlash2** em 2× RTX 3090 (4
 expondo uma API compatível com OpenAI na porta 18020.
 
 - Modelo: `qwen3.8-27b` — denso 27B, híbrido Gated DeltaNet + Atenção
-- Engine: vLLM (fork em `qwen38-27b-rtx3090/`, linhagem v0.27.1) + modelo draft
+- Engine: vLLM **0.31.0** (fork em `qwen38-27b-rtx3090/`, 50 patches aplicados) + modelo draft
   `z-lab/Qwen3.8-27B-DFlash2` (7 drafts paralelos), alvo `Frozenlock/Qwen3.8-27B-int4-AutoRound`
-- Contexto: 96k (pool validado de 96.538 tokens nesta VRAM), ~22 GB VRAM por GPU
-- Medido: **~173 tok/s wall / ~177 tok/s decode** (código), ~97 tok/s (narrativo),
-  TTFT ~90 ms, 68,3% de aceitação de draft (código)
+- Contexto: **142k** (`max_model_len=142080`, via `DFLASH_MAX_LEN` no `.env`), ~16,3 GB VRAM por GPU
+- Medido em 2026-10-12 (vLLM 0.31.0): **~143,6 tok/s** (código), ~88,8 tok/s (narrativo),
+  600 tokens de saída em prompt curto
 - Raciocínio: thinking ligado, effort `low`, `preserve_thinking` desligado
-- Tool calling: validado (OpenCode/LiteLLM funcionam contra :8080)
+- Tool calling: validado (`--tool-call-parser qwen3_coder` + `--tool-strict-level parameter`;
+  OpenCode/LiteLLM apontam para :18020)
 
 ## Execução
 
@@ -26,10 +27,11 @@ bash qwen38-27b-rtx3090/single-user/start_qwen.sh  # primeiro plano
 
 Notas:
 - A primeira inicialização leva 3-4 min (perfis CUDA das duas GPUs).
-- Sem WebUI e sem suporte a visão neste stack — esse é o trade-off pela velocidade
-  (llama.cpp oferecia ambos; ver `arquived/`).
-- `MAX_MODEL_LEN=96000` é o teto: 100k falhou por ~30 MiB e 128k+ requer
-  a revisão custom do repositório original.
+- Sem WebUI. Visão: desligada por `--language-model-only`, mas o 0.31 traz o patch
+  `vision-tower-cpu-offload` (`VISION_OFFLOAD`), então deixou de ser impossível neste stack.
+- O contexto efetivo é 142080, definido por `DFLASH_MAX_LEN` no `.env`. Isso **sobrescreve** o
+  default de 65536 do modo `CTX=fast` (bf16 KV), que é o modo em uso. A nota antiga de que
+  "96k é o teto" está superada.
 
 ## `arquived/` — a era do llama.cpp
 
@@ -39,7 +41,7 @@ foi arquivado em 2026-08-19 porque era **lento comparado ao stack vLLM**:
 | Engine | 1 cliente | 2 clientes (combinado) | Contexto | Visão | WebUI |
 |---|---|---|---|---|---|
 | llama.cpp b10502 (arquivado) | ~56-58 tok/s | ~71-74 tok/s | 2×256k | nativa (mmproj) | sim |
-| vLLM + DFlash2 (atual) | ~97-177 tok/s | 2 curtos concorrentes | 96k | não | não |
+| vLLM 0.31 + DFlash2 (atual) | ~89-144 tok/s | 2 curtos concorrentes | 142k | possível (VISION_OFFLOAD) | não |
 
 O setup do llama.cpp foi extensivamente ajustado antes de ser aposentado: construção de
 CUDA-graphs (+3,8% sobre a construção anterior), varredura MTP (n=2, p_min=0.5 → 82,9% de

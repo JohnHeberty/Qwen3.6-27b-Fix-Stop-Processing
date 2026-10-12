@@ -21,7 +21,7 @@
                     "tools": true,
                     "reasoning": true,
                     "interleaved": {
-                        "field": "reasoning_content"
+                        "field": "reasoning"
                     },
                     "settings": {
                         "reasoningEffort": "low"
