@@ -9,7 +9,7 @@ model_list:
       # Qwen3.8-27B AutoRound+DFlash2 (vLLM TP=2, 142k max, 130k usable),
       # ~16GB/GPU, sem visão (--language-model-only)
       mode: chat
-      context_window: 130000
+      context_window: 140000
       max_input_tokens: 120000
       max_output_tokens: 32000
       supports_function_calling: true

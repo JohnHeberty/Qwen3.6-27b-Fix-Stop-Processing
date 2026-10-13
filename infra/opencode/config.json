@@ -15,7 +15,7 @@
                 "qwen3.8-27b": {
                     "name": "Qwen3.8-27B AutoRound+DFlash2 (vLLM TP=2, 130k)",
                     "limit": {
-                        "context": 130000,
+                        "context": 140000,
                         "output": 32768
                     },
                     "tools": true,

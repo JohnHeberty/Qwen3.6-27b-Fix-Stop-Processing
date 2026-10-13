@@ -15,7 +15,7 @@
                 "qwen3.8-27b": {
                     "name": "AutoRound+DFlash2",
                     "limit": {
-                        "context": 130000,
+                        "context": 140000,
                         "output": 32768
                     },
                     "tools": true,
