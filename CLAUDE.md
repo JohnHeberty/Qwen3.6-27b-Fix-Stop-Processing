@@ -119,7 +119,24 @@ Verificado contra o processo vivo e `GET /v1/models` em 2026-10-12.
 - **Atenção:** `FLASH_ATTN` · `--mamba-cache-mode align` · `--enable-prefix-caching`
 - **GPU util:** 0.93 · `--max-num-seqs 8` · `--max-num-batched-tokens 2048` · `--async-scheduling`
 - **Parsers:** `--reasoning-parser qwen3` · `--tool-call-parser qwen3_coder` (+`--enable-auto-tool-choice`)
-- **Raciocínio:** `REASONING_EFFORT=low`, `ENABLE_THINKING=true`, via `--default-chat-template-kwargs`
+- **Raciocínio:** `reasoning_effort:low`, `enable_thinking:true`, **`preserve_thinking:false`**,
+  todos via `--default-chat-template-kwargs` dentro de `EXTRA_ARGS` no `.env`.
+
+**`preserve_thinking:false` é o que impede o contexto de inflar sozinho** (ligado em 2026-10-12).
+O template reinjeta o campo `reasoning` de *todos* os turnos anteriores do histórico, então cada
+passo do agente re-alimenta todo o raciocínio acumulado. Medido com `/tokenize`, ~800 tokens de
+raciocínio por turno:
+
+| turnos | preserve ON | OFF |
+|---|---|---|
+| 5 | 5.118 | 143 |
+| 20 | 20.338 | 438 |
+| 40 | **40.638** | **838** |
+
+Numa sessão de 40 turnos, 98% do prompt era raciocínio velho. Desligar **não** afeta o thinking do
+turno atual (o modelo continua pensando normalmente) — só para de re-enviar o dos turnos passados.
+O campo é `reasoning` (nome do 0.31); o `--no-reasoning-preserve` citado em notas antigas era flag
+do llama.cpp e **não existe no vLLM** — aqui se faz pelo chat template kwargs.
 - **Prefix caching:** liga `--enable-prefix-caching --mamba-cache-mode align`. Ganho grande de TTFT em
   requests repetidos (2º turno contra doc de 25k: 0.56s vs 22.4s).
 - **Binding:** `HOST=0.0.0.0` no `.env` — obrigatório desde o 0.31 (ver Histórico de upgrade).
