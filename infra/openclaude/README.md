@@ -37,18 +37,52 @@ Terceira alternativa, sem arquivo nenhum: rode `/provider` dentro do OpenClaude 
 preencha base URL, modelo e uma chave qualquer. Ele salva um perfil em
 `.openclaude-profile.json`.
 
+## Como mudar o nível de pensamento
+
+Três formas, da mais pontual à mais permanente:
+
+**1. Durante a sessão** — `/effort low` (ou sem argumento, que abre um seletor).
+Vale só para a sessão; o OpenClaude salva o nível por modelo.
+
+**2. Ao iniciar** — `openclaude --effort low`.
+
+**3. Permanente** — `effortLevel` no `settings.json` (é o que está configurado aqui).
+Escrito automaticamente quando você roda `/effort` com `low`, `medium`, `high` ou `xhigh`.
+
+**Cuidado com os níveis que quebram** (ver tabela abaixo): se você rodar `/effort max`
+ou `/effort high` numa sessão, as requisições passam a falhar com HTTP 400 até você
+voltar para um valor aceito. Não é erro de config — é incompatibilidade entre a lista do
+OpenClaude e o template do Qwen.
+
+Para desligar o pensamento por completo, `effortLevel` não serve — o mais baixo ainda
+pensa (~254 tokens). Isso se faz com `enable_thinking:false` no chat template kwargs, o
+que o OpenClaude não expõe; teria de ser mudado no servidor (`EXTRA_ARGS` no `.env` do
+repo), afetando todos os clientes.
+
 ## Armadilhas (testadas contra o servidor em 2026-10-15)
 
-**`effortLevel` tem que ser `low`, `medium` ou `high` — nunca `max`.**
-O OpenClaude aceita `low|medium|high|xhigh|max`, mas o chat template do Qwen3.8 só
-conhece `xhigh|medium|low` (`high` é alias de `xhigh`). Mandar `max` devolve **HTTP 400**:
+**Três dos sete níveis de effort do OpenClaude quebram este servidor.**
+O `/effort` do OpenClaude oferece `low medium high xhigh max ultracode auto`, mas o chat
+template do Qwen3.8 só conhece `xhigh|medium|low`. Testado valor por valor contra o
+servidor em 2026-10-15:
+
+| `/effort` | servidor | raciocínio medido |
+|---|---|---|
+| `low` | ✅ | 254 tok — **em uso** |
+| `auto` | ✅ | 332 tok (cai no ramo default, sem orientação) |
+| `medium` | ✅ | não injeta orientação nenhuma |
+| `xhigh` | ✅ | 1.500 tok |
+| `high` | ❌ HTTP 400 | — |
+| `max` | ❌ HTTP 400 | — |
+| `ultracode` | ❌ HTTP 400 | — |
 
 ```
-Unexpected reasoning effort max. Supported types are xhigh (default), medium, and low.
+Unexpected reasoning effort high. Supported types are xhigh (default), medium, and low.
 ```
 
-E atenção: `medium` **não injeta orientação nenhuma** no template — não existe ramo
-`medium` nele. Só `low` pede de fato pensamento curto.
+Note que `high` **não** é alias de `xhigh` aqui — ele falha. E `medium` passa mas não
+tem ramo no template: é "sem orientação", não "esforço médio". Só `low` pede de fato
+pensamento curto.
 
 **O cliente sobrescreve o `reasoning_effort` do servidor.** O `.env` do repo força
 `reasoning_effort:low` via `--default-chat-template-kwargs`, mas o que o cliente manda
