@@ -17,22 +17,23 @@ function openclaude {
     # do Shift+Tab sem ativar: a sessao comeca no defaultMode do settings.json
     # (acceptEdits) e o ciclo fica
     #     default -> acceptEdits -> plan -> bypassPermissions
-    & openclaude.cmd --allow-dangerously-skip-permissions @args
+    & "$env:APPDATA\npm\openclaude.ps1" --allow-dangerously-skip-permissions @args
 }
 
-# Se `openclaude.cmd` nao for encontrado, descubra o nome real do executavel:
+# O caminho absoluto evita recursao: sem ele, `openclaude` dentro da funcao
+# chamaria a propria funcao de novo. Instalacao via npm expoe tres shims em
+# %APPDATA%\npm (openclaude.ps1, .cmd e sem extensao); no PowerShell o .ps1
+# tem precedencia. Confirme o seu com:
 #     Get-Command openclaude -All | Format-List Name, Source
-# instalacoes via npm costumam expor openclaude.cmd em %APPDATA%\npm.
-# Troque na linha acima se o seu for diferente (openclaude.ps1, openclaude.exe).
 
 # ---------------------------------------------------------------------------
 # Variante: comecar em plan mode (nada executa ate voce avancar o ciclo)
 # ---------------------------------------------------------------------------
 # function openclaude-plan {
-#     & openclaude.cmd --allow-dangerously-skip-permissions --permission-mode plan @args
+#     & "$env:APPDATA\npm\openclaude.ps1" --allow-dangerously-skip-permissions --permission-mode plan @args
 # }
 
 # ---------------------------------------------------------------------------
 # Variante: comecar JA em bypass (sem rede de seguranca)
 # ---------------------------------------------------------------------------
-# function openclaude-yolo { & openclaude.cmd --yolo @args }
+# function openclaude-yolo { & "$env:APPDATA\npm\openclaude.ps1" --yolo @args }
