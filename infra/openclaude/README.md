@@ -13,8 +13,10 @@ Config do [OpenClaude](https://github.com/Twigpine/openclaude) (CLI de coding ag
 
 | arquivo | destino |
 |---|---|
-| `openclaude.env` | fica onde você quiser; passado com `--provider-env-file` |
 | `settings.json` | `~/.openclaude/settings.json` (Linux/macOS) · `%USERPROFILE%\.openclaude\settings.json` (Windows) |
+| `openclaude.env` | fica onde você quiser; passado com `--provider-env-file` |
+| `powershell-profile.ps1` | conteúdo vai no `$PROFILE` do PowerShell (Windows) |
+| `bashrc-snippet.sh` | conteúdo vai no `~/.bashrc` ou `~/.zshrc` (Linux/WSL) |
 
 ## Como usar
 
@@ -76,24 +78,35 @@ cada ação no lugar do usuário, e isso exige um modelo suportado pela Anthropi
 provider OpenAI-compatível apontando para o vLLM local, o modo não fica disponível — e,
 se algo pedir `auto`, a sessão cai em Manual. Não há como ativá-lo contra este servidor.
 
-**`bypassPermissions` é o que resolve.** Para ele aparecer no ciclo, inicie assim:
+**`bypassPermissions` é o que resolve** — e dá para deixar permanente, sem digitar flag
+nenhuma. Use um dos arquivos desta pasta:
 
-```bash
-# adiciona bypassPermissions ao ciclo SEM ativar (recomendado):
-openclaude --allow-dangerously-skip-permissions
-#   -> começa em acceptEdits; Shift+Tab passa a oferecer bypass permissions
+| sistema | arquivo | onde cola |
+|---|---|---|
+| Windows | `powershell-profile.ps1` | `$PROFILE` (`notepad $PROFILE`) |
+| Linux/WSL | `bashrc-snippet.sh` | `~/.bashrc` ou `~/.zshrc` |
 
-# ou já começa em bypass (sem rede de segurança):
-openclaude --yolo          # = --dangerously-skip-permissions
+Os dois fazem o mesmo: sobrepõem o nome `openclaude` para que ele já suba com
+`--allow-dangerously-skip-permissions`. Resultado — você digita só `openclaude`, a sessão
+**começa em `acceptEdits`** (seguro) e o Shift+Tab passa a oferecer o bypass:
+
+```
+default → acceptEdits → plan → bypassPermissions
 ```
 
-Com a flag `--allow-`, o ciclo fica `default` → `acceptEdits` → `plan` → `bypassPermissions`.
+No PowerShell é uma *função*, não `Set-Alias`: alias do PowerShell não aceita argumentos
+fixos. No bash o `alias` basta.
 
-A alternativa permanente é `permissions.defaultMode: "bypassPermissions"` no
-`settings.json`, mas aí **toda** sessão começa sem pedir nada. Este repo deixa
-`acceptEdits` de propósito: edições de arquivo passam direto, comandos shell pedem
-confirmação. A doc oficial recomenda o bypass apenas em container ou VM isolada, e o
-cliente roda na sua máquina de trabalho, não neste servidor.
+**Por que não `permissions.defaultMode: "bypassPermissions"` no `settings.json`?**
+Essa chave também coloca o modo no ciclo, mas, sendo `defaultMode`, faz **toda** sessão
+*começar* nele — sem pedir confirmação para nada desde o primeiro comando. A doc oficial
+recomenda o bypass apenas em container ou VM isolada, e este cliente roda na sua máquina
+de trabalho. Por isso o `settings.json` fica em `acceptEdits` e a disponibilidade do
+bypass vem do perfil do shell: o modo está a um Shift+Tab de distância, mas você escolhe
+quando entrar nele.
+
+Se preferir começar já no bypass, o arquivo do PowerShell traz uma variante comentada
+(`openclaude-yolo`), e dá para fixar com a chave do `settings.json`.
 
 **Caminho intermediário**, se o que incomoda é só a repetição: pré-aprove comandos
 específicos em vez de liberar tudo.
