@@ -106,7 +106,27 @@ bypass vem do perfil do shell: o modo está a um Shift+Tab de distância, mas vo
 quando entrar nele.
 
 Se preferir começar já no bypass, o arquivo do PowerShell traz uma variante comentada
-(`openclaude-yolo`), e dá para fixar com a chave do `settings.json`.
+(`openclaude-yolo`), e dá para fixar com `permissions.defaultMode`.
+
+### Plugin resolveria?
+
+Não. O `openclaude plugin` existe (`validate|list|install|uninstall|enable|disable|
+update|marketplace`), mas plugin empacota **componentes** — skills, agents, hooks, MCP
+servers. Nenhum dos subcomandos configura modo de permissão, e a doc do OpenClaude não
+descreve plugin que persista flags de CLI.
+
+Sobre persistir a flag direto no `settings.json`: a doc do OpenClaude diz que *"defaults
+for most of these flags can be persisted in settings files"*, mas **não publica a chave**
+que corresponde a `--allow-dangerously-skip-permissions`. Procurei por
+`allowDangerouslySkipPermissions` e equivalentes e não há nada documentado. Se essa chave
+existir na sua versão, ela substitui o perfil de shell — vale rodar `/config` dentro do
+OpenClaude e procurar, ou `openclaude --help | grep -i allow`.
+
+> As chaves de `settings.json` confirmadas na doc do OpenClaude são: `model`,
+> `effortLevel`, `agent`, `permissions`, `env`, `hooks`, `modelLimits`, `modelPricing`,
+> `smartRouting`, `agentModels`, `agentRouting`, `advisorModel`, `subscriptionType`,
+> `providerFallbackChain`. O OpenClaude reusa muitos nomes do Claude Code, mas **não é o
+> mesmo produto** — não assuma que uma chave do Claude Code funciona aqui sem testar.
 
 **Caminho intermediário**, se o que incomoda é só a repetição: pré-aprove comandos
 específicos em vez de liberar tudo.
