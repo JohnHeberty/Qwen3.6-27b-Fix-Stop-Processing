@@ -49,6 +49,12 @@ Vale só para a sessão; o OpenClaude salva o nível por modelo.
 **3. Permanente** — `effortLevel` no `settings.json` (é o que está configurado aqui).
 Escrito automaticamente quando você roda `/effort` com `low`, `medium`, `high` ou `xhigh`.
 
+O `settings.json` leva **um** valor, não a lista — aqui está `"low"`. Para trocar de vez,
+edite essa chave; para trocar só agora, use `/effort`. E `auto` não foi escolhido como
+default de propósito: medido contra este servidor ele fica praticamente igual ao `low`
+(326 vs 304 tokens de raciocínio numa tarefa de código), porque cai no ramo sem
+orientação do template. `low` dá o mesmo resultado sendo explícito sobre o que pede.
+
 **Cuidado com os níveis que quebram** (ver tabela abaixo): se você rodar `/effort max`
 ou `/effort high` numa sessão, as requisições passam a falhar com HTTP 400 até você
 voltar para um valor aceito. Não é erro de config — é incompatibilidade entre a lista do
