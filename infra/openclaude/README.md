@@ -65,6 +65,43 @@ pensa (~254 tokens). Isso se faz com `enable_thinking:false` no chat template kw
 que o OpenClaude não expõe; teria de ser mudado no servidor (`EXTRA_ARGS` no `.env` do
 repo), afetando todos os clientes.
 
+## Modos de permissão (Shift+Tab)
+
+O ciclo padrão do Shift+Tab é `default` (manual) → `acceptEdits` → `plan`. Os modos
+"hands-off" são **opcionais** e só entram no ciclo se a sessão for iniciada de um jeito
+que os habilite — é por isso que aparecem só `plan` e `acceptEdits` por aqui.
+
+**`auto` não está disponível neste setup.** Ele depende de um classificador que revisa
+cada ação no lugar do usuário, e isso exige um modelo suportado pela Anthropic. Com um
+provider OpenAI-compatível apontando para o vLLM local, o modo não fica disponível — e,
+se algo pedir `auto`, a sessão cai em Manual. Não há como ativá-lo contra este servidor.
+
+**`bypassPermissions` é o que resolve.** Para ele aparecer no ciclo, inicie assim:
+
+```bash
+# adiciona bypassPermissions ao ciclo SEM ativar (recomendado):
+openclaude --allow-dangerously-skip-permissions
+#   -> começa em acceptEdits; Shift+Tab passa a oferecer bypass permissions
+
+# ou já começa em bypass (sem rede de segurança):
+openclaude --yolo          # = --dangerously-skip-permissions
+```
+
+Com a flag `--allow-`, o ciclo fica `default` → `acceptEdits` → `plan` → `bypassPermissions`.
+
+A alternativa permanente é `permissions.defaultMode: "bypassPermissions"` no
+`settings.json`, mas aí **toda** sessão começa sem pedir nada. Este repo deixa
+`acceptEdits` de propósito: edições de arquivo passam direto, comandos shell pedem
+confirmação. A doc oficial recomenda o bypass apenas em container ou VM isolada, e o
+cliente roda na sua máquina de trabalho, não neste servidor.
+
+**Caminho intermediário**, se o que incomoda é só a repetição: pré-aprove comandos
+específicos em vez de liberar tudo.
+
+```bash
+openclaude --allowed-tools "Bash(git:*)" "Bash(ls:*)" "Bash(cat:*)" Edit
+```
+
 ## Armadilhas (testadas contra o servidor em 2026-10-15)
 
 **Três dos sete níveis de effort do OpenClaude quebram este servidor.**
