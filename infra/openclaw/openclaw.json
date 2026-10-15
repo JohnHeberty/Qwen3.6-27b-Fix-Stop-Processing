@@ -11,13 +11,13 @@
       "experimental": {
         "localModelLean": true
       },
-      "thinkingDefault": "medium",
+      "thinkingDefault": "low",
       "timeoutSeconds": 3600,
       "compaction": {
         "mode": "safeguard",
-        "reserveTokens": 120000,
-        "reserveTokensFloor": 120000,
-        "keepRecentTokens": 8000,
+        "reserveTokens": 40000,
+        "reserveTokensFloor": 40000,
+        "keepRecentTokens": 16000,
         "recentTurnsPreserve": 2,
         "timeoutSeconds": 900
       },
@@ -65,7 +65,7 @@
               "cacheRead": 0,
               "cacheWrite": 0
             },
-            "contextWindow": 130000,
+            "contextWindow": 140000,
             "maxTokens": 32000
           }
         ]
