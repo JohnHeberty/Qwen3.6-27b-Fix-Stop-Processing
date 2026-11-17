@@ -4,12 +4,14 @@ Stack de produção: **vLLM TP=2 + AutoRound INT4 + DFlash2** em 2× RTX 3090 (4
 expondo uma API compatível com OpenAI na porta 18020.
 
 - Modelo: `qwen3.8-27b` — denso 27B, híbrido Gated DeltaNet + Atenção
-- Engine: vLLM **0.31.0** (fork em `qwen38-27b-rtx3090/`, 50 patches aplicados) + modelo draft
-  `z-lab/Qwen3.8-27B-DFlash2` (7 drafts paralelos), alvo `Frozenlock/Qwen3.8-27B-int4-AutoRound`
-- Contexto: **142k** (`max_model_len=142080`, via `DFLASH_MAX_LEN` no `.env`), ~16,3 GB VRAM por GPU
-- Medido em 2026-10-12 (vLLM 0.31.0): **~143,6 tok/s** (código), ~88,8 tok/s (narrativo),
-  600 tokens de saída em prompt curto
-- Raciocínio: thinking ligado, effort `low`, `preserve_thinking` desligado
+- Engine: vLLM **0.33.0** (fork em `qwen38-27b-rtx3090/`, 61 patches aplicados: série de 57 + 4 do
+  KVarN) + modelo draft `syvai/Qwen3.8-27B-DFlash2-W4A16` (7 drafts paralelos), alvo
+  `dbirks/Qwen3.8-27B-W4A16-AutoRound`
+- Contexto: **142k** (`max_model_len=142080`, via `DFLASH_MAX_LEN` no `.env`), ~15,6 GB VRAM por GPU
+  (pool de KV 5,52 GiB/GPU com `GPU_UTIL=0.62`)
+- Medido em 2026-11-12 (vLLM 0.33.0): **~133 tok/s** (código), ~67 tok/s (narrativo),
+  600 tokens de saída em prompt curto (paridade com o 0.31.0 no mesmo método: 132,9 / 66,9)
+- Raciocínio: thinking ligado, effort `medium`, `preserve_thinking` desligado
 - Tool calling: validado (`--tool-call-parser qwen3_coder` + `--tool-strict-level parameter`;
   OpenCode/LiteLLM apontam para :18020)
 
@@ -26,8 +28,8 @@ bash qwen38-27b-rtx3090/single-user/start_qwen.sh  # primeiro plano
 - Logs: `data/logs/qwen38-27b.log`
 
 Notas:
-- A primeira inicialização leva 3-4 min (perfis CUDA das duas GPUs).
-- Sem WebUI. Visão: desligada por `--language-model-only`, mas o 0.31 traz o patch
+- A primeira inicialização leva ~1,5 min (torch.compile + captura de cudagraph das duas GPUs).
+- Sem WebUI. Visão: desligada por `--language-model-only`, mas o 0.33 traz o patch
   `vision-tower-cpu-offload` (`VISION_OFFLOAD`), então deixou de ser impossível neste stack.
 - O contexto efetivo é 142080, definido por `DFLASH_MAX_LEN` no `.env`. Isso **sobrescreve** o
   default de 65536 do modo `CTX=fast` (bf16 KV), que é o modo em uso. A nota antiga de que
@@ -41,7 +43,7 @@ foi arquivado em 2026-08-19 porque era **lento comparado ao stack vLLM**:
 | Engine | 1 cliente | 2 clientes (combinado) | Contexto | Visão | WebUI |
 |---|---|---|---|---|---|
 | llama.cpp b10502 (arquivado) | ~56-58 tok/s | ~71-74 tok/s | 2×256k | nativa (mmproj) | sim |
-| vLLM 0.31 + DFlash2 (atual) | ~89-144 tok/s | 2 curtos concorrentes | 142k | possível (VISION_OFFLOAD) | não |
+| vLLM 0.33 + DFlash2 (atual) | ~67-133 tok/s | 2 curtos concorrentes | 142k | possível (VISION_OFFLOAD) | não |
 
 O setup do llama.cpp foi extensivamente ajustado antes de ser aposentado: construção de
 CUDA-graphs (+3,8% sobre a construção anterior), varredura MTP (n=2, p_min=0.5 → 82,9% de

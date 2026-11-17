@@ -36,6 +36,14 @@ make start / stop / restart / status / logs
 make install-service / uninstall-service
 ```
 
+**Diagnóstico** (read-only, do upstream — config efetiva + GPU + porta + `/health`):
+```bash
+make doctor
+```
+O `make doctor` exporta o `.env` da raiz e cria um symlink temporário
+`qwen38-27b-rtx3090/.env` (removido no fim), porque o `scripts/hq-doctor.sh` do upstream lê o
+`.env` de dentro do repo do vLLM.
+
 **Setup** (idempotente, cada etapa com sentinel):
 ```bash
 make setup   # setup-repo -> setup-venv -> setup-model -> setup-quant -> setup-patches
@@ -56,6 +64,15 @@ Scripts de benchmark locais em [bench/](bench/).
 make litellm-start / litellm-stop    # proxy LiteLLM (infra/litellm/)
 make playground-up / playground-down # vLLM playground em Docker
 ```
+
+**Rotação de logs:**
+```bash
+make install-logrotate      # instala /etc/logrotate.d/qwen-logs (inclui o log do vLLM)
+make uninstall-logrotate    # remove
+```
+O unit do vLLM faz *append* em `data/logs/qwen38-27b.log`, que cresce sem limite (151 MB em ~1 dia
+de uso). O template versionado em [infra/logrotate/qwen-logs](infra/logrotate/qwen-logs) usa
+`copytruncate` (não derruba o serviço), `daily` + `maxsize 200M` e `rotate 7`.
 
 ## Arquitetura
 
@@ -87,17 +104,18 @@ default. Por isso a config efetiva é "modo fast (bf16) com contexto de 142k" �
 é o default de nenhum modo. Confirmado contra o processo vivo: `--kv-cache-dtype bfloat16`
 `--max-model-len 142080`.
 
-**Patches do vLLM** ([qwen38-27b-rtx3090/patches/](qwen38-27b-rtx3090/patches/), **50 arquivos**):
-backport do DFlash2, lookup drafting, atenção split-KV para o verify, softmax/top-k sem sort, int8/int4
-KV, prefill int8, bounds de GDN, correções de serving (`/health`, 404 com nomes servidos, `/tokenize`).
-A ordem é obrigatória — alguns carregam como contexto linhas que um patch anterior insere.
-Aplique **sempre** via a porta única, que lê `patches/series` e recusa começar se a série e o
-diretório discordarem:
+**Patches do vLLM** ([qwen38-27b-rtx3090/patches/](qwen38-27b-rtx3090/patches/), **61 arquivos**:
+57 na série `patches/series` + 4 do KVarN (`kvarn/`). Backport do DFlash2, lookup drafting, atenção
+split-KV para o verify, softmax/top-k sem sort, int8/int4 KV, prefill int8, bounds de GDN, correções de
+serving (`/health`, 404 com nomes servidos, `/tokenize`). A ordem é obrigatória — alguns carregam como
+contexto linhas que um patch anterior insere. Aplique **sempre** via a porta única, que lê
+`patches/series` e recusa começar se a série e o diretório discordarem:
 ```bash
 cd qwen38-27b-rtx3090
 VLLM_DIR=$(venv/bin/python -c 'import vllm,os;print(os.path.dirname(vllm.__file__))' | tail -n1)
 bash patches/apply.sh --list        # confere série vs diretório (rc=2 se divergirem)
 bash patches/apply.sh "$VLLM_DIR"   # aplica em ordem; --forward, --fuzz 0
+bash kvarn/install.sh               # 4 patches KVarN + módulos do backend KVARN
 ```
 Política `--fuzz 0`: um *offset* é benigno (o contexto casou exato), mas *fuzz* falha pelo nome em vez
 de aplicar no chute. **Um upgrade do vLLM sem reaplicá-los dropa todas essas otimizações.**
@@ -107,20 +125,24 @@ OpenClaw, logrotate. Todos devem referenciar `qwen3.8-27b` na porta **18020**.
 
 ## Config atual de produção
 
-Verificado contra o processo vivo e `GET /v1/models` em 2026-10-12.
+Verificado contra o processo vivo e `GET /v1/models` em 2026-11-12 (vLLM **0.33.0**).
 
 - **Modelo servido:** `qwen3.8-27b` → `models/Qwen3.8-27B-W4A16-AutoRound-fast`
 - **Porta:** 18020 · **Contexto:** 142080 (`max_model_len`) · **TP:** 2
-- **Spec decoding:** `{"method":"dflash","model":".../Qwen3.8-27B-DFlash2-W4A16","num_speculative_tokens":7}`
+- **Spec decoding:** `{"method":"dflash","model":".../Qwen3.8-27B-DFlash2-W4A16","num_speculative_tokens":7,"draft_sample_method":"probabilistic"}`
   - `DFLASH_TOKENS=7` é o default de chat — o drafter foi treinado para 7; posições 8-15 têm
     aceitação quase nula em chat geral. Use 15 apenas para reprodução de documento (custa ~8k de contexto).
-- **KV cache:** bfloat16, ~**12,75 GiB por GPU** (o 0.31 com TP=2 dimensiona o pool a partir de
-  `GPU_UTIL=0.93` e ignora o `KV_MEM` de card único)
-- **Atenção:** `FLASH_ATTN` · `--mamba-cache-mode align` · `--enable-prefix-caching`
-- **GPU util:** 0.93 · `--max-num-seqs 8` · `--max-num-batched-tokens 2048` · `--async-scheduling`
+- **KV cache:** bfloat16, **5,52 GiB por GPU** (161.063 tokens = 1,13x o contexto de 142k), dimensionado
+  por `GPU_UTIL=0.62` com TP=2
+- **Atenção:** `FLASH_ATTN` · `--mamba-cache-mode align` (deprecado no 0.33, sem efeito — o prefix
+  caching do Mamba segue `--enable-prefix-caching`) · `--enable-prefix-caching`
+- **GPU util:** 0.62 · `--max-num-seqs 8` · `--max-num-batched-tokens 2048` · `--async-scheduling`
 - **Parsers:** `--reasoning-parser qwen3` · `--tool-call-parser qwen3_coder` (+`--enable-auto-tool-choice`)
-- **Raciocínio:** `reasoning_effort:low`, `enable_thinking:true`, **`preserve_thinking:false`**,
+  · `--tool-strict-level parameter`
+- **Raciocínio:** `reasoning_effort:medium`, `enable_thinking:true`, **`preserve_thinking:false`**,
   todos via `--default-chat-template-kwargs` dentro de `EXTRA_ARGS` no `.env`.
+- **Cudagraph:** `--max-cudagraph-capture-size 64`, `custom_ops: [+rms_norm, +silu_and_mul]`
+- **Boot:** ~90 s até `/health` 200 (torch.compile ~67 s + captura de cudagraph)
 
 **`preserve_thinking:false` é o que impede o contexto de inflar sozinho** (ligado em 2026-10-12).
 O template reinjeta o campo `reasoning` de *todos* os turnos anteriores do histórico, então cada
@@ -143,21 +165,122 @@ do llama.cpp e **não existe no vLLM** — aqui se faz pelo chat template kwargs
 - **Sem autenticação** — por isso o launcher emite um WARNING a cada boot. É o comportamento
   anterior, mas note que qualquer máquina da LAN alcança a porta.
 
-**`REASONING_EFFORT`** é repassado ao template. Valores válidos: `low` | `medium` | `xhigh`
-(`high` é alias de `xhigh`); qualquer outra coisa faz o template lançar exceção e a requisição falhar.
+**`REASONING_EFFORT`** é repassado ao template. O template só aceita `low` | `medium` | `xhigh`;
+qualquer outra coisa lança exceção (HTTP 400). **`high` NÃO era alias** — dava 400 até 2026-11-16.
+Desde então o `EXTRA_ARGS` tem `--reasoning-effort-map {"high":"xhigh","max":"xhigh","minimal":"low"}`
+(flag do vLLM 0.33), e todos os valores da API (`none|minimal|low|medium|high|xhigh|max`) funcionam.
+O template local é idêntico ao do HF nesses ramos (ver "Modelo base no HuggingFace").
 O que cada valor injeta não é o que o nome sugere:
 - `xhigh` (default do template) → "think carefully, validate key assumptions, consider alternatives…"
 - `medium` → **nada**. Não existe ramo `medium` no template; é "sem orientação", não "esforço médio".
-- `low` → "Keep your thinking brief and focused, moving directly to the conclusion." **Em uso** — é o
-  único valor que efetivamente pede thinking curto.
+  **Em uso desde 2026-11-16.**
+- `low` → "Keep your thinking brief and focused, moving directly to the conclusion." É o único valor
+  que efetivamente pede thinking curto. **Abandonado em 2026-11-16:** em sessões longas de agente
+  (~58k–120k tokens) o thinking colapsou em fragmentos ("Let me.", "Let.", "I'll do.") até bater em
+  `length` (5 requests). Não há anti-repetição configurado (sem `presence_penalty`; o
+  `repetition_detection` do vLLM é só por request). Se `medium` não bastar, próximo passo:
+  `--override-generation-config {"presence_penalty":1.0}` no `EXTRA_ARGS`.
 
-**Performance medida localmente em 2026-10-12** (vLLM 0.31.0, prompt curto, 600 tokens de saída):
-**143,6 tok/s em código**, 88,8 tok/s narrativo. Números de batch/prefill do README do upstream
-(~1094 tok/s a 64 concorrentes, ~1810 tok/s de prefill) seguem **não remedidos** aqui.
+**Performance medida em 2026-11-12** (vLLM 0.33.0, prompt curto, 600 tokens de saída, streaming,
+temperatura 0 — [scripts/bench_tps.py](scripts/bench_tps.py)): **133,1 tok/s em código**, 66,9 tok/s
+narrativo. Números de batch/prefill do README do upstream (~1094 tok/s a 64 concorrentes, ~1810 tok/s
+de prefill) seguem **não remedidos** aqui.
 
-**Hardware:** 2x RTX 3090 (48 GB). ~16.3 GB por GPU em uso (~66%).
+> **Não compare com os números de 2026-10-12** (143,6 / 88,8 tok/s): foram medidos com script,
+> prompts e config diferentes (era a config `GPU_UTIL=0.93`). O A/B do mesmo método, 0.31.0 vs 0.33.0
+> com argv idêntico, deu **132,9 vs 133,1 tok/s** (código) e **66,9 vs 66,8** (narrativo) — ou seja,
+> **paridade**, dentro de 0,3%. Ver "Histórico de upgrade".
+
+**Hardware:** 2x RTX 3090 (48 GB). Medido em 2026-11-12 com o servidor ocioso: **~15,6 GB por GPU
+em uso (~63%)**, sobrando ~8,9 GB. Composição (log de boot): pesos 8,13 GiB + pool de KV 5,52 GiB
++ drafter/CUDA graphs/ativações (0,96 GiB pico + 0,10 GiB cudagraph). O pool (161k tokens = 1,13x o
+contexto de 142k) é **pré-alocado** a partir de `GPU_UTIL=0.62`, não cresce com o uso.
+
+## Pendências
+
+**Autocomplete (FIM) no VSCode devolve 404.** Erro visto no cliente:
+`llama.cpp FIM returned 404 at http://100.102.127.47:18020/completion` (`{"detail":"Not Found"}`).
+Diagnóstico (2026-10-21):
+- A extensão (estilo llama.vscode) chama os endpoints **do llama.cpp** `/completion` / `/infill`,
+  que o vLLM não tem. O vLLM só expõe `/v1/completions`.
+- `suffix` no `/v1/completions` também falha (400, "suffix is only supported for models with FIM
+  completion rendering"): no 0.31 só o renderer do DeepSeek V4 implementa FIM.
+- **Mas o modelo faz FIM.** O tokenizer tem `<|fim_prefix|>` (248060), `<|fim_middle|>` (248061),
+  `<|fim_suffix|>` (248062), `<|fim_pad|>` (248063). Testado com prompt cru em `/v1/completions`
+  (revalidado no 0.33 em 2026-11-12, mesmo resultado):
+  `<|fim_prefix|>def soma(a, b):\n    <|fim_suffix|>\n    return r\n<|fim_middle|>` +
+  `stop:["<|endoftext|>","<|fim_pad|>"]` → completou `r = a + b` corretamente e parou em
+  `<|endoftext|>`.
+- Caminhos possíveis: (a) extensão que fale OpenAI `/v1/completions` com template FIM configurável
+  (ex.: Continue com `template` próprio); (b) um shim fino em `infra/` que traduza `/infill` e
+  `/completion` do llama.cpp para `/v1/completions` com os tokens acima (mais simples para manter
+  a extensão atual).
+- **Decisão (2026-10-21): caminho (a), sem shim** — ficar no vLLM/OpenAI-compatible. Config pronta
+  em [infra/twinny/README.md](infra/twinny/README.md) (cliente é o **Twinny**; config equivalente para o Continue em [infra/continue/config.yaml](infra/continue/config.yaml); FIM via `/v1/completions` +
+  template custom). Nos logs: chat do Twinny OK, FIM batia em `/completion` (provider llamacpp). **Falta validar.**
+
+**Coexistência com Ollama (2026-10-21).** `.env` ganhou `GPU_UTIL=0.62` (antes 0.93 implícito):
+pool de KV caiu de 12,77 para **5,52 GiB/GPU** (161k tokens, 1,13x o contexto de 142k), sobrando
+~8,9 GB/GPU. O `qwen2.5-coder:7b` foi testado e **removido do Ollama em 2026-10-22** (autocomplete ruim); o FIM fica no próprio 27B via vLLM. Com isso o `GPU_UTIL=0.62` só vale se quiser VRAM livre para outros modelos do Ollama.
+Custo: menos prefix cache e só ~1 sequência longa por vez. **Armadilha:** o `ExecStartPre` espera a
+GPU 0 ficar < 1 GB; com o modelo do Ollama carregado nela, `make restart` dá timeout — rode
+`ollama stop <modelo>` antes. Para voltar ao normal: remover `GPU_UTIL` do `.env`.
 
 ## Histórico de upgrade
+
+**2026-11-12 — upgrade vLLM 0.31.0 → 0.33.0 concluído.** Clone do upstream movido de `95ee3b6`
+(11/10) para `3d6c954` (11/10), **+258 commits**. `verify.sh --install` e `verify.sh`:
+**OK, 0 failures**.
+
+O que mudou no upstream: pin do vLLM 0.31.0 → **0.33.0** (torch 2.13 → **2.14.0+cu130**, Triton 3.8.0,
+flashinfer-python 0.7.0.post1 → **0.7.2.post1**), série de patches **re-recortada** para o 0.33.0
+(57 patches + 4 do KVarN), plugins novos `fa2/` (FA2 fp8-KV), `pthfa/` (pth-flash-attn int8-KV),
+`lsa/`, overlay `opt-170hx/`, `xgrammar/` compilado do fonte, `scripts/` novos (turing bench/tui/watch).
+O upstream documenta o port em `qwen38-27b-rtx3090/docs/vllm-0.33.md`.
+
+**Procedimento (venv nativo, não Docker).** O upstream é explícito: *não* atualizar o venv antigo in
+place — `pip` só substitui arquivos que a wheel possui, e módulos copiados dentro da árvore continuam
+ao lado do pin novo. O caminho certo é criar um venv novo:
+
+```bash
+cd qwen38-27b-rtx3090
+mv venv venv.failed-031 && python3.12 -m venv venv
+venv/bin/pip install -r docker/requirements.txt          # pins do upstream
+bash patches/apply.sh --list
+bash patches/apply.sh "$(venv/bin/python -c 'import vllm,os;print(os.path.dirname(vllm.__file__))' | tail -n1)"
+bash kvarn/install.sh
+CXXFLAGS=-Wno-error bash xgrammar/install.sh
+bash verify.sh --install
+```
+
+Quatro armadilhas deste ciclo:
+
+1. **Os scripts do `venv/bin` guardam o caminho absoluto do interpretador nos shebangs.** Depois do
+   `mv venv-033 venv`, os ~60 scripts ficaram apontando para `venv-033/bin/python3.12` e o serviço
+   morreu com `cannot execute: required file not found` (exit 127). Corrigido com um `sed` em
+   `venv/bin/*`, `venv/bin/activate{,.csh,.fish}` e `venv/pyvenv.cfg`.
+2. **`kvarn/install.sh` e `verify.sh` usam `$REPO/venv` por default** — se o venv novo ainda estiver
+   em `venv-033`, eles aplicam no venv **antigo** e acusam "vLLM version mismatch" em 21 checks.
+   Troque o venv de lugar **antes** de rodar essas duas etapas.
+3. **O build do xgrammar falha neste host** com um erro de ODR do LTO do GCC. Compilar com
+   `CXXFLAGS=-Wno-error CFLAGS=-Wno-error` resolve.
+4. **Sem `flashinfer-cubin` o vLLM avisa** "flashinfer-cubin is not installed and nvcc ... is missing"
+   ao importar — mas o venv tem o toolchain CUDA 13.0 do pip (`nvidia/cu13/bin/nvcc`) e o launcher
+   exporta `CUDA_HOME` para ele, então o JIT funciona. O cubin (6,3 GB) é opcional; o venv de
+   produção roda sem ele.
+
+**Validação executada:** `verify.sh --install` e `verify.sh` (0 failures) · `bench/api_smoke.py`
+(12/12) · `bench/residue_sweep.py` (0 broken de 128) · chat, tool calling e streaming ·
+8 requisições em paralelo (8/8) · FIM por `/v1/completions` · playground em :7860 (health + teste de
+conexão com o vLLM) · A/B de performance contra o 0.31.0 com argv idêntico (paridade, 0,3%).
+
+**Rollback:** o venv antigo está preservado em `qwen38-27b-rtx3090/venv.failed-031` (15 GB). Para
+bootar com ele é preciso re-apontar os shebangs de `venv.failed-031/bin/*` para
+`venv.failed-031/bin/python3.12` (ele foi construído como `venv-031` e renomeado). Para voltar ao
+estado novo: `mv venv venv.033 && mv venv.failed-031 venv` + `sed` nos shebangs + `systemctl restart`.
+
+**Ganho de disco:** caches limpos (`~/.cache/pip` 6,4 GB, `~/.cache/uv` 22 GB, `~/.cache/vllm` 13 GB,
+build cache do Docker 4,1 GB) — o `/` saiu de 9,7 GB livres (95%) para ~42 GB (76%).
 
 **2026-10-12 — upgrade vLLM 0.27.1 → 0.31.0 concluído.** Clone do upstream movido de `fdf9182`
 (24/08) para `95ee3b6` (11/10), +385 commits. `verify.sh`: **OK, 0 failures**.
@@ -198,5 +321,8 @@ preciso reinstalar `vllm==0.27.1` num venv limpo e dar `git checkout fdf9182` no
 **Ainda não adotado:** `KV_OFFLOAD_GB` (tier de KV cache em CPU via `/dev/shm`; a máquina tem só
 20 GB de RAM, comece em 8), `VISION_OFFLOAD` (a visão voltou a ser possível neste stack).
 
-**Modelo base no HuggingFace sem novidade:** [Qwen/Qwen3.8-27B](https://huggingface.co/Qwen/Qwen3.8-27B)
-teve último commit em agosto/2026, só README/tokenizer/generation_config — nenhuma mudança de peso.
+**Modelo base no HuggingFace:** [Qwen/Qwen3.8-27B](https://huggingface.co/Qwen/Qwen3.8-27B) — nenhuma
+mudança de peso. Último commit `37561816` (2026-11-07, "Add a response template and generation tags"):
+o `chat_template.jinja` ganhou só marcações `{% generation %}` (máscara de treino); o texto renderizado
+na inferência e os ramos de `reasoning_effort` são idênticos ao template local (md5 `519239a4…`).
+Não aplicado — sem efeito em serving.

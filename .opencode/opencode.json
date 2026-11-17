@@ -18,13 +18,13 @@
                         "context": 140000,
                         "output": 32768
                     },
-                    "tools": true,
+                    "tool_call": true,
                     "reasoning": true,
                     "interleaved": {
                         "field": "reasoning"
                     },
-                    "settings": {
-                        "reasoningEffort": "low"
+                    "options": {
+                        "reasoningEffort": "medium"
                     }
                 }
             }
