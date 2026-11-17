@@ -123,6 +123,22 @@ de aplicar no chute. **Um upgrade do vLLM sem reaplicá-los dropa todas essas ot
 **Camada downstream** ([infra/](infra/)): LiteLLM (`infra/litellm/`), OpenCode (`infra/opencode/`),
 OpenClaw, logrotate. Todos devem referenciar `qwen3.8-27b` na porta **18020**.
 
+**OpenCode (testado headless, v1.18.34):** campos extras em `provider.<p>.models.<m>.options` **chegam** ao
+servidor (`temperature`, `top_k`, `thinking_token_budget` conferidos no log); `agent.<nome>.temperature`
+**não** chegou (veio 1.0). Por isso a config usa `options.temperature: 0.6` (experimento: o card recomenda
+1.0; 0.6 + teto de thinking é o único relato de "resolveu" no HF #178) e `limit.output: 16384` (loop custa
+no máximo 16k; gatilho de compactação = `context − output` = ~84k — o `compaction.reserved` só vale com
+`limit.input`).
+
+**Limites dos clientes (2026-11-16):** OpenCode e OpenClaude declaram contexto de **100k** (não 140k)
+para compactar antes da faixa de 60k–120k onde sessões de agente colapsaram em loop de texto; LiteLLM
+usa `max_input_tokens: 100000`; OpenClaw fica em 140k porque o `reserveTokens: 40000` dele já compacta
+em ~100k. Effort em `medium` em todos (OpenCode `reasoningEffort`, OpenClaude `effortLevel`, OpenClaw
+`thinkingDefault`). **O cliente sobrescreve o effort do servidor** — e as cópias que valem ficam nas
+máquinas dos clientes, não neste repo. As camadas anti-loop existentes (`opencode-anti-loop`,
+`infra/litellm/loop_guard.py`) só detectam **tool_calls repetidas**, não texto degenerado; para isso
+existe só o `presence_penalty` do servidor.
+
 ## Config atual de produção
 
 Verificado contra o processo vivo e `GET /v1/models` em 2026-11-12 (vLLM **0.33.0**).
@@ -145,6 +161,15 @@ Verificado contra o processo vivo e `GET /v1/models` em 2026-11-12 (vLLM **0.33.
   O vLLM funde com o `generation_config.json` → defaults efetivos `presence_penalty=1.0, temperature=1.0,
   top_k=20, top_p=0.95`; o cliente ainda pode sobrescrever por request. Testado: `api_smoke.py` 12/12 e
   cópia literal de ~3,5k chars de código **idêntica** com penalty 0 / 1.0 / 1.5.
+- **Teto de thinking e alarme de loop (desde 2026-11-16):** patch local
+  [patches/local/qwen3-server-sampling-defaults.patch](patches/local/qwen3-server-sampling-defaults.patch)
+  (`make setup-local-patches`, também na cadeia do `make setup`) faz o servidor preencher dois campos que o
+  `--override-generation-config` não aceita, **só quando o request não os manda**, a partir do `.env`:
+  `QWEN_DEFAULT_THINKING_BUDGET=8192` (força o `</think>`) e `QWEN_DEFAULT_REPETITION_DETECTION=3,24,12`
+  (padrão de 3–24 tokens repetido 12x seguidas → `finish_reason=repetition`; o cliente desliga com
+  `repetition_detection:{max_pattern_size:0}`). Vive **fora** do clone do upstream: um upgrade do vLLM
+  (venv novo) exige rodar `make setup-local-patches` de novo. Validado: frase repetida para em 108 tokens;
+  `api_smoke` 12/12; cópia literal de código idêntica; decode 150,5 tok/s código / 65,5 narrativo.
 - **Log de requests (diagnóstico, temporário):** `--enable-log-requests --max-log-len 300` — mostra os
   `SamplingParams` reais de cada cliente (effort, temperatura, penalty) no log. Remover quando o loop de
   repetição estiver resolvido.
@@ -185,8 +210,8 @@ O que cada valor injeta não é o que o nome sugere:
   que efetivamente pede thinking curto. **Abandonado em 2026-11-16:** em sessões longas de agente
   (~58k–120k tokens) o thinking colapsou em fragmentos ("Let me.", "Let.", "I'll do.") até bater em
   `length` (5 requests). Não há anti-repetição configurado (sem `presence_penalty`; o
-  `repetition_detection` do vLLM é só por request). Reapareceu com `medium` no servidor — mas o
-  OpenClaude manda `effortLevel` próprio (estava `low`) e sobrescreve. Resposta em 2026-11-16: `presence_penalty`
+  `repetition_detection` do vLLM é só por request). Reapareceu com `medium` no servidor — num cliente
+  **OpenCode** (a config do Windows pode ainda mandar `reasoningEffort: low`, que sobrescreve). Resposta em 2026-11-16: `presence_penalty`
   1.0 no servidor, OpenClaude em `medium` e `contextWindow` 100k (compacta mais cedo).
 
 **Performance medida em 2026-11-12** (vLLM 0.33.0, prompt curto, 600 tokens de saída, streaming,

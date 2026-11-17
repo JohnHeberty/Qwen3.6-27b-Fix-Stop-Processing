@@ -37,7 +37,7 @@ LOGROTATE_DEST     ?= /etc/logrotate.d/qwen-logs
         playground-up playground-down playground-logs playground-build \
         litellm-start litellm-stop \
         test \
-        setup setup-repo setup-venv setup-model setup-quant setup-patches \
+        setup setup-repo setup-venv setup-model setup-quant setup-patches setup-local-patches \
         setup-xgrammar setup-fast setup-dflash2 setup-service setup-verify
 
 ##############################################################################
@@ -220,7 +220,7 @@ PYTHON         ?= python3
 _REQUIREMENTS  := $(PROJECT_ROOT)/qwen38-27b-rtx3090/docker/requirements.txt
 
 # make setup — pipeline completo, idempotente
-setup: setup-repo setup-venv setup-model setup-quant setup-patches setup-xgrammar setup-fast setup-dflash2 setup-service setup-verify
+setup: setup-repo setup-venv setup-model setup-quant setup-patches setup-local-patches setup-xgrammar setup-fast setup-dflash2 setup-service setup-verify
 	@echo ""
 	@echo "  ✓ Setup completo! Para iniciar: make start"
 	@echo ""
@@ -285,6 +285,19 @@ setup-patches: setup-venv
 		touch "$(_PATCH_SENTINEL)"; \
 		echo "  ✓ Patches aplicados (série + KVarN)"; \
 	fi
+
+# 4b. Patches locais deste repo (patches/local/*.patch), por cima da série do upstream.
+# Idempotente: um patch já aplicado é detectado pelo dry-run reverso e pulado.
+setup-local-patches: setup-patches
+	@VLLM_DIR=$$(cd "$(PROJECT_ROOT)/qwen38-27b-rtx3090" && venv/bin/python -c 'import vllm,os;print(os.path.dirname(vllm.__file__))' | tail -n1); \
+	for p in "$(PROJECT_ROOT)"/patches/local/*.patch; do \
+		if patch -d "$$VLLM_DIR" -p1 -R --dry-run --fuzz 0 -s < "$$p" >/dev/null 2>&1; then \
+			echo "  ✓ $$(basename $$p) já aplicado"; \
+		else \
+			patch -d "$$VLLM_DIR" -p1 --forward --fuzz 0 < "$$p" || exit 1; \
+			echo "  ✓ $$(basename $$p) aplicado"; \
+		fi; \
+	done
 
 # 6. xgrammar compilado do fonte (mlc-ai/xgrammar#989 + fix do template Qwen).
 # Sem isso, maxLength num parâmetro string de tool derruba o decode para ~7 tok/s

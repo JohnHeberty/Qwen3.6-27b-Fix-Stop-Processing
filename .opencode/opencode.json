@@ -16,7 +16,7 @@
                     "name": "AutoRound+DFlash2",
                     "limit": {
                         "context": 140000,
-                        "output": 32768
+                        "output": 16384
                     },
                     "tool_call": true,
                     "reasoning": true,
@@ -24,7 +24,8 @@
                         "field": "reasoning"
                     },
                     "options": {
-                        "reasoningEffort": "medium"
+                        "reasoningEffort": "medium",
+                        "temperature": 0.6
                     }
                 }
             }

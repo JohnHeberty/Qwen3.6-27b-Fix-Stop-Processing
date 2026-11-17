@@ -1,0 +1,50 @@
+--- a/entrypoints/openai/chat_completion/protocol.py	2026-11-16 22:54:18.996445139 -0300
++++ b/entrypoints/openai/chat_completion/protocol.py	2026-11-16 22:54:19.006196533 -0300
+@@ -3,6 +3,7 @@
+ 
+ # Adapted from
+ # https://github.com/lm-sys/FastChat/blob/168ccc29d3f7edc50823016105c024fe2282732a/fastchat/protocol/openai_api_protocol.py
++import os
+ import time
+ from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal
+ 
+@@ -793,6 +794,25 @@
+         if self.ec_transfer_params:
+             # Pass in ec_transfer_params via extra_args
+             extra_args["ec_transfer_params"] = self.ec_transfer_params
++        # [qwen3-local] Server-side defaults for fields the client omitted. Qwen3.8 in
++        # thinking mode can loop ("Let me." / the same sentence) in long agent turns;
++        # --override-generation-config cannot carry these two, so they come from env:
++        #   QWEN_DEFAULT_THINKING_BUDGET=<int>          hard cap on reasoning tokens
++        #   QWEN_DEFAULT_REPETITION_DETECTION=min,max,count  n-gram loop tripwire
++        # A request that sends its own value (or max_pattern_size=0) wins.
++        thinking_token_budget = self.thinking_token_budget
++        if thinking_token_budget is None and os.environ.get("QWEN_DEFAULT_THINKING_BUDGET"):
++            thinking_token_budget = int(os.environ["QWEN_DEFAULT_THINKING_BUDGET"])
++        repetition_detection = self.repetition_detection
++        if repetition_detection is None and os.environ.get(
++            "QWEN_DEFAULT_REPETITION_DETECTION"
++        ):
++            mn, mx, cnt = (
++                int(x) for x in os.environ["QWEN_DEFAULT_REPETITION_DETECTION"].split(",")
++            )
++            repetition_detection = RepetitionDetectionParams(
++                max_pattern_size=mx, min_pattern_size=mn, min_count=cnt
++            )
+         return SamplingParams.from_optional(
+             n=self.n,
+             **sampling_params,
+@@ -820,11 +840,11 @@
+             structured_outputs=self.extract_structured_outputs(),
+             logit_bias=self.logit_bias,
+             bad_words=self.bad_words,
+-            thinking_token_budget=self.thinking_token_budget,
++            thinking_token_budget=thinking_token_budget,
+             allowed_token_ids=self.allowed_token_ids,
+             extra_args=extra_args or None,
+             skip_clone=True,  # Created fresh per request, safe to skip clone
+-            repetition_detection=self.repetition_detection,
++            repetition_detection=repetition_detection,
+             routed_experts_prompt_start=self.routed_experts_prompt_start,
+             return_progress=self.return_progress or False,
+         )

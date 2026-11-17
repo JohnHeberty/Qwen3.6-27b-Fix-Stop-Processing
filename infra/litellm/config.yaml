@@ -6,8 +6,10 @@ model_list:
       api_key: "vllm-local"
       max_tokens: 32000
     model_info:
-      # Qwen3.8-27B AutoRound+DFlash2 (vLLM TP=2, 142k max, 130k usable),
-      # ~16GB/GPU, sem visão (--language-model-only)
+      # Qwen3.8-27B AutoRound+DFlash2 (vLLM 0.33 TP=2, max_model_len 142080),
+      # ~15,6GB/GPU, sem visão (--language-model-only).
+      # O servidor já aplica presence_penalty 1.0, teto de thinking e alarme de
+      # repetição por default; o loop-guard abaixo só pega tool_calls.
       mode: chat
       context_window: 140000
       max_input_tokens: 120000
