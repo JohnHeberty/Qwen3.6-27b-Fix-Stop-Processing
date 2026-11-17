@@ -26,6 +26,9 @@ env.bk
 # Clone vLLM (repo externo com .git proprio; venv e modelos somam dezenas de GB)
 qwen38-27b-rtx3090/
 
+# gpu-unlock (Zagitta) — clone externo só para estudo do unlock BF16/FP16 das Ampere
+gpu-unlock/
+
 # Logs e temporários
 data/logs/
 data/temp/

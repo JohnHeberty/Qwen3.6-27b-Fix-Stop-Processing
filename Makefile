@@ -24,16 +24,21 @@ COMPOSE_PLAYGROUND ?= $(PROJECT_ROOT)/docker-compose.yml
 COMPOSE_LITELLM    ?= $(PROJECT_ROOT)/infra/litellm/docker-compose.yml
 LITELLM_ENV        ?= $(PROJECT_ROOT)/infra/litellm/.env
 
+# ── Rotação de logs ───────────────────────────────────────────────────────────
+LOGROTATE_DEST     ?= /etc/logrotate.d/qwen-logs
+
 .DEFAULT_GOAL := help
 
 .PHONY: help \
         start stop restart status logs \
         install-service uninstall-service \
+        install-logrotate uninstall-logrotate \
+        doctor \
         playground-up playground-down playground-logs playground-build \
         litellm-start litellm-stop \
         test \
         setup setup-repo setup-venv setup-model setup-quant setup-patches \
-        setup-fast setup-dflash2 setup-service setup-verify
+        setup-xgrammar setup-fast setup-dflash2 setup-service setup-verify
 
 ##############################################################################
 # SERVIDOR (systemd qwen38-27b)
@@ -90,6 +95,40 @@ uninstall-service:
 	@$(SUDO) rm -f "$(SERVICE_DEST)"
 	@$(SUDO) systemctl daemon-reload
 	@echo "✓ Serviço '$(SERVICE_NAME)' removido. Unit versionado no repo permanece."
+
+##############################################################################
+# DOCTOR (status somente-leitura do upstream: config + GPU + porta + /health)
+##############################################################################
+# O upstream tem scripts/hq-doctor.sh. Ele lê o .env do repo do vLLM, então
+# passamos o .env da raiz via symlink temporário quando ele não existe lá.
+doctor:
+	@if [ ! -f "$(PROJECT_ROOT)/qwen38-27b-rtx3090/.env" ]; then \
+		ln -sfn "$(PROJECT_ROOT)/.env" "$(PROJECT_ROOT)/qwen38-27b-rtx3090/.env"; \
+		_trap=1; \
+	fi; \
+	set -a; . "$(PROJECT_ROOT)/.env"; set +a; \
+	cd "$(PROJECT_ROOT)/qwen38-27b-rtx3090" && bash scripts/hq-doctor.sh; \
+	rc=$$?; \
+	if [ -n "$$_trap" ]; then rm -f "$(PROJECT_ROOT)/qwen38-27b-rtx3090/.env"; fi; \
+	exit $$rc
+
+##############################################################################
+# ROTAÇÃO DE LOGS (logrotate) — inclui o log do serviço vLLM
+##############################################################################
+# O unit do vLLM faz append em data/logs/qwen38-27b.log, que cresce sem limite
+# (151 MB em ~1 dia de uso). A rotação usa copytruncate para não derrubar o
+# serviço (o unit reabre o arquivo pelo append, mas com copytruncate não precisa).
+install-logrotate:
+	@sed "s|__PROJECT_ROOT__|$(PROJECT_ROOT)|g" \
+		"$(PROJECT_ROOT)/infra/logrotate/qwen-logs" \
+		| $(SUDO) tee "$(LOGROTATE_DEST)" > /dev/null
+	@$(SUDO) logrotate --debug "$(LOGROTATE_DEST)" >/dev/null 2>&1 \
+		&& echo "✓ logrotate instalado e validado em $(LOGROTATE_DEST)." \
+		|| echo "✓ logrotate instalado em $(LOGROTATE_DEST) (valide com: logrotate --debug $(LOGROTATE_DEST))."
+
+uninstall-logrotate:
+	@$(SUDO) rm -f "$(LOGROTATE_DEST)"
+	@echo "✓ logrotate removido ($(LOGROTATE_DEST))."
 
 ##############################################################################
 # PLAYGROUND (docker compose raiz — container vllm-playground, UI em :7860)
@@ -153,7 +192,7 @@ test:
 	@test -f "$(COMPOSE_LITELLM)" \
 		&& echo "  ✓ $(COMPOSE_LITELLM)" \
 		|| { echo "  ✗ $(COMPOSE_LITELLM) ausente"; exit 1; }
-	@for f in opencode.json infra/opencode/config.json data/vllm-playground/instances.json; do \
+	@for f in .opencode/opencode.json infra/opencode/config.json data/vllm-playground/instances.json; do \
 		if python3 -m json.tool "$(PROJECT_ROOT)/$$f" >/dev/null 2>&1; then \
 			echo "  ✓ $$f (JSON válido)"; \
 		else \
@@ -168,11 +207,20 @@ test:
 # Sentinelas para cada etapa (idempotente — só roda uma vez)
 _VENV_SENTINEL  := $(PROJECT_ROOT)/qwen38-27b-rtx3090/venv/bin/python
 _MODEL_SENTINEL := $(PROJECT_ROOT)/qwen38-27b-rtx3090/models/Qwen3.8-27B-W4A16-AutoRound/config.json
-_PATCH_SENTINEL := $(PROJECT_ROOT)/qwen38-27b-rtx3090/.patches-applied
+_PATCH_SENTINEL := $(PROJECT_ROOT)/qwen38-27b-rtx3090/venv/.patches-applied
+_XG_SENTINEL    := $(PROJECT_ROOT)/qwen38-27b-rtx3090/venv/.xgrammar-built
 _REPO_URL      ?= https://github.com/syv-ai/qwen38-27b-rtx3090.git
+# O venv de produção foi criado com Python 3.12 (uv). Qualquer 3.12/3.13/3.14
+# serve (o upstream suporta 3.14 — docs/python-314.md), mas o pin de torch/CUDA
+# do vLLM 0.33.0 foi resolvido com 3.12 aqui.
+PYTHON         ?= python3
+# requirements.txt do upstream (dentro do repo clonado) fixa vllm==0.33.0,
+# torch 2.14.0+cu130, transformers 5.19.0 e o toolchain CUDA 13.0 (nvcc/crt/
+# cccl/nvvm) que o FlashInfer JIT exige.
+_REQUIREMENTS  := $(PROJECT_ROOT)/qwen38-27b-rtx3090/docker/requirements.txt
 
 # make setup — pipeline completo, idempotente
-setup: setup-repo setup-venv setup-model setup-quant setup-patches setup-fast setup-dflash2 setup-service setup-verify
+setup: setup-repo setup-venv setup-model setup-quant setup-patches setup-xgrammar setup-fast setup-dflash2 setup-service setup-verify
 	@echo ""
 	@echo "  ✓ Setup completo! Para iniciar: make start"
 	@echo ""
@@ -186,16 +234,16 @@ setup-repo:
 		git clone "$(_REPO_URL)" "$(PROJECT_ROOT)/qwen38-27b-rtx3090"; \
 	fi
 
-# 2. Criar venv + instalar dependências (vllm, hf_transfer, etc.)
+# 2. Criar venv + instalar dependências (pins do upstream: vllm==0.33.0, torch 2.14+cu130)
 setup-venv:
 	@if [ -f "$(_VENV_SENTINEL)" ]; then \
 		echo "  ✓ venv já existe, pulando"; \
 	else \
-		echo "  → Criando venv..."; \
-		python3 -m venv "$(PROJECT_ROOT)/qwen38-27b-rtx3090/venv"; \
-		echo "  → Instalando dependências (vllm, huggingface_hub, hf_transfer)..."; \
+		echo "  → Criando venv ($(PYTHON))..."; \
+		$(PYTHON) -m venv "$(PROJECT_ROOT)/qwen38-27b-rtx3090/venv"; \
+		echo "  → Instalando dependências pinadas (vllm 0.33.0 + CUDA 13 toolchain)..."; \
 		HF_HUB_ENABLE_HF_TRANSFER=1 "$(PROJECT_ROOT)/qwen38-27b-rtx3090/venv/bin/pip" install \
-			vllm huggingface_hub hf_transfer ninja 2>&1 | tail -5; \
+			-r "$(_REQUIREMENTS)" 2>&1 | tail -5; \
 	fi
 
 # 3. Baixar o modelo (~19.5 GB)
@@ -217,50 +265,65 @@ setup-quant: setup-model
 			echo "  ✓ Requantização já aplicada, pulando"; \
 		else \
 			echo "  → Requantizando lm_head, embed_tokens e MTP..."; \
-			venv/bin/python quant_lm_head.py models/Qwen3.8-27B-W4A16-AutoRound && \
-			venv/bin/python quant_embed.py   models/Qwen3.8-27B-W4A16-AutoRound && \
-			venv/bin/python quant_mtp.py     models/Qwen3.8-27B-W4A16-AutoRound && \
-			venv/bin/python build_draft_vocab.py models/Qwen3.8-27B-W4A16-AutoRound --ids draft_vocab_ids.json; \
+			venv/bin/python prepare/quant_lm_head.py models/Qwen3.8-27B-W4A16-AutoRound && \
+			venv/bin/python prepare/quant_embed.py   models/Qwen3.8-27B-W4A16-AutoRound && \
+			venv/bin/python prepare/quant_mtp.py     models/Qwen3.8-27B-W4A16-AutoRound && \
+			venv/bin/python prepare/build_draft_vocab.py models/Qwen3.8-27B-W4A16-AutoRound --ids prepare/draft_vocab_ids.json; \
 			echo "  ✓ Requantização concluída"; \
 		fi
 
-# 5. Aplicar patches do vLLM (todos de uma vez)
+# 5. Aplicar patches do vLLM (série do upstream, em ordem — patches/apply.sh)
 setup-patches: setup-venv
 	@if [ -f "$(_PATCH_SENTINEL)" ]; then \
 		echo "  ✓ Patches já aplicados, pulando"; \
 	else \
-		echo "  → Aplicando patches do vLLM..."; \
+		echo "  → Aplicando patches do vLLM (série patches/series, ordem obrigatória)..."; \
 		cd "$(PROJECT_ROOT)/qwen38-27b-rtx3090" && \
-		for p in patches/*.patch; do \
-			patch -p1 -d venv/lib/python3.12/site-packages/vllm < "$$p" 2>&1 | tail -1; \
-		done; \
+		bash patches/apply.sh --list && \
+		bash patches/apply.sh "$$(venv/bin/python -c 'import vllm,os;print(os.path.dirname(vllm.__file__))' | tail -n1)" && \
+		bash kvarn/install.sh && \
 		touch "$(_PATCH_SENTINEL)"; \
+		echo "  ✓ Patches aplicados (série + KVarN)"; \
 	fi
 
-# 6. Baixar variante fast (~1 GB, hardlinks do modelo base)
+# 6. xgrammar compilado do fonte (mlc-ai/xgrammar#989 + fix do template Qwen).
+# Sem isso, maxLength num parâmetro string de tool derruba o decode para ~7 tok/s
+# com TOOL_STRICT=parameter. O build falha neste host com um erro de ODR do LTO
+# do GCC, daí -Wno-error.
+setup-xgrammar: setup-venv
+	@if [ -f "$(_XG_SENTINEL)" ]; then \
+		echo "  ✓ xgrammar já compilado, pulando"; \
+	else \
+		echo "  → Compilando xgrammar do fonte (leva ~1 min)..."; \
+		cd "$(PROJECT_ROOT)/qwen38-27b-rtx3090" && \
+		CXXFLAGS="$${CXXFLAGS:--Wno-error}" CFLAGS="$${CFLAGS:--Wno-error}" bash xgrammar/install.sh && \
+		touch "$(_XG_SENTINEL)"; \
+	fi
+
+# 7. Baixar variante fast (~1 GB, hardlinks do modelo base)
 setup-fast: setup-venv setup-model
 	@if [ -d "$(PROJECT_ROOT)/qwen38-27b-rtx3090/models/Qwen3.8-27B-W4A16-AutoRound-fast" ]; then \
 		echo "  ✓ Variante fast já existe, pulando"; \
 	else \
 		echo "  → Baixando variante fast (int4-GPTQ lm_head)..."; \
-		cd "$(PROJECT_ROOT)/qwen38-27b-rtx3090" && venv/bin/python fetch_fast_variant.py; \
+		cd "$(PROJECT_ROOT)/qwen38-27b-rtx3090" && venv/bin/python prepare/fetch_fast_variant.py; \
 	fi
 
-# 7. Baixar drafter DFlash2 (~1.2 GB) — opcional, para SPEC=dflash2
+# 8. Baixar drafter DFlash2 (~1.2 GB) — opcional, para SPEC=dflash2
 setup-dflash2: setup-venv
 	@if [ -f "$(PROJECT_ROOT)/qwen38-27b-rtx3090/models/Qwen3.8-27B-DFlash2-W4A16/model.safetensors" ]; then \
 		echo "  ✓ Drafter DFlash2 já existe, pulando"; \
 	else \
 		echo "  → Baixando drafter DFlash2 (W4A16, ~1.2 GB)..."; \
-		cd "$(PROJECT_ROOT)/qwen38-27b-rtx3090" && venv/bin/python fetch_dflash2.py; \
+		cd "$(PROJECT_ROOT)/qwen38-27b-rtx3090" && venv/bin/python prepare/fetch_dflash2.py; \
 	fi
 
-# 8. Instalar o unit no systemd
+# 9. Instalar o unit no systemd
 setup-service:
 	@echo "  → Instalando serviço systemd..."
 	@$(MAKE) install-service
 
-# 9. Rodar verificação final
+# 10. Rodar verificação final
 setup-verify:
 	@echo "  → Rodando verificação..."
 	@cd "$(PROJECT_ROOT)/qwen38-27b-rtx3090" && \
@@ -286,6 +349,13 @@ help:
 	@echo "  INSTALAÇÃO DO SERVIÇO:"
 	@echo "  make install-service    Instala unit versionado (substitui symlink quebrado)"
 	@echo "  make uninstall-service  Para, desabilita e remove o unit instalado"
+	@echo ""
+	@echo "  ROTAÇÃO DE LOGS:"
+	@echo "  make install-logrotate  Instala /etc/logrotate.d/qwen-logs (inclui o log do vLLM)"
+	@echo "  make uninstall-logrotate  Remove a config de logrotate"
+	@echo ""
+	@echo "  DIAGNÓSTICO:"
+	@echo "  make doctor             Config efetiva + GPU + porta + /health (read-only)"
 	@echo ""
 	@echo "  PLAYGROUND (container vllm-playground, UI em :7860):"
 	@echo "  make playground-up      Sobe o playground em background"

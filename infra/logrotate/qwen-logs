@@ -1,7 +1,10 @@
-# logrotate para os logs do qwen (vLLM DFlash2).
+# logrotate para os logs do qwen (vLLM/qwen38 + llama-server + captura de debug).
 # TEMPLATE: __PROJECT_ROOT__ é substituído por `make install-logrotate`.
 # Instala em /etc/logrotate.d/qwen-logs.
+__PROJECT_ROOT__/data/logs/server.log
+__PROJECT_ROOT__/data/logs/vllm-dflash2.log
 __PROJECT_ROOT__/data/logs/qwen38-27b.log
+__PROJECT_ROOT__/data/logs/capture/llama-verbose.log
 {
     daily
     rotate 7

@@ -1,0 +1,28 @@
+# Continue (VSCode) — chat/edit/autocomplete, tudo no vLLM (Qwen3.8-27B).
+# Copiar para ~/.continue/config.yaml na MÁQUINA DO VSCODE (não neste servidor).
+# Não use provider "llama.cpp": ele chama /completion, que o vLLM não tem (404).
+name: qwen3-local
+version: 1.0.0
+schema: v1
+models:
+  - name: Qwen3.8-27B (chat)
+    provider: openai
+    model: qwen3.8-27b
+    apiBase: http://100.102.127.47:18020/v1
+    apiKey: none
+    roles: [chat, edit, apply]
+
+  # Autocomplete: o próprio 27B via /v1/completions com template FIM (o 7B coder do Ollama foi descartado: ruim).
+  - name: Qwen3.8-27B (autocomplete FIM)
+    provider: openai
+    model: qwen3.8-27b
+    apiBase: http://100.102.127.47:18020/v1
+    apiKey: none
+    roles: [autocomplete]
+    useLegacyCompletionsEndpoint: true   # força POST /v1/completions
+    defaultCompletionOptions:
+      temperature: 0
+      maxTokens: 128
+      stop: ["<|endoftext|>", "<|fim_pad|>", "<|fim_prefix|>", "<|fim_suffix|>", "<|fim_middle|>"]
+    autocompleteOptions:
+      template: "<|fim_prefix|>{{{prefix}}}<|fim_suffix|>{{{suffix}}}<|fim_middle|>"
