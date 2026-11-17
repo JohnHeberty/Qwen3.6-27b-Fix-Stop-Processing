@@ -51,16 +51,19 @@ Vale só para a sessão; o OpenClaude salva o nível por modelo.
 **3. Permanente** — `effortLevel` no `settings.json` (é o que está configurado aqui).
 Escrito automaticamente quando você roda `/effort` com `low`, `medium`, `high` ou `xhigh`.
 
-O `settings.json` leva **um** valor, não a lista — aqui está `"low"`. Para trocar de vez,
-edite essa chave; para trocar só agora, use `/effort`. E `auto` não foi escolhido como
-default de propósito: medido contra este servidor ele fica praticamente igual ao `low`
-(326 vs 304 tokens de raciocínio numa tarefa de código), porque cai no ramo sem
-orientação do template. `low` dá o mesmo resultado sendo explícito sobre o que pede.
+O `settings.json` leva **um** valor, não a lista — aqui está `"medium"` (era `"low"` até
+2026-11-16). Para trocar de vez, edite essa chave; para trocar só agora, use `/effort`.
 
-**Cuidado com os níveis que quebram** (ver tabela abaixo): se você rodar `/effort max`
-ou `/effort high` numa sessão, as requisições passam a falhar com HTTP 400 até você
-voltar para um valor aceito. Não é erro de config — é incompatibilidade entre a lista do
-OpenClaude e o template do Qwen.
+**Por que saiu do `low`:** em sessões longas de agente (60k–120k tokens) o modelo travou na
+transição pensar→agir, repetindo "Let me." / "Now let's write the test file" até bater em
+`length`. O `low` injeta "keep your thinking brief… moving directly to the conclusion"; o
+`medium` não injeta nada. O servidor também passou a aplicar `presence_penalty: 1.0` por
+default (ver o CLAUDE.md da raiz). **Este `settings.json` sobrescreve o servidor** — se a
+cópia na máquina do cliente ainda disser `low`, é `low` que vale.
+
+**Níveis que quebravam** (ver tabela abaixo): `high` e `max` davam HTTP 400. Desde
+2026-11-16 o servidor tem `--reasoning-effort-map` (`high`/`max`→`xhigh`, `minimal`→`low`)
+e eles funcionam. `ultracode` não foi re-testado.
 
 Para desligar o pensamento por completo, `effortLevel` não serve — o mais baixo ainda
 pensa (~254 tokens). Isso se faz com `enable_thinking:false` no chat template kwargs, o
@@ -144,12 +147,12 @@ servidor em 2026-10-15:
 
 | `/effort` | servidor | raciocínio medido |
 |---|---|---|
-| `low` | ✅ | 254 tok — **em uso** |
+| `low` | ✅ | 254 tok (em uso até 2026-11-16) |
 | `auto` | ✅ | 332 tok (cai no ramo default, sem orientação) |
-| `medium` | ✅ | não injeta orientação nenhuma |
+| `medium` | ✅ | não injeta orientação nenhuma — **em uso** |
 | `xhigh` | ✅ | 1.500 tok |
-| `high` | ❌ HTTP 400 | — |
-| `max` | ❌ HTTP 400 | — |
+| `high` | ❌ HTTP 400 (✅ desde 2026-11-16, mapeado para `xhigh`) | — |
+| `max` | ❌ HTTP 400 (✅ desde 2026-11-16, mapeado para `xhigh`) | — |
 | `ultracode` | ❌ HTTP 400 | — |
 
 ```
@@ -161,7 +164,7 @@ tem ramo no template: é "sem orientação", não "esforço médio". Só `low` p
 pensamento curto.
 
 **O cliente sobrescreve o `reasoning_effort` do servidor.** O `.env` do repo força
-`reasoning_effort:low` via `--default-chat-template-kwargs`, mas o que o cliente manda
+`reasoning_effort:medium` (era `low`) via `--default-chat-template-kwargs`, mas o que o cliente manda
 vence. Medido num prompt de design de sistema:
 
 | effort enviado | tokens de raciocínio |
@@ -182,9 +185,12 @@ ignora o valor, mas o cliente exige a variável presente.
 ## Contexto e saída
 
 - Servidor: `max_model_len=142080`
-- Declarado aqui: `contextWindow: 140000` (2.080 de margem), `maxOutputTokens: 32768`
+- Declarado aqui: `contextWindow: 100000`, `maxOutputTokens: 32768`
 
-Mesmos números dos outros consumidores (`../opencode/`, `../litellm/`, `../openclaw/`).
+O `contextWindow` fica **abaixo** do servidor de propósito (era 140000): o cliente compacta
+mais cedo, longe da faixa de 60k–120k em que as sessões colapsaram em repetição
+(2026-11-16). Os outros consumidores (`../opencode/`, `../litellm/`, `../openclaw/`) seguem
+em 140000.
 
 ## Não verificado
 

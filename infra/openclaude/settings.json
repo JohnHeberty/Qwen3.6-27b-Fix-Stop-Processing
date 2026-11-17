@@ -1,9 +1,9 @@
 {
   "model": "qwen3.8-27b",
-  "effortLevel": "low",
+  "effortLevel": "medium",
   "modelLimits": {
     "qwen3.8-27b": {
-      "contextWindow": 140000,
+      "contextWindow": 100000,
       "maxOutputTokens": 32768
     }
   },

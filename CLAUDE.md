@@ -141,6 +141,13 @@ Verificado contra o processo vivo e `GET /v1/models` em 2026-11-12 (vLLM **0.33.
   · `--tool-strict-level parameter`
 - **Raciocínio:** `reasoning_effort:medium`, `enable_thinking:true`, **`preserve_thinking:false`**,
   todos via `--default-chat-template-kwargs` dentro de `EXTRA_ARGS` no `.env`.
+- **Anti-repetição:** `--override-generation-config {"presence_penalty":1.0}` (desde 2026-11-16).
+  O vLLM funde com o `generation_config.json` → defaults efetivos `presence_penalty=1.0, temperature=1.0,
+  top_k=20, top_p=0.95`; o cliente ainda pode sobrescrever por request. Testado: `api_smoke.py` 12/12 e
+  cópia literal de ~3,5k chars de código **idêntica** com penalty 0 / 1.0 / 1.5.
+- **Log de requests (diagnóstico, temporário):** `--enable-log-requests --max-log-len 300` — mostra os
+  `SamplingParams` reais de cada cliente (effort, temperatura, penalty) no log. Remover quando o loop de
+  repetição estiver resolvido.
 - **Cudagraph:** `--max-cudagraph-capture-size 64`, `custom_ops: [+rms_norm, +silu_and_mul]`
 - **Boot:** ~90 s até `/health` 200 (torch.compile ~67 s + captura de cudagraph)
 
@@ -178,8 +185,9 @@ O que cada valor injeta não é o que o nome sugere:
   que efetivamente pede thinking curto. **Abandonado em 2026-11-16:** em sessões longas de agente
   (~58k–120k tokens) o thinking colapsou em fragmentos ("Let me.", "Let.", "I'll do.") até bater em
   `length` (5 requests). Não há anti-repetição configurado (sem `presence_penalty`; o
-  `repetition_detection` do vLLM é só por request). Se `medium` não bastar, próximo passo:
-  `--override-generation-config {"presence_penalty":1.0}` no `EXTRA_ARGS`.
+  `repetition_detection` do vLLM é só por request). Reapareceu com `medium` no servidor — mas o
+  OpenClaude manda `effortLevel` próprio (estava `low`) e sobrescreve. Resposta em 2026-11-16: `presence_penalty`
+  1.0 no servidor, OpenClaude em `medium` e `contextWindow` 100k (compacta mais cedo).
 
 **Performance medida em 2026-11-12** (vLLM 0.33.0, prompt curto, 600 tokens de saída, streaming,
 temperatura 0 — [scripts/bench_tps.py](scripts/bench_tps.py)): **133,1 tok/s em código**, 66,9 tok/s
