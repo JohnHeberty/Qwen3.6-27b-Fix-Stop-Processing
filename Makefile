@@ -37,7 +37,7 @@ LOGROTATE_DEST     ?= /etc/logrotate.d/qwen-logs
         playground-up playground-down playground-logs playground-build \
         litellm-start litellm-stop \
         test \
-        setup setup-repo setup-venv setup-model setup-quant setup-patches setup-local-patches \
+        setup setup-repo setup-venv setup-model setup-quant setup-patches setup-local-patches setup-lora \
         setup-xgrammar setup-fast setup-dflash2 setup-service setup-verify
 
 ##############################################################################
@@ -220,7 +220,7 @@ PYTHON         ?= python3
 _REQUIREMENTS  := $(PROJECT_ROOT)/qwen38-27b-rtx3090/docker/requirements.txt
 
 # make setup — pipeline completo, idempotente
-setup: setup-repo setup-venv setup-model setup-quant setup-patches setup-local-patches setup-xgrammar setup-fast setup-dflash2 setup-service setup-verify
+setup: setup-repo setup-venv setup-model setup-quant setup-patches setup-local-patches setup-lora setup-xgrammar setup-fast setup-dflash2 setup-service setup-verify
 	@echo ""
 	@echo "  ✓ Setup completo! Para iniciar: make start"
 	@echo ""
@@ -284,6 +284,25 @@ setup-patches: setup-venv
 		bash kvarn/install.sh && \
 		touch "$(_PATCH_SENTINEL)"; \
 		echo "  ✓ Patches aplicados (série + KVarN)"; \
+	fi
+
+# 4c. LoRA opencode-adapted (servido em produção junto com a base desde 2026-11-19; --lora-modules no
+# EXTRA_ARGS do .env aponta para cá). Pesos fora do git; fixado no commit e conferido por sha256.
+_LORA_DIR := $(PROJECT_ROOT)/lora/adapters/opencode-adapted
+_LORA_REV := b4171c0069685320026d76eac96ccf716ca7e476
+_LORA_SHA := 668b9d7d4283d3d36622f0868c8d983a7299b4a37dbb393716d693dbb04f4582
+setup-lora: setup-venv
+	@if [ -f "$(_LORA_DIR)/adapter_model.safetensors" ] && \
+	   [ "$$(sha256sum "$(_LORA_DIR)/adapter_model.safetensors" | cut -d' ' -f1)" = "$(_LORA_SHA)" ]; then \
+		echo "  ✓ LoRA opencode-adapted já presente (sha256 ok)"; \
+	else \
+		echo "  → Baixando harness-hub/Qwen3.8-27B-opencode-adapted@$(_LORA_REV)..."; \
+		"$(PROJECT_ROOT)/qwen38-27b-rtx3090/venv/bin/hf" download harness-hub/Qwen3.8-27B-opencode-adapted \
+			--revision $(_LORA_REV) --local-dir "$(_LORA_DIR)" \
+			README.md adapter_config.json adapter_model.safetensors chat_template.jinja tokenizer.json tokenizer_config.json && \
+		[ "$$(sha256sum "$(_LORA_DIR)/adapter_model.safetensors" | cut -d' ' -f1)" = "$(_LORA_SHA)" ] || \
+			{ echo "  ✗ sha256 do adaptador não confere"; exit 1; }; \
+		echo "  ✓ LoRA opencode-adapted baixado"; \
 	fi
 
 # 4b. Patches locais deste repo (patches/local/*.patch), por cima da série do upstream.

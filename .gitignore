@@ -56,3 +56,10 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Kit de teste do LoRA (lora/): pesos baixados e instalação do OpenCode 2.x não são versionados
+lora/adapters/
+lora/opencode2/node_modules/
+lora/.venv-tools/
+lora/results/
+lora/logs/

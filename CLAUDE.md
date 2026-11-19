@@ -158,8 +158,9 @@ existe só o `presence_penalty` do servidor.
 
 Verificado contra o processo vivo e `GET /v1/models` em 2026-11-12 (vLLM **0.33.0**).
 
-- **Modelo servido:** `qwen3.8-27b` → `models/Qwen3.8-27B-W4A16-AutoRound` (lm_head INT8, desde 2026-11-19;
-  antes a `-fast` — ver "Seleção de modelo")
+- **Modelos servidos:** `qwen3.8-27b` → `models/Qwen3.8-27B-W4A16-AutoRound` (lm_head INT8, desde 2026-11-19;
+  antes a `-fast` — ver "Seleção de modelo") **e** `opencode-adapted` → o mesmo modelo + LoRA
+  `harness-hub/Qwen3.8-27B-opencode-adapted` (desde 2026-11-19 — ver "LoRA opencode-adapted")
 - **Porta:** 18020 · **Contexto:** 142080 (`max_model_len`) · **TP:** 2
 - **Spec decoding:** `{"method":"dflash","model":".../Qwen3.8-27B-DFlash2-W4A16","num_speculative_tokens":7,"draft_sample_method":"probabilistic"}`
   - `DFLASH_TOKENS=7` é o default de chat — o drafter foi treinado para 7; posições 8-15 têm
@@ -168,7 +169,7 @@ Verificado contra o processo vivo e `GET /v1/models` em 2026-11-12 (vLLM **0.33.
   por `GPU_UTIL=0.62` com TP=2
 - **Atenção:** `FLASH_ATTN` · `--mamba-cache-mode align` (deprecado no 0.33, sem efeito — o prefix
   caching do Mamba segue `--enable-prefix-caching`) · `--enable-prefix-caching`
-- **GPU util:** 0.62 · `--max-num-seqs 8` · `--max-num-batched-tokens 2048` · `--async-scheduling`
+- **GPU util:** 0.65 (era 0.62; +buffers do LoRA) · pool de KV 168.457 tokens = 1,19x o contexto · `--max-num-seqs 8` · `--max-num-batched-tokens 2048` · `--async-scheduling`
 - **Parsers:** `--reasoning-parser qwen3` · `--tool-call-parser qwen3_coder` (+`--enable-auto-tool-choice`)
   · `--tool-strict-level parameter`
 - **Raciocínio:** `reasoning_effort:medium`, `enable_thinking:true`, **`preserve_thinking:false`**,
@@ -191,6 +192,40 @@ Verificado contra o processo vivo e `GET /v1/models` em 2026-11-12 (vLLM **0.33.
   repetição estiver resolvido.
 - **Cudagraph:** `--max-cudagraph-capture-size 64`, `custom_ops: [+rms_norm, +silu_and_mul]`
 - **Boot:** ~90 s até `/health` 200 (torch.compile ~67 s + captura de cudagraph)
+
+**LoRA opencode-adapted (em produção desde 2026-11-19).** Adaptador LoRA (r=32) da org `harness-hub`
+(time TRL do Hugging Face, **não** da Qwen), treinado por RL no harness do OpenCode 2.x com **thinking off**.
+Servido junto com a base pelo mesmo processo: `--enable-lora --max-lora-rank 32 --max-loras 1
+--max-cpu-loras 1 --lora-target-modules qkv_proj o_proj gate_up_proj down_proj --lora-modules
+opencode-adapted=lora/adapters/opencode-adapted` no `EXTRA_ARGS`. Pesos fora do git, baixados e
+conferidos por sha256 com `make setup-lora` (também na cadeia do `make setup`). O drafter do DFlash2
+roda sem o LoRA e o verify com ele (saída correta, aceitação igual à base sem thinking).
+**`DFLASH_TOKENS` precisa ficar em 7** (o verify adaptativo, >7, é recusado com LoRA).
+`--lora-target-modules` restrito de propósito: sem ele o vLLM embrulharia também o lm_head INT8 que o
+DFlash2 compartilha. Kit de teste, harness e resultados em [lora/](lora/) (`lora/README.md`).
+
+Uso: o cliente pede `model: opencode-adapted` com `chat_template_kwargs:{enable_thinking:false}`,
+`temperature 0.8`, `top_p 1.0`, `presence_penalty 0` (amostragem do card). O OpenCode
+([.opencode/opencode.json](.opencode/opencode.json), [infra/opencode/config.json](infra/opencode/config.json))
+usa-o como `model` e `small_model` padrão; a base (`qwen3.8-27b`, thinking on) segue selecionável.
+Testado headless no OpenCode 1.18.34: os campos chegam ao servidor e o thinking fica desligado.
+
+Por que foi adotado — A/B agêntico (`lora/tests/agent_ab.py`, harness que imita o OpenCode 2.2.7, com
+~60k tokens de sessão anterior injetados e 2 tarefas multi-arquivo difíceis + 2 médias, 2 reps):
+
+| tarefas difíceis (4 ep.) | adaptador, sem thinking | base sem thinking | base com thinking (produção) |
+|---|---|---|---|
+| resolvidas | 4/4 | 3/4 (1 estourou 40 turnos) | 4/4 |
+| turnos | **5, 8, 7, 8** | 20, 40, 12, 15 | 10, 11, 8, 10 |
+| tokens gerados (mediana) | **1,7k** | 2,5k | 7,8k |
+| tempo por tarefa (mediana) | **114 s** | 134 s | 187 s |
+
+Loops: 0 em todos os braços (nem com 60k–92k de contexto) — o teste **não** responde se o adaptador
+evita loops melhor. Ressalvas: amostra pequena (tendência, não prova); harness imita o OpenCode **2.x**
+e o cliente real é o 1.18, com outro system prompt/ferramentas. Custo: ~7% de decode nas requisições
+do adaptador (janela de teste); a base não perdeu (147,9 / 70,2 tok/s depois da mudança). Para tirar:
+remover as flags de LoRA do `EXTRA_ARGS`, voltar `GPU_UTIL=0.62` e o `model` do OpenCode para
+`vllm/qwen3.8-27b`.
 
 **`preserve_thinking:false` é o que impede o contexto de inflar sozinho** (ligado em 2026-10-12).
 O template reinjeta o campo `reasoning` de *todos* os turnos anteriores do histórico, então cada

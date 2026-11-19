@@ -11,7 +11,15 @@ colapso numérico (cauda dominada por um caractere, ex. '!!!' = token 0) ou runa
 Foi o teste do A/B lm_head INT4 vs INT8 (2026-11-19): INT4 2/9 falhas, INT8 0/9.
 
   python3 scripts/loop_stress.py N ROTULO SAIDA.json [PORTA]   # N=9 leva ~40-60 min
+
+Opcional, por variavel de ambiente (sem elas o request e identico ao do A/B de 2026-11-19):
+  LS_MODEL=opencode-adapted    nome servido (default qwen3.8-27b; ex. o LoRA na porta 18021)
+  LS_THINKING=off              thinking desligado via chat_template_kwargs (default: on, effort low)
+  LS_SAMPLING=card             temperature 0.8 / top_p 1.0 / presence 0 (amostragem do card do
+                               adaptador LoRA); default: 1.0 / 0.95 / top_k 20 / presence 0
+  LS_PARALLEL=1                requests simultaneos (default 3)
 """
+import os
 import json, sys, time, urllib.request, concurrent.futures as cf, collections
 N = int(sys.argv[1]); TAG = sys.argv[2]; OUT = sys.argv[3]
 PORT = sys.argv[4] if len(sys.argv) > 4 else "18020"
@@ -32,6 +40,12 @@ body = {"model": "qwen3.8-27b", "messages": [{"role": "user", "content": task}],
         "max_tokens": 24000, "temperature": 1.0, "top_p": 0.95, "top_k": 20, "presence_penalty": 0.0,
         "reasoning_effort": "low", "thinking_token_budget": 60000,
         "repetition_detection": {"max_pattern_size": 0}}
+body["model"] = os.environ.get("LS_MODEL", body["model"])
+if os.environ.get("LS_SAMPLING") == "card":
+    body.update({"temperature": 0.8, "top_p": 1.0, "presence_penalty": 0.0}); body.pop("top_k")
+if os.environ.get("LS_THINKING") == "off":
+    for k in ("reasoning_effort", "thinking_token_budget"): body.pop(k)
+    body["chat_template_kwargs"] = {"enable_thinking": False}
 
 def degenerate(text):
     """Colapso numerico: cauda dominada por um unico caractere (ex. '!' = token 0)."""
@@ -64,7 +78,7 @@ def run(i):
     print(TAG, json.dumps({k: v for k, v in res.items() if k != "tail"}), flush=True)
     return res
 
-with cf.ThreadPoolExecutor(3) as ex:
+with cf.ThreadPoolExecutor(int(os.environ.get("LS_PARALLEL", "3"))) as ex:
     rs = list(ex.map(run, range(N)))
 json.dump(rs, open(OUT, "w"), indent=1, ensure_ascii=False)
 print(TAG, "degenerados(!!!)", sum(r["degenerate"] for r in rs), "| runaway sem tool_call", sum(r["runaway"] for r in rs))
