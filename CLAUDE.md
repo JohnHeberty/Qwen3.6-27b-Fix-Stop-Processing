@@ -86,10 +86,26 @@ O unit systemd tem um `ExecStartPre` que **espera a GPU 0 ficar abaixo de 1 GB u
 antes de subir. Se outro processo (Ollama, um playground) estiver segurando VRAM, o start falha por
 timeout em vez de dar OOM.
 
-**Seleção de modelo:** `start_qwen.sh` escolhe automaticamente
-`models/Qwen3.8-27B-W4A16-AutoRound-fast` se existir (é o caso), senão cai para
-`models/Qwen3.8-27B-W4A16-AutoRound`. A variante `-fast` tem lm_head/MTP requantizados em int4-GPTQ
-e um draft vocab construído sobre as saídas do próprio modelo.
+**Seleção de modelo:** `start_qwen.sh` (via `single-user/select_model.sh`) respeita um `MODEL` explícito;
+sem ele, escolhe `models/Qwen3.8-27B-W4A16-AutoRound-fast` se existir, senão
+`models/Qwen3.8-27B-W4A16-AutoRound`. A `-fast` tem lm_head/MTP requantizados em **INT4**-GPTQ e um draft
+vocab sobre as próprias saídas; a base tem lm_head/MTP em **INT8**.
+
+**Em produção desde 2026-11-19: a base (INT8)**, fixada por `MODEL=` no `.env`. Motivo — A/B de loop com
+[scripts/loop_stress.py](scripts/loop_stress.py) (41k de contexto, tarefa de agente com `write_file`,
+effort `low` e proteções desligadas no request, 9 amostras por variante):
+
+| | `-fast` (lm_head INT4) | base (lm_head INT8) |
+|---|---|---|
+| terminou com tool call | 7/9 | **9/9** |
+| loop de texto ("I'll write the file now…") | 1 | 0 |
+| colapso `!!!` (token 0 — logits inválidos) | 1 | 0 |
+| thinking (mediana) | 9,5k | 7,4k |
+| decode código / narrativo | 150,5 / 65,5 tok/s | **135,6 / 61,5** (−10% / −6%) |
+
+2/9 vs 0/9 **não é estatisticamente conclusivo** (p≈0,5); o colapso `!!!` é falha numérica, plausível
+para um lm_head mais grosseiro, mas foi um caso só. Adotado porque o custo é pequeno. Para voltar à
+`-fast`: remover `MODEL=` do `.env` e `make restart`.
 
 **Modos `CTX` e `SPEC`** (o eixo principal do start script):
 - `SPEC=mtp` — cabeça MTP nativa do Qwen, drafts encadeados.
@@ -127,13 +143,12 @@ OpenClaw, logrotate. Todos devem referenciar `qwen3.8-27b` na porta **18020**.
 servidor (`temperature`, `top_k`, `thinking_token_budget` conferidos no log); `agent.<nome>.temperature`
 **não** chegou (veio 1.0). Por isso a config usa `options.temperature: 0.6` (experimento: o card recomenda
 1.0; 0.6 + teto de thinking é o único relato de "resolveu" no HF #178) e `limit.output: 16384` (loop custa
-no máximo 16k; gatilho de compactação = `context − output` = ~84k — o `compaction.reserved` só vale com
-`limit.input`).
+no máximo 16k; gatilho de compactação = `context − output` = 140k − 16k ≈ **124k** — o
+`compaction.reserved` só vale com `limit.input`).
 
-**Limites dos clientes (2026-11-16):** OpenCode e OpenClaude declaram contexto de **100k** (não 140k)
-para compactar antes da faixa de 60k–120k onde sessões de agente colapsaram em loop de texto; LiteLLM
-usa `max_input_tokens: 100000`; OpenClaw fica em 140k porque o `reserveTokens: 40000` dele já compacta
-em ~100k. Effort em `medium` em todos (OpenCode `reasoningEffort`, OpenClaude `effortLevel`, OpenClaw
+**Limites dos clientes:** contexto de **140k** em todos (OpenCode, OpenClaude, OpenClaw; LiteLLM com
+`max_input_tokens: 120000`). Houve um teste de 100k em 2026-11-16 para compactar mais cedo, revertido no
+mesmo dia a pedido do usuário. Effort em `medium` em todos (OpenCode `reasoningEffort`, OpenClaude `effortLevel`, OpenClaw
 `thinkingDefault`). **O cliente sobrescreve o effort do servidor** — e as cópias que valem ficam nas
 máquinas dos clientes, não neste repo. As camadas anti-loop existentes (`opencode-anti-loop`,
 `infra/litellm/loop_guard.py`) só detectam **tool_calls repetidas**, não texto degenerado; para isso
@@ -143,7 +158,8 @@ existe só o `presence_penalty` do servidor.
 
 Verificado contra o processo vivo e `GET /v1/models` em 2026-11-12 (vLLM **0.33.0**).
 
-- **Modelo servido:** `qwen3.8-27b` → `models/Qwen3.8-27B-W4A16-AutoRound-fast`
+- **Modelo servido:** `qwen3.8-27b` → `models/Qwen3.8-27B-W4A16-AutoRound` (lm_head INT8, desde 2026-11-19;
+  antes a `-fast` — ver "Seleção de modelo")
 - **Porta:** 18020 · **Contexto:** 142080 (`max_model_len`) · **TP:** 2
 - **Spec decoding:** `{"method":"dflash","model":".../Qwen3.8-27B-DFlash2-W4A16","num_speculative_tokens":7,"draft_sample_method":"probabilistic"}`
   - `DFLASH_TOKENS=7` é o default de chat — o drafter foi treinado para 7; posições 8-15 têm
@@ -212,7 +228,8 @@ O que cada valor injeta não é o que o nome sugere:
   `length` (5 requests). Não há anti-repetição configurado (sem `presence_penalty`; o
   `repetition_detection` do vLLM é só por request). Reapareceu com `medium` no servidor — num cliente
   **OpenCode** (a config do Windows pode ainda mandar `reasoningEffort: low`, que sobrescreve). Resposta em 2026-11-16: `presence_penalty`
-  1.0 no servidor, OpenClaude em `medium` e `contextWindow` 100k (compacta mais cedo).
+  1.0 no servidor, teto de thinking e alarme de repetição (patch local), clientes em `medium`; em
+  2026-11-19, lm_head INT8 (ver "Seleção de modelo").
 
 **Performance medida em 2026-11-12** (vLLM 0.33.0, prompt curto, 600 tokens de saída, streaming,
 temperatura 0 — [scripts/bench_tps.py](scripts/bench_tps.py)): **133,1 tok/s em código**, 66,9 tok/s

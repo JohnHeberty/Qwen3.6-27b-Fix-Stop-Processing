@@ -1,16 +1,17 @@
 # Qwen3.8-27B — servidor local de inferência
 
-Stack de produção: **vLLM TP=2 + AutoRound INT4 + DFlash2** em 2× RTX 3090 (48 GB VRAM),
+Stack de produção: **vLLM TP=2 + AutoRound W4A16 (lm_head INT8) + DFlash2** em 2× RTX 3090 (48 GB VRAM),
 expondo uma API compatível com OpenAI na porta 18020.
 
 - Modelo: `qwen3.8-27b` — denso 27B, híbrido Gated DeltaNet + Atenção
 - Engine: vLLM **0.33.0** (fork em `qwen38-27b-rtx3090/`, 61 patches aplicados: série de 57 + 4 do
   KVarN) + modelo draft `syvai/Qwen3.8-27B-DFlash2-W4A16` (7 drafts paralelos), alvo
-  `dbirks/Qwen3.8-27B-W4A16-AutoRound`
+  `dbirks/Qwen3.8-27B-W4A16-AutoRound` (variante base, lm_head INT8 — a `-fast` INT4 travou mais em
+  loop no A/B de 2026-11-19; ver CLAUDE.md)
 - Contexto: **142k** (`max_model_len=142080`, via `DFLASH_MAX_LEN` no `.env`), ~15,6 GB VRAM por GPU
   (pool de KV 5,52 GiB/GPU com `GPU_UTIL=0.62`)
-- Medido em 2026-11-12 (vLLM 0.33.0): **~133 tok/s** (código), ~67 tok/s (narrativo),
-  600 tokens de saída em prompt curto (paridade com o 0.31.0 no mesmo método: 132,9 / 66,9)
+- Medido em 2026-11-19 (vLLM 0.33.0, lm_head INT8, `presence_penalty` 1.0): **~136 tok/s** (código),
+  ~62 tok/s (narrativo), 600 tokens de saída em prompt curto ([scripts/bench_tps.py](scripts/bench_tps.py))
 - Raciocínio: thinking ligado, effort `medium`, `preserve_thinking` desligado
 - Tool calling: validado (`--tool-call-parser qwen3_coder` + `--tool-strict-level parameter`;
   OpenCode/LiteLLM apontam para :18020)
